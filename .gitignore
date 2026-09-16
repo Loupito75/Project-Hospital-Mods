@@ -1,0 +1,120 @@
+# Build output
+
+bin/
+obj/
+[Bb]uild/
+[Bb]uilds/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# Visual Studio
+
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code local settings
+
+.vscode/
+*.code-workspace
+
+# JetBrains Rider / ReSharper
+
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# NuGet
+
+packages/
+*.nupkg
+*.snupkg
+
+# Generated binaries
+
+*.dll
+*.exe
+*.pdb
+*.mdb
+
+# Project Hospital / Unity game assemblies
+
+Assembly-CSharp.dll
+Assembly-CSharp-firstpass.dll
+UnityEngine.dll
+UnityEngine.*.dll
+
+# BepInEx / Harmony binaries
+
+BepInEx.dll
+0Harmony.dll
+Harmony.dll
+HarmonyLib.dll
+
+# Logs
+
+*.log
+LogOutput.log
+BepInEx/LogOutput.log
+
+# Crash / debug output
+
+crash.dmp
+*.dmp
+*.stacktrace
+
+# Temporary files
+
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+*.swp
+*.swo
+*~
+
+# Operating system files
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local environment / machine-specific configuration
+
+.env
+.env.*
+local.settings.json
+settings.local.json
+Directory.Build.props.local
+Directory.Build.targets.local
+
+# Local game directories or copied dependencies
+
+GameDir/
+game/
+libs/
+lib/
+references/
+dependencies/
+
+# Release packages generated locally
+
+*.zip
+*.7z
+*.rar
+
+# Test output
+
+TestResults/
+coverage/
+coverage.*
+
+# Generated documentation / temporary publishing files
+
+_site/
+publish/
+publish-output/
