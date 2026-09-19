@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalPatientLife>
+  <!-- Hospitalized-patient behavior. -->
+  <HospitalizedPatients>
+    <Cafeteria>
+      <!-- Chance that an eligible scheduled hospitalized-patient meal uses a cafeteria instead of a bedside tray.
+           Default: 35%.
+           Vanilla-equivalent: 0% (scheduled hospitalized patients keep the native bedside meal). -->
+      <ScheduledMealCafeteriaChancePercent>35</ScheduledMealCafeteriaChancePercent>
+
+      <!-- Chance that ambulatory hospitalized free time is replaced by a normal cafeteria snack/refreshment trip.
+           This uses the native patient hunger procedure: snacks can still be paid for when vanilla would charge.
+           Full meal-counter meals are NOT used by this free-time option.
+           Default: 20%.
+           Set to 0% to disable HPL free-time cafeteria snack trips. -->
+      <FreeTimeCafeteriaSnackChancePercent>20</FreeTimeCafeteriaSnackChancePercent>
+
+      <!-- Applied once per floor of vertical distance after a hospitalized-patient cafeteria choice succeeds.
+           Default: 50% per floor.
+           Example with 35% base chance and 50% here: same floor 35%, +/-1 floor 17.5%, +/-2 floors 8.75%.
+           100% = no extra floor-distance penalty; 0% = never use a cafeteria on another floor. -->
+      <OtherFloorCafeteriaChanceMultiplierPercentPerFloor>50</OtherFloorCafeteriaChanceMultiplierPercentPerFloor>
+    </Cafeteria>
+
+    <FreeTime>
+      <!-- Chance that an eligible ambulatory hospitalized patient's normal free time tries an external leisure destination.
+           Ordinary room leisure stays on the current floor. The patient's own department lounge may also be considered
+           on another floor when OtherFloorLoungeChanceMultiplierPercentPerFloor allows it.
+           Default: 40%.
+           0% = exact vanilla room-only leisure selection; 100% = always try a valid external leisure target.
+           If no valid external target exists, vanilla's current-room choice is kept. -->
+      <SameFloorLeisureChancePercent>40</SameFloorLeisureChancePercent>
+
+      <!-- After the external-leisure roll succeeds, chance to prefer a native outdoor bench before indoor/lounge leisure.
+           Default: 35%. This single chance covers reachable outdoor benches on the current floor and on other floors;
+           there is deliberately no additional per-floor outdoor multiplier.
+           If the roll succeeds but no reachable outdoor bench is available, HPL continues with normal indoor/lounge leisure.
+           0% = never specifically prefer outdoor benches; 100% = always try a reachable outdoor bench first. -->
+      <OutdoorLeisureChancePercent>35</OutdoorLeisureChancePercent>
+
+      <!-- Applied once per floor of vertical distance when normal hospitalized Free Time considers the lounge
+           (DLC_ROOM_TYPE_LOUNGE) belonging to the patient's own department.
+           This affects Free Time only: visitor AI and visitor lounge behavior remain fully vanilla.
+           Default: 75% per floor.
+           75% = retain 75% of the lounge chance for each floor crossed; 100% = no vertical penalty;
+           0% = never use the lounge on another floor. Same-floor lounge use is unaffected. -->
+      <OtherFloorLoungeChanceMultiplierPercentPerFloor>75</OtherFloorLoungeChanceMultiplierPercentPerFloor>
+
+      <!-- Maximum number of nearest patient-accessible ordinary rooms scanned when the leisure roll succeeds.
+           Default: 24. Allowed range: 1-96.
+           This applies only to ordinary same-floor rooms. Lounge and outdoor-bench discovery are handled separately.
+           Rooms above PATIENT access, other hospitalization rooms and lounges are excluded from this ordinary-room scan. -->
+      <NearbyRoomsToSearch>24</NearbyRoomsToSearch>
+
+      <!-- After choosing an indoor/lounge activity category, HPL sorts that category's valid destinations by native
+           route distance, then chooses randomly from this many of the closest targets.
+           Outdoor benches reuse this size but reserve one pool slot for the nearest reachable bench on each represented
+           floor before proximity fills the remaining slots, so reachable roof/balcony benches can participate.
+           Default: 6. Allowed range: 1-16.
+           1 = always choose the closest valid target in the selected category; larger values increase variety. -->
+      <CandidatePoolSize>6</CandidatePoolSize>
+
+      <!-- Relative activity weights used when HPL selects an external indoor/lounge leisure destination.
+           These are NOT percentages and do not need to add up to 100.
+           Defaults: rest=40, education=30, visual=30. Allowed range for each: 0-100.
+           Unavailable categories are automatically removed from the weighted roll. -->
+      <RestActivityWeight>40</RestActivityWeight>
+      <EducationActivityWeight>30</EducationActivityWeight>
+      <VisualActivityWeight>30</VisualActivityWeight>
+
+      <!-- Relative activity weights used only when an ambulatory hospitalized patient stays in the current room.
+           These are independent from the external activity weights above and are NOT percentages.
+           Defaults: rest=40, education=30, visual=30, television=25. Allowed range for each: 0-100.
+           Unavailable categories are removed from the roll. A 0 weight disables that category.
+           Television is available only when the exact native OBJECT_TV is present in the patient's own room.
+           When television wins, an ambulatory patient randomly stays in bed or uses the closest free/reachable
+           native rest seat when both choices are available; if no seat is available, the patient stays in bed.
+           Non-walking patients always watch from bed; their television weight competes against the combined
+           non-TV room weights while the game's native lying free-time logic remains otherwise unchanged.
+           Setting all four values to 0 keeps the exact vanilla room selection / lying free-time behavior. -->
+      <RoomRestActivityWeight>40</RoomRestActivityWeight>
+      <RoomEducationActivityWeight>30</RoomEducationActivityWeight>
+      <RoomVisualActivityWeight>30</RoomVisualActivityWeight>
+      <RoomTelevisionActivityWeight>25</RoomTelevisionActivityWeight>
+
+      <!-- Relative leisure weights for hospitalized patients who are NOT allowed to walk.
+           Defaults: rest=50, nurse+book=25, television=25. These are relative weights, not percentages.
+           The television category is available only when the exact native OBJECT_TV is present in the patient's room.
+           With a TV available, the defaults are approximately 50% REST, 25% nurse/book and 25% TV before the
+           game's existing ~1% PLAYING/phone branch slightly reduces the REST/nurse shares.
+           Without a TV, REST and nurse/book normalize to roughly 2/3 vs 1/3.
+           HPL does not increase the PLAYING/phone branch because reference/ contains no lying phone animation.
+           A weight of 0 disables that HPL category; setting all three weights to 0 restores the native selection. -->
+      <LyingRestActivityWeight>50</LyingRestActivityWeight>
+      <LyingNurseBookActivityWeight>25</LyingNurseBookActivityWeight>
+      <LyingTelevisionActivityWeight>25</LyingTelevisionActivityWeight>
+    </FreeTime>
+
+    <Sleep>
+      <!-- Maximum random delay after the native 20:00 night boundary before an otherwise idle hospitalized patient sleeps.
+           Default: 60 minutes, producing stable per-patient bedtimes from 20:00 through 21:00.
+           The offset is deterministic for a patient and game day, so save/reload does not reroll it.
+           Medical examinations/treatments remain native and can still interrupt the patient.
+           0 = exact vanilla 20:00 bedtime. Allowed range: 0-120. -->
+      <BedtimeStaggerMinutes>60</BedtimeStaggerMinutes>
+
+      <!-- Maximum random delay after the native 07:00 day boundary before a sleeping hospitalized patient wakes normally.
+           Default: 60 minutes, producing stable per-patient wake times from 07:00 through 08:00.
+           Sleeping patients continue Project Hospital's native SelectNextStep() checks, so medical work can wake them sooner.
+           0 = exact vanilla 07:00 wake-up. Allowed range: 0-120. -->
+      <WakeUpStaggerMinutes>60</WakeUpStaggerMinutes>
+    </Sleep>
+
+    <!-- Need thresholds and reductions use the game's 0-100 need scale. -->
+    <Needs>
+      <!-- After an ambulatory hospitalized patient's personal need or Free Time finishes,
+           allow HPL to ask the native BehaviorPatient.CheckNeeds(PATIENT) for another currently important need
+           before vanilla sends the patient back to bed.
+           Default: true.
+           Chaining is skipped when medical work is already planned/reserved, a scheduled meal is ready,
+           the patient is unsafe/critical, or the patient's personal bedtime has been reached.
+           false = exact vanilla return-to-bed behavior after each completed need/Free Time activity. -->
+      <AllowPersonalNeedChaining>true</AllowPersonalNeedChaining>
+
+      <!-- HPL early personal-needs opportunity for hunger.
+           Default: 70.
+           The game's native critical need level is 80.
+           100 = least intrusive HPL setting, but it is not a complete vanilla/off switch. -->
+      <UrgentHungerThreshold>70</UrgentHungerThreshold>
+
+      <!-- Amount of hunger removed by a scheduled bedside tray.
+           Defaults: Min=50, Max=100.
+           Vanilla-equivalent: 50-100. Project Hospital sends HUNGER_REDUCED=100 and Need.ReduceRandomized()
+           removes a random value between 50 and 100. -->
+      <BedsideMealHungerReductionMin>50</BedsideMealHungerReductionMin>
+      <BedsideMealHungerReductionMax>100</BedsideMealHungerReductionMax>
+
+      <!-- Amount of hunger removed by a hospitalized patient's scheduled full cafeteria meal.
+           Defaults: Min=65, Max=100.
+           HPL intentionally makes a full cafeteria meal a little more filling than a bedside tray.
+           There is no vanilla hospitalized-patient cafeteria equivalent; 50-100 matches the native full staff-lunch range.
+           Normal patient snacks remain on the native smaller hunger reduction. -->
+      <CafeteriaMealHungerReductionMin>65</CafeteriaMealHungerReductionMin>
+      <CafeteriaMealHungerReductionMax>100</CafeteriaMealHungerReductionMax>
+
+      <!-- HPL urgency threshold for bladder handling.
+           Default: 80.
+           The game's native critical need level is 80.
+           100 = least intrusive HPL setting, but it is not a complete vanilla/off switch. -->
+      <UrgentBladderThreshold>80</UrgentBladderThreshold>
+
+      <!-- Remaining bladder value after HPL bedside relief for eligible non-walking patients.
+           Defaults: Min=0, Max=25.
+           Setting both to 0 fully empties the bladder during each HPL bedside-relief event.
+           Vanilla continuously resets these patients to 0, so 0/0 matches the resulting value,
+           but HPL still keeps its event-based timing instead of vanilla's continuous reset. -->
+      <BedsideBladderRemainingMin>0</BedsideBladderRemainingMin>
+      <BedsideBladderRemainingMax>25</BedsideBladderRemainingMax>
+
+      <!-- Master switch for HPL night bathroom trips.
+           Default: true.
+           false = disable HPL's night bathroom fallback and keep Project Hospital's native night behavior. -->
+      <AllowNightBathroomTrips>true</AllowNightBathroomTrips>
+
+      <!-- Chance that an eligible sleeping hospitalized patient wakes for the bathroom.
+           Default: 50%. Ignored when AllowNightBathroomTrips=false.
+           On the first bathroom episode of a night, HPL rolls once at UrgentBladderThreshold (80 by default), gives one
+           new 50% chance at 90 if the first roll failed, and forces the wake decision at 100. After a successful night
+           bathroom trip, later episodes that same night skip the 80 roll and wait until 90 for their first 50% chance;
+           100 remains the safety wake. Daytime clears the per-night history.
+           0% therefore still allows the HPL safety wake at 100; 100% wakes on the first eligible check of each allowed stage. -->
+      <NightBathroomTripChancePercent>50</NightBathroomTripChancePercent>
+    </Needs>
+  </HospitalizedPatients>
+
+  <!-- Clinic-patient cafeteria behavior. Visitors have no vanilla hunger AI and pedestrians remain excluded. -->
+  <ClinicPatients>
+    <Cafeteria>
+      <!-- Chance that a clinic patient's normal hunger trip prefers the cafeteria over ordinary same-floor food.
+           Default: 35%.
+           During hospitalized-patient meal windows (08-09, 12-13, 18-19), a successful cafeteria choice first
+           tries a full meal from the meal counter. Outside those windows it uses a normal cafeteria snack/refreshment.
+           0% = no HPL cafeteria preference; 100% = always prefer an available cafeteria. -->
+      <CafeteriaVisitChancePercent>35</CafeteriaVisitChancePercent>
+
+      <!-- Applied once per floor of vertical distance after a clinic-patient cafeteria choice succeeds.
+           Default: 50% per floor.
+           Example with 35% base chance and 50% here: same floor 35%, +/-1 floor 17.5%, +/-2 floors 8.75%.
+           100% = no extra floor-distance penalty; 0% = never choose a cafeteria on another floor. -->
+      <OtherFloorCafeteriaChanceMultiplierPercentPerFloor>50</OtherFloorCafeteriaChanceMultiplierPercentPerFloor>
+
+      <!-- Price charged to a clinic patient for an HPL full cafeteria meal.
+           Default: $25. Allowed range: $0-$25.
+           0 = full cafeteria meals are free.
+           Normal cafeteria snacks keep Project Hospital's native $5 vending/payment behavior.
+           Patients for whom vanilla ShouldPatientPay() returns false are not charged. -->
+      <FullMealPrice>25</FullMealPrice>
+
+      <!-- Amount of hunger removed by a clinic patient's full cafeteria meal.
+           Defaults: Min=65, Max=100.
+           These values are separate from hospitalized-patient cafeteria meals so both populations can be tuned independently.
+           50-100 matches the native full staff-lunch reduction range. -->
+      <FullMealHungerReductionMin>65</FullMealHungerReductionMin>
+      <FullMealHungerReductionMax>100</FullMealHungerReductionMax>
+    </Cafeteria>
+  </ClinicPatients>
+
+  <!-- Shared leisure-object behavior for clinic and hospitalized patients.
+       Default: true.
+       Wall leisure objects that are visually obstructed keep their yellow/orange warning regardless of this option.
+       true = HPL may still allow a supported yellow leisure object, such as a poster or OBJECT_DLC_BOOKSHELF,
+              when its real interaction tile is free, reachable and not occupied by another character.
+       false = yellow leisure objects remain unavailable for interaction; the warning color is unchanged.
+       Red/forbidden placements are never changed. -->
+  <PatientLeisure>
+    <AllowYellowLeisureObjectInteraction>true</AllowYellowLeisureObjectInteraction>
+  </PatientLeisure>
+
+  <!-- Detailed Hospital Patient Life traces are intended for troubleshooting only.
+       Default: false.
+       false = normal/public HPL logging; true = verbose HPL diagnostics.
+       This setting affects Hospital Patient Life only and does not change Hospital Traffic Control logging. -->
+  <Diagnostics>
+    <DebugLogging>false</DebugLogging>
+  </Diagnostics>
+</HospitalPatientLife>
