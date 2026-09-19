@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalAlwaysLit>
+  <!--
+    Optional: keep occupied hospitalization rooms dark during ordinary night activity.
+    false = disabled (vanilla behavior).
+    true = suppress ordinary character light at night; necessary clinical lighting remains allowed.
+    Rooms explicitly set to Enabled="true" below always take priority.
+  -->
+  <KeepPatientRoomsDarkAtNight Enabled="false" />
+
+  <Rooms>
+    <!-- true = keep the room type permanently lit; false = use vanilla lighting. -->
+
+    <!-- Shared / common rooms -->
+    <Room ID="ROOM_TYPE_RECEPTION" Enabled="true" />
+    <Room ID="ROOM_TYPE_CLEANING_CLOSET" Enabled="false" />
+    <Room ID="ROOM_TYPE_WC" Enabled="true" />
+    <Room ID="ROOM_TYPE_COMMON_ROOM" Enabled="false" />
+    <Room ID="ROOM_TYPE_WAITING" Enabled="true" />
+    <Room ID="ROOM_TYPE_ON_CALL_ROOM" Enabled="false" />
+    <Room ID="ROOM_TYPE_NURSES_STATION" Enabled="false" />
+    <Room ID="ROOM_TYPE_CORRIDOR" Enabled="true" />
+    <Room ID="ROOM_TYPE_INPATIENT_WARD" Enabled="false" />
+    <Room ID="ROOM_TYPE_HIGH_PRIORITY_INPATIENT_WARD" Enabled="false" />
+
+    <!-- Emergency -->
+    <Room ID="ROOM_TYPE_DOCTORS_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_ER_OBSERVATION_ROOM" Enabled="false" />
+    <Room ID="ROOM_TYPE_TRAUMA_CENTER" Enabled="false" />
+    <Room ID="ROOM_TYPE_STAT_LAB" Enabled="false" />
+
+    <!-- Intensive care -->
+    <Room ID="ROOM_TYPE_INTENSIVE_CARE_UNIT" Enabled="false" />
+
+    <!-- General surgery -->
+    <Room ID="ROOM_TYPE_GENERAL_SURGERY_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_INPATIENT_GS_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_DIAGNOSTIC_SONOGRAPHY_UNIT_GS" Enabled="false" />
+    <Room ID="ROOM_TYPE_CARDIOVASCULAR_DIAGNOSTIC_UNIT_GS" Enabled="false" />
+    <Room ID="ROOM_TYPE_STAT_LAB_GS" Enabled="false" />
+
+    <!-- Internal medicine -->
+    <Room ID="ROOM_TYPE_INTERNAL_MEDICINE_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_INPATIENT_IM_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_UNIQUE_IM_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_CARDIOVASCULAR_DIAGNOSTIC_UNIT_IM" Enabled="false" />
+    <Room ID="ROOM_TYPE_STAT_LAB_IM" Enabled="false" />
+
+    <!-- Orthopaedics and traumatology -->
+    <Room ID="ROOM_TYPE_ORTHOPAEDICS_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_INPATIENT_OT_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_DIAGNOSTIC_SONOGRAPHY_UNIT_OT" Enabled="false" />
+    <Room ID="ROOM_TYPE_STAT_LAB_OT" Enabled="false" />
+
+    <!-- Cardiology -->
+    <Room ID="ROOM_TYPE_CARDIOLOGY_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_INPATIENT_CARDIOLOGY_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_CARDIOVASCULAR_DIAGNOSTIC_UNIT_CAR" Enabled="false" />
+    <Room ID="ROOM_TYPE_DIAGNOSTIC_SONOGRAPHY_UNIT_CAR" Enabled="false" />
+    <Room ID="ROOM_TYPE_STAT_LAB_CAR" Enabled="false" />
+
+    <!-- Neurology -->
+    <Room ID="ROOM_TYPE_NEUROLOGY_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_INPATIENT_NEUROLOGY_OFFICE" Enabled="false" />
+    <Room ID="ROOM_TYPE_NEURODIAGNOSTIC_UNIT_NE" Enabled="false" />
+    <Room ID="ROOM_TYPE_CARDIOVASCULAR_DIAGNOSTIC_UNIT_NE" Enabled="false" />
+    <Room ID="ROOM_TYPE_STAT_LAB_NE" Enabled="false" />
+
+    <!-- Radiology -->
+    <Room ID="ROOM_TYPE_X_RAY_ROOM" Enabled="false" />
+    <Room ID="ROOM_TYPE_CT_ROOM" Enabled="false" />
+    <Room ID="ROOM_TYPE_MRI_ROOM" Enabled="false" />
+    <Room ID="ROOM_TYPE_ANGIOGRAPHY_ROOM" Enabled="false" />
+    <Room ID="ROOM_TYPE_RADIO_CARDIO_UNIT" Enabled="false" />
+    <Room ID="ROOM_TYPE_RADIO_SONO_UNIT" Enabled="false" />
+
+    <!-- Laboratories -->
+    <Room ID="ROOM_TYPE_HEMATOLOGY_LAB" Enabled="false" />
+    <Room ID="ROOM_TYPE_MICROBIOLOGY_LAB" Enabled="false" />
+    <Room ID="ROOM_TYPE_HISTOLOGY_LAB" Enabled="false" />
+
+    <!-- Add future or third-party room IDs using their exact GameDBRoomType DatabaseID. -->
+    <!-- <Room ID="ROOM_TYPE_CUSTOM_EXAMPLE" Enabled="true" /> -->
+  </Rooms>
+</HospitalAlwaysLit>

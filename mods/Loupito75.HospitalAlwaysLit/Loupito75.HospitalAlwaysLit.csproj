@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Loupito75.HospitalAlwaysLit</AssemblyName>
+    <RootNamespace>HospitalAlwaysLit</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateFullPaths>false</GenerateFullPaths>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0</AssemblyVersion>
+    <FileVersion>1.2.0</FileVersion>
+    <Authors>Loupito75</Authors>
+    <Company>Loupito75</Company>
+    <Product>Hospital Always Lit</Product>
+    <Description>Project Hospital lighting-control mod powered by BepInEx and Harmony.</Description>
+
+    <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_GAME_DIR)' != ''">$(PROJECT_HOSPITAL_GAME_DIR)</GameDir>
+    <ManagedDir Condition="'$(GameDir)' != ''">$(GameDir)\ProjectHospital_Data\Managed</ManagedDir>
+    <BepInExDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\core</BepInExDir>
+    <PluginDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\plugins\Loupito75.HospitalAlwaysLit</PluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Plugin.cs" />
+    <Compile Include="AlwaysLitConfig.cs" />
+    <Compile Include="AlwaysLitPatches.cs" />
+    <Compile Include="NightPatientRoomLighting.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Loupito75.HospitalAlwaysLit.Rooms.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(GameDir)' != ''">
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExDir)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExDir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine" Condition="Exists('$(ManagedDir)\UnityEngine.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule" Condition="Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateProjectHospitalReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(GameDir)' == ''"
+           Text="GameDir is required. Use build.ps1, set PROJECT_HOSPITAL_GAME_DIR locally, or pass /p:GameDir=&lt;PROJECT_HOSPITAL_DIR&gt;." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(ManagedDir)\Assembly-CSharp.dll')"
+           Text="Assembly-CSharp.dll was not found under the configured GameDir." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(BepInExDir)\BepInEx.dll')"
+           Text="BepInEx.dll was not found under the configured GameDir." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(BepInExDir)\0Harmony.dll')"
+           Text="0Harmony.dll was not found under the configured GameDir." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(ManagedDir)\UnityEngine.dll') AND !Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')"
+           Text="No required UnityEngine assembly was found under the configured GameDir." />
+  </Target>
+
+  <Target Name="CopyPluginToGame" AfterTargets="Build" Condition="'$(PluginDir)' != ''">
+    <MakeDir Directories="$(PluginDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Loupito75.HospitalAlwaysLit.Rooms.xml"
+          DestinationFolder="$(PluginDir)"
+          Condition="!Exists('$(PluginDir)\Loupito75.HospitalAlwaysLit.Rooms.xml')" />
+  </Target>
+</Project>
