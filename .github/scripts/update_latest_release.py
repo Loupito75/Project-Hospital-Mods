@@ -38,13 +38,25 @@ def main():
         event = json.load(file)
 
     release = event.get("release")
-
-    if not release:
-        raise RuntimeError("No release information found in GitHub event.")
-
-    tag = release.get("tag_name", "").strip()
-    release_name = (release.get("name") or "").strip()
-    release_url = release.get("html_url", "").strip()
+    
+    if release:
+        tag = release.get("tag_name", "").strip()
+        release_name = (release.get("name") or "").strip()
+        release_url = release.get("html_url", "").strip()
+    else:
+        inputs = event.get("inputs") or {}
+        tag = (inputs.get("tag") or "").strip()
+    
+        if not tag:
+            raise RuntimeError("No release tag was provided.")
+    
+        repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    
+        if not repository:
+            raise RuntimeError("GITHUB_REPOSITORY is not available.")
+    
+        release_name = tag
+        release_url = "https://github.com/" + repository + "/releases/tag/" + tag
 
     if not tag or not release_url:
         raise RuntimeError("Release tag or URL is missing.")
