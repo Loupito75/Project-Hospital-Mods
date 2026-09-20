@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalEMS>
+  <!--
+    Probabilities are 0-100.
+    Focused/advanced examinations roll only when medically indicated.
+    Care categories roll only when at least one compatible treatment is eligible.
+    0 disables a capability; 100 always performs it when eligible.
+    Set all six values to 0 for the closest vanilla behavior.
+  -->
+
+  <PrehospitalExaminations>
+    <BasicAssessmentChancePercent>100</BasicAssessmentChancePercent>
+    <FocusedAssessmentChancePercent>80</FocusedAssessmentChancePercent>
+    <AdvancedDiagnosticsChancePercent>25</AdvancedDiagnosticsChancePercent>
+  </PrehospitalExaminations>
+
+  <PrehospitalCare>
+    <FirstAidChancePercent>100</FirstAidChancePercent>
+    <AdvancedCareChancePercent>75</AdvancedCareChancePercent>
+    <RareCareChancePercent>10</RareCareChancePercent>
+  </PrehospitalCare>
+</HospitalEMS>
