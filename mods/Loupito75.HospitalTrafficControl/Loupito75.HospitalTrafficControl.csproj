@@ -1,0 +1,129 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Loupito75.HospitalTrafficControl</AssemblyName>
+    <RootNamespace>HospitalTrafficControl</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0</AssemblyVersion>
+    <FileVersion>1.2.0</FileVersion>
+    <InformationalVersion>1.2.0</InformationalVersion>
+    <Authors>Loupito75</Authors>
+    <Company>Loupito75</Company>
+    <Product>Hospital Traffic Control</Product>
+    <Description>Project Hospital traffic and access-control mod powered by BepInEx and Harmony.</Description>
+
+    <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_DIR)' != ''">$(PROJECT_HOSPITAL_DIR)</GameDir>
+    <ManagedDir Condition="'$(GameDir)' != ''">$(GameDir)\ProjectHospital_Data\Managed</ManagedDir>
+    <BepInExDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\core</BepInExDir>
+    <PluginDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\plugins\Loupito75.HospitalTrafficControl</PluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="AccessZoneRecoveryManager.cs" />
+    <Compile Include="BlockedRouteManager.cs" />
+    <Compile Include="CharacterAccess.cs" />
+    <Compile Include="CrossFloorBlockedManager.cs" />
+    <Compile Include="DoorDebugManager.cs" />
+    <Compile Include="JanitorCleaningManager.cs" />
+    <Compile Include="LocalizationManager.cs" />
+    <Compile Include="NavigationChangeTracker.cs" />
+    <Compile Include="NotificationPreferences.cs" />
+    <Compile Include="NotificationService.cs" />
+    <Compile Include="OneWayDirectionHelper.cs" />
+    <Compile Include="OneWayDoorGroup.cs" />
+    <Compile Include="OneWayDoorVisualGeometry.cs" />
+    <Compile Include="OneWayIndicatorRenderer.cs" />
+    <Compile Include="OneWayInputController.cs" />
+    <Compile Include="OneWayManager.cs" />
+    <Compile Include="OneWayPathfinderTracker.cs" />
+    <Compile Include="OneWayPersistenceManager.cs" />
+    <Compile Include="OneWayRouteManager.cs" />
+    <Compile Include="PathfindingDebugManager.cs" />
+    <Compile Include="PathfindingDebugMarkerRenderer.cs" />
+    <Compile Include="Plugin.cs" />
+    <Compile Include="RoomTransitManager.cs" />
+    <Compile Include="TrafficControlConfig.cs" />
+    <Compile Include="Patches\AccessAwareElevatorPatch.cs" />
+    <Compile Include="Patches\AccessRightsChangedPatch.cs" />
+    <Compile Include="Patches\BathroomAvailabilityDiagnosticsPatch.cs" />
+    <Compile Include="Patches\BathroomFlowPatch.cs" />
+    <Compile Include="Patches\BathroomLoadRecoveryPatch.cs" />
+    <Compile Include="Patches\BlockedBusyPatch.cs" />
+    <Compile Include="Patches\CrossFloorPathPatch.cs" />
+    <Compile Include="Patches\JanitorCleaningPatch.cs" />
+    <Compile Include="Patches\NoPathPatch.cs" />
+    <Compile Include="Patches\NotificationOptionsPatch.cs" />
+    <Compile Include="Patches\OneWayAccessPatch.cs" />
+    <Compile Include="Patches\OneWayManagementClickPatch.cs" />
+    <Compile Include="Patches\OneWayPathfinderJobPatch.cs" />
+    <Compile Include="Patches\OneWayPersistencePatch.cs" />
+    <Compile Include="Patches\RoomMovementCostPatch.cs" />
+    <Compile Include="Patches\RuntimeNotificationProfilePatch.cs" />
+    <Compile Include="Patches\StrictFallbackPatch.cs" />
+    <Compile Include="Patches\StringTablePatch.cs" />
+    <Compile Include="Patches\VisitorAccessSelectionPatch.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Loupito75.HospitalTrafficControl.Config.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExDir)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExDir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine" Condition="Exists('$(ManagedDir)\UnityEngine.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule" Condition="Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateProjectHospitalReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(GameDir)' == ''"
+           Text="GameDir is not set. Pass /p:GameDir=&quot;&lt;PROJECT_HOSPITAL_DIR&gt;&quot; or set the PROJECT_HOSPITAL_DIR environment variable." />
+    <Error Condition="!Exists('$(ManagedDir)\Assembly-CSharp.dll')"
+           Text="Assembly-CSharp.dll was not found. GameDir points to '$(GameDir)'." />
+    <Error Condition="!Exists('$(BepInExDir)\BepInEx.dll')"
+           Text="BepInEx.dll was not found in '$(BepInExDir)'." />
+    <Error Condition="!Exists('$(BepInExDir)\0Harmony.dll')"
+           Text="0Harmony.dll was not found in '$(BepInExDir)'." />
+    <Error Condition="!Exists('$(ManagedDir)\UnityEngine.dll') AND !Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')"
+           Text="No UnityEngine assembly was found in '$(ManagedDir)'." />
+    <Error Condition="!Exists('$(ManagedDir)\UnityEngine.UI.dll')"
+           Text="UnityEngine.UI.dll was not found in '$(ManagedDir)'." />
+  </Target>
+
+  <Target Name="CopyPluginToGame" AfterTargets="Build">
+    <MakeDir Directories="$(PluginDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Loupito75.HospitalTrafficControl.Config.xml"
+          DestinationFolder="$(PluginDir)"
+          Condition="!Exists('$(PluginDir)\Loupito75.HospitalTrafficControl.Config.xml')" />
+  </Target>
+</Project>
