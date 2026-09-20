@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalCareLevelTransfer>
+  <!--
+    HduToRegularChancePercent controls automatic HDU -> Regular Ward transfers
+    after an eligible completed nurse check-up.
+    Patients requiring infectious isolation or a treatment/surgery requiring
+    HIGH_PRIORITY or ICU hospitalization are excluded.
+
+      0       = automation disabled (vanilla automatic behavior: no automatic transfer)
+      1 - 99  = percentage chance per eligible completed nurse check-up
+      100     = always transfer when eligible and a Regular Ward bed is free
+
+    Default: 75
+  -->
+  <Automation>
+    <HduToRegularChancePercent>75</HduToRegularChancePercent>
+  </Automation>
+</HospitalCareLevelTransfer>
