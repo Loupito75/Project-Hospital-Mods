@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalTrafficControl>
+  <RoomTransit>
+    <!-- false = vanilla routing; true = discourage shortcuts through functional rooms. -->
+    <AvoidRoomShortcuts>false</AvoidRoomShortcuts>
+
+    <!-- Extra movement cost applied to shortcut room tiles. Higher values favor corridors more strongly. -->
+    <RoomTransitPenalty>8</RoomTransitPenalty>
+
+    <!-- These room types keep their vanilla movement cost. Outdoor, unzoned, start and destination rooms are always exempt. -->
+    <Exceptions>
+      <Room ID="ROOM_TYPE_CORRIDOR" Enabled="true" />
+      <Room ID="ROOM_TYPE_WAITING" Enabled="true" />
+      <Room ID="ROOM_TYPE_RECEPTION" Enabled="true" />
+    </Exceptions>
+  </RoomTransit>
+
+  <JanitorCleaning>
+    <!-- false = vanilla cleaning; true = avoid short-procedure rooms while the procedure patient is inside. Hospitalization rooms remain cleanable; operating rooms are protected when reserved or active. -->
+    <AvoidCleaningActiveProcedureRooms>false</AvoidCleaningActiveProcedureRooms>
+
+    <!-- false = vanilla hospitalization-room priority; true = at night, prefer other work before ordinary cleaning in occupied hospitalization rooms; blood remains urgent. -->
+    <ReduceOccupiedHospitalizationCleaningAtNight>false</ReduceOccupiedHospitalizationCleaningAtNight>
+  </JanitorCleaning>
+
+  <BathroomFlow>
+    <!-- false = vanilla owner lifetime; true = release a toilet's ProcedureScript owner as soon as physical WC use ends. -->
+    <ReleaseToiletOwnerAfterUse>false</ReleaseToiletOwnerAfterUse>
+  </BathroomFlow>
+
+  <Debug>
+    <!-- false = production logging; true = log final NoPath jobs and the inaccessible transitions tested by that final PathfinderJob. -->
+    <PathfindingDebug>false</PathfindingDebug>
+
+    <!-- false = production logging; true = log Shift+click door selection/group data and the exact OneWay arrow destination/render coordinates. -->
+    <DoorDebug>false</DoorDebug>
+
+    <!-- false = production logging; true = audit WC locks and trace lavabo/dryer handoffs. -->
+    <BathroomFlowDebug>false</BathroomFlowDebug>
+  </Debug>
+</HospitalTrafficControl>
