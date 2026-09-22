@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalModUpdateChecker>
+  <!--
+    false: normal behavior; a successful check with no pending update is cached for 24 hours.
+    true: check online every time Project Hospital starts (testing only).
+  -->
+  <CheckEveryLaunch>false</CheckEveryLaunch>
+</HospitalModUpdateChecker>
