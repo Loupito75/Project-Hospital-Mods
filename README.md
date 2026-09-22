@@ -4,7 +4,14 @@ A collection of mods for **Project Hospital**, developed and maintained by **Lou
 
 This repository contains the public source code and releases of my Project Hospital mods.
 
-➡️➡️ **🔔 Never miss a mod update!** Get [**Hospital Mod Update Checker (HMUC)**](https://steamcommunity.com/sharedfiles/filedetails/?id=3806092398) and see available updates directly on the Project Hospital title screen. 🚑✨ ⬅️⬅️
+<p align="center">
+⬇️⬇️⬇️
+<br>
+<strong>🔔 Never miss a mod update! 🔔</strong><br>
+🚑 Get <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3806092398"><strong>Hospital Mod Update Checker (HMUC)</strong></a> and see available updates directly on the Project Hospital title screen. 🚑
+<br>
+⬆️⬆️⬆️
+</p>
 
 ## Mods
 
