@@ -1,0 +1,37 @@
+{
+  "formatVersion": 1,
+  "manifestRevision": 731428,
+  "updatedUtc": "2026-09-22T02:55:00Z",
+  "mods": [
+    {
+      "guid": "loupito75.HospitalAlwaysLit",
+      "name": "Hospital Always Lit",
+      "author": "Loupito75",
+      "version": "1.2.0"
+    },
+    {
+      "guid": "loupito75.HospitalCareLevelTransfer",
+      "name": "Hospital Care Level Transfer",
+      "author": "Loupito75",
+      "version": "1.1.0"
+    },
+    {
+      "guid": "loupito75.HospitalEMS",
+      "name": "Hospital EMS",
+      "author": "Loupito75",
+      "version": "1.0.1"
+    },
+    {
+      "guid": "loupito75.HospitalPatientLife",
+      "name": "Hospital Patient Life",
+      "author": "Loupito75",
+      "version": "1.0.0"
+    },
+    {
+      "guid": "loupito75.HospitalTrafficControl",
+      "name": "Hospital Traffic Control",
+      "author": "Loupito75",
+      "version": "1.2.0"
+    }
+  ]
+}
