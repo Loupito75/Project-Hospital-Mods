@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731429,
-  "updatedUtc": "2026-09-22T03:15:00Z",
+  "manifestRevision": 731430,
+  "updatedUtc": "2026-09-22T06:53:35Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -38,6 +38,12 @@
       "name": "Hospital Shift Handover",
       "author": "Loupito75",
       "version": "1.0.2"
+    },
+    {
+      "guid": "loupito75.HospitalModUpdateChecker",
+      "name": "Hospital Mod Update Checker",
+      "author": "Loupito75",
+      "version": "1.0.0"
     }
   ]
 }
