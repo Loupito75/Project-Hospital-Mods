@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalShiftHandover>
+  <Arrival>
+    <!-- Planned lead window used for non-late staff. -->
+    <PlannedCommuteLeadMinMinutes>65</PlannedCommuteLeadMinMinutes>
+    <PlannedCommuteLeadMaxMinutes>80</PlannedCommuteLeadMaxMinutes>
+
+    <!-- Extra lead added to the game's own early-commute trigger. Use 0 for no HSH extension. -->
+    <NativeEarlyExtensionMinutes>15</NativeEarlyExtensionMinutes>
+  </Arrival>
+
+  <Dressing>
+    <!-- Master switch for locker/clothing. False keeps vanilla-like work clothing behavior. -->
+    <DressingEnabled>false</DressingEnabled>
+
+    <!-- Percentage of otherwise eligible arriving staff who actually use the locker dressing flow. -->
+    <ArrivalDressingChancePercent>70</ArrivalDressingChancePercent>
+
+    <!-- Lower than arrival by default: tired outgoing staff are more likely to leave directly in uniform. -->
+    <OutgoingDressingChancePercent>40</OutgoingDressingChancePercent>
+
+    <!-- Among employees who wear civilian clothes, percentage using casual clothes. The remainder uses business clothes. -->
+    <CasualClothesPercent>65</CasualClothesPercent>
+  </Dressing>
+
+  <PreShiftActivities>
+    <!-- Allow the mod to give an existing real staff need a chance to cross the native CheckNeeds threshold. -->
+    <AssistedNeedsEnabled>true</AssistedNeedsEnabled>
+    <AssistedNeedChancePercent>65</AssistedNeedChancePercent>
+
+    <!-- Allow the game's native staff free-time procedure during the pre-shift common-room window. -->
+    <FreeTimeEnabled>true</FreeTimeEnabled>
+  </PreShiftActivities>
+
+  <LateRelief>
+    <!-- Keep an outgoing idle employee briefly when the exact relief is absent. False keeps vanilla-like departure once free. -->
+    <LateReliefEnabled>true</LateReliefEnabled>
+
+    <!-- Each employee/day gets a stable timeout inside this range. Set both values to 30 for a +30-minute behavior. Work already in progress is never interrupted. -->
+    <LateReliefMinimumMinutes>15</LateReliefMinimumMinutes>
+    <LateReliefMaximumMinutes>30</LateReliefMaximumMinutes>
+  </LateRelief>
+
+  <Diagnostics>
+    <!-- Enable concise HSH troubleshooting traces in BepInEx\LogOutput.log. Keep false for normal play. -->
+    <DiagnosticsEnabled>false</DiagnosticsEnabled>
+  </Diagnostics>
+</HospitalShiftHandover>
