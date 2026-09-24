@@ -86,15 +86,15 @@ namespace HospitalShiftHandover
             }
             state.NextCheckElapsedSeconds = state.ElapsedSeconds + RetryIntervalSeconds;
 
-            string temporaryBlockReason = GetTemporaryBlockReason(behavior);
-            if (!string.IsNullOrEmpty(temporaryBlockReason))
+            string activityBlockReason = GetActivityBlockReason(behavior);
+            if (!string.IsNullOrEmpty(activityBlockReason))
             {
                 LogDiagnosticOnce(
                     state,
                     behavior,
                     employee,
                     "need-deferred",
-                    "reason=" + temporaryBlockReason +
+                    "reason=" + activityBlockReason +
                     " | slack=" + activitySlackMinutes.ToString("0.0", CultureInfo.InvariantCulture) + "m");
                 return false;
             }
@@ -338,7 +338,7 @@ namespace HospitalShiftHandover
             return 0f;
         }
 
-        private static string GetTemporaryBlockReason(Behavior behavior)
+        private static string GetActivityBlockReason(Behavior behavior)
         {
             BehaviorNurse nurse = behavior as BehaviorNurse;
             if (nurse != null)

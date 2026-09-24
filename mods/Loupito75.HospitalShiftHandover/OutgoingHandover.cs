@@ -45,9 +45,10 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            // This rule only applies to the outgoing shift. Incoming staff, including
-            // genuine late commuters, stay completely on their native commute path.
-            if (DayTime.Instance.GetShift() == employee.m_state.m_shift)
+            // Early arrivals are off-shift too, but belong to the pre-shift pipeline.
+            // Late relief only applies after an employee's own shift has ended.
+            if (HandoverRules.ShouldHoldBeforeShift(employee) ||
+                DayTime.Instance.GetShift() == employee.m_state.m_shift)
             {
                 LateReliefHolds.Remove(employee);
                 return false;
