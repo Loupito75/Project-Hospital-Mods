@@ -47,8 +47,7 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            // Keep DiagnosticsEnabled useful for public troubleshooting without exposing the
-            // very noisy development trace used while tuning needs and async pathfinding.
+            // Suppress high-frequency internal traces from normal troubleshooting logs.
             if (text.IndexOf("[STAGING_SELECTION]") >= 0)
             {
                 return true;
@@ -72,7 +71,7 @@ namespace HospitalShiftHandover
     {
         public const string PluginGuid = "loupito75.HospitalShiftHandover";
         public const string PluginName = "Hospital Shift Handover";
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.1.1";
         public const string PluginAuthor = "Loupito75";
         public const string HarmonyId = "Loupito75:HospitalShiftHandover";
         public const string PluginDescription = "Improves staff arrivals, preparation, and shift handovers.";
@@ -97,7 +96,7 @@ namespace HospitalShiftHandover
 
         private void Update()
         {
-            PreShiftLockerInteractionTest.UpdatePostUseReservations();
+            PreShiftLockerInteraction.UpdatePostUseReservations();
         }
 
         private void OnDestroy()

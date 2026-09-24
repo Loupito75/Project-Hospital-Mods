@@ -17,6 +17,8 @@ namespace HospitalShiftHandover
             internal int Stamp;
             internal bool FreeTimeAttempted;
             internal bool StandingWaitLogged;
+            internal bool HasRouteEstimate;
+            internal float LastRouteEstimateMinutes;
         }
 
         private static readonly Dictionary<EmployeeComponent, ActivityState> States =
@@ -69,7 +71,7 @@ namespace HospitalShiftHandover
 
             States.Remove(employee);
             PreShiftNeedEngine.Clear(employee);
-            PreShiftLockerInteractionTest.Clear(employee);
+            PreShiftLockerInteraction.Clear(employee);
             return false;
         }
 
@@ -82,14 +84,14 @@ namespace HospitalShiftHandover
 
             States.Remove(employee);
             PreShiftNeedEngine.Clear(employee);
-            PreShiftLockerInteractionTest.Clear(employee);
+            PreShiftLockerInteraction.Clear(employee);
         }
 
         internal static void Shutdown()
         {
             States.Clear();
             PreShiftNeedEngine.Shutdown();
-            PreShiftLockerInteractionTest.Shutdown();
+            PreShiftLockerInteraction.Shutdown();
         }
 
         private static bool TryHandle(
@@ -107,13 +109,13 @@ namespace HospitalShiftHandover
 
             bool isInCommonArea = PreShiftArrival.IsInCommonArea(behavior);
             bool lockerInteractionActive =
-                PreShiftLockerInteractionTest.HasActiveInteraction(employee);
+                PreShiftLockerInteraction.HasActiveInteraction(employee);
 
-            // Only a locker interaction that already started may finish before the handover
-            // cutoff. New interactions still use the validated real activity slack below.
+            // An active locker interaction may finish before the handover cutoff.
+            // New interactions still require the normal activity slack.
             if (lockerInteractionActive)
             {
-                if (PreShiftLockerInteractionTest.TryHandle(
+                if (PreShiftLockerInteraction.TryHandle(
                         behavior,
                         employee,
                         0f))
@@ -122,7 +124,7 @@ namespace HospitalShiftHandover
                     return true;
                 }
 
-                if (PreShiftLockerInteractionTest.HasActiveInteraction(employee))
+                if (PreShiftLockerInteraction.HasActiveInteraction(employee))
                 {
                     prefixResult = false;
                     return true;
@@ -133,7 +135,7 @@ namespace HospitalShiftHandover
             // authority. This helper owns only the common-room activity window.
             if (PreShiftCoordinator.IsTransitioning(employee))
             {
-                PreShiftLockerInteractionTest.AbandonForWorkplaceFallback(
+                PreShiftLockerInteraction.AbandonForWorkplaceFallback(
                     employee,
                     "handover-transitioning");
                 return false;
@@ -141,7 +143,7 @@ namespace HospitalShiftHandover
 
             if (!HandoverRules.ShouldHoldBeforeShift(employee))
             {
-                PreShiftLockerInteractionTest.AbandonForWorkplaceFallback(
+                PreShiftLockerInteraction.AbandonForWorkplaceFallback(
                     employee,
                     "shift-started");
                 Clear(employee);
@@ -168,7 +170,7 @@ namespace HospitalShiftHandover
                     return true;
                 }
 
-                PreShiftLockerInteractionTest.AbandonForWorkplaceFallback(
+                PreShiftLockerInteraction.AbandonForWorkplaceFallback(
                     employee,
                     "route-estimate-unavailable");
                 Clear(employee);
@@ -177,21 +179,23 @@ namespace HospitalShiftHandover
                 return true;
             }
 
+            state.HasRouteEstimate = true;
+            state.LastRouteEstimateMinutes = routeEstimateMinutes;
+
             float minutesUntilShift = HandoverRules.GetMinutesUntilOwnShift(employee);
             float activitySlackMinutes = minutesUntilShift - routeEstimateMinutes;
 
             if (minutesUntilShift <= routeEstimateMinutes + FinalApproachLeadMinutes)
             {
-                PreShiftLockerInteractionTest.AbandonForWorkplaceFallback(
+                PreShiftLockerInteraction.AbandonForWorkplaceFallback(
                     employee,
                     "handover-due");
-                ShiftDiagnostics.RecordWorkplaceDispatch(behavior, employee, routeEstimateMinutes);
                 RequestWorkplace(behavior);
                 prefixResult = false;
                 return true;
             }
 
-            if (PreShiftLockerInteractionTest.TryHandle(
+            if (PreShiftLockerInteraction.TryHandle(
                     behavior,
                     employee,
                     activitySlackMinutes))
