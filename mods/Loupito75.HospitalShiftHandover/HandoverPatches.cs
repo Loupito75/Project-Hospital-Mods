@@ -94,7 +94,7 @@ namespace HospitalShiftHandover
             if (PreShiftArrival.ShouldPlanLockerDressing(employee))
             {
                 leadMinutes +=
-                    (int)PreShiftLockerInteractionTest.MinimumRequiredSlackMinutes;
+                    (int)PreShiftLockerInteraction.MinimumRequiredSlackMinutes;
             }
 
             return leadMinutes;
@@ -225,11 +225,6 @@ namespace HospitalShiftHandover
             if (!nativeResult && HandoverRules.ShouldStartEarlier(__instance))
             {
                 __result = true;
-                ShiftDiagnostics.RecordCommuteTrigger(__instance, true);
-            }
-            else if (nativeResult)
-            {
-                ShiftDiagnostics.RecordCommuteTrigger(__instance, false);
             }
         }
     }
@@ -285,7 +280,7 @@ namespace HospitalShiftHandover
             AnimModelComponent __instance,
             bool colorsOnly)
         {
-            return PreShiftLockerInteractionTest
+            return PreShiftLockerInteraction
                 .ShouldAllowRevertToDefaultClothes(
                     __instance,
                     colorsOnly);
@@ -312,7 +307,7 @@ namespace HospitalShiftHandover
             }
 
             return PreShiftArrival.IsInCommonArea(behavior) &&
-                   PreShiftLockerInteractionTest.HasPendingCivilianClothes(employee);
+                   PreShiftLockerInteraction.HasPendingCivilianClothes(employee);
         }
     }
 
@@ -330,7 +325,7 @@ namespace HospitalShiftHandover
                 return true;
             }
 
-            PreShiftLockerInteractionTest.RecordCommonRoomArrivalPreserved(employee);
+            PreShiftLockerInteraction.RecordCommonRoomArrivalPreserved(employee);
             __instance.SwitchState(DoctorState.Idle);
             return false;
         }
@@ -350,7 +345,7 @@ namespace HospitalShiftHandover
                 return true;
             }
 
-            PreShiftLockerInteractionTest.RecordCommonRoomArrivalPreserved(employee);
+            PreShiftLockerInteraction.RecordCommonRoomArrivalPreserved(employee);
             __instance.SwitchState(NurseState.Idle);
             return false;
         }
@@ -370,7 +365,7 @@ namespace HospitalShiftHandover
                 return true;
             }
 
-            PreShiftLockerInteractionTest.RecordCommonRoomArrivalPreserved(employee);
+            PreShiftLockerInteraction.RecordCommonRoomArrivalPreserved(employee);
             __instance.SwitchState(LabSpecialistState.Idle);
             return false;
         }
@@ -386,12 +381,12 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            if (PreShiftLockerInteractionTest.TryHandleOutgoing(__instance))
+            if (PreShiftLockerInteraction.TryHandleOutgoing(__instance))
             {
                 return false;
             }
 
-            if (PreShiftLockerInteractionTest
+            if (PreShiftLockerInteraction
                     .ShouldRunVanillaOutgoingDeparture(__instance))
             {
                 return true;
@@ -416,12 +411,12 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            if (PreShiftLockerInteractionTest.TryHandleOutgoing(__instance))
+            if (PreShiftLockerInteraction.TryHandleOutgoing(__instance))
             {
                 return false;
             }
 
-            if (PreShiftLockerInteractionTest
+            if (PreShiftLockerInteraction
                     .ShouldRunVanillaOutgoingDeparture(__instance))
             {
                 return true;
@@ -446,12 +441,12 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            if (PreShiftLockerInteractionTest.TryHandleOutgoing(__instance))
+            if (PreShiftLockerInteraction.TryHandleOutgoing(__instance))
             {
                 return false;
             }
 
-            if (PreShiftLockerInteractionTest
+            if (PreShiftLockerInteraction
                     .ShouldRunVanillaOutgoingDeparture(__instance))
             {
                 return true;
@@ -483,7 +478,7 @@ namespace HospitalShiftHandover
             return employee != null &&
                    (HandoverRules.ShouldHoldBeforeShift(employee) ||
                     PreShiftCoordinator.IsTransitioning(employee) ||
-                    PreShiftLockerInteractionTest.IsOutgoingDressingActive(employee) ||
+                    PreShiftLockerInteraction.IsOutgoingDressingActive(employee) ||
                     (HandoverRules.IsInitialArrivalProtectionWindow(employee) && !behavior.IsAtWorkplace(employee)));
         }
     }
@@ -497,7 +492,7 @@ namespace HospitalShiftHandover
             if (__result && employee != null &&
                 (HandoverRules.ShouldHoldBeforeShift(employee) ||
                  PreShiftCoordinator.IsTransitioning(employee) ||
-                    PreShiftLockerInteractionTest.IsOutgoingDressingActive(employee) ||
+                    PreShiftLockerInteraction.IsOutgoingDressingActive(employee) ||
                  (HandoverRules.IsInitialArrivalProtectionWindow(employee) && !__instance.IsAtWorkplace(employee))))
             {
                 __result = false;
@@ -514,7 +509,7 @@ namespace HospitalShiftHandover
             if (__result && employee != null &&
                 (HandoverRules.ShouldHoldBeforeShift(employee) ||
                  PreShiftCoordinator.IsTransitioning(employee) ||
-                    PreShiftLockerInteractionTest.IsOutgoingDressingActive(employee) ||
+                    PreShiftLockerInteraction.IsOutgoingDressingActive(employee) ||
                  (HandoverRules.IsInitialArrivalProtectionWindow(employee) && !__instance.IsAtWorkplace(employee))))
             {
                 __result = false;
@@ -531,7 +526,7 @@ namespace HospitalShiftHandover
             if (__result && employee != null &&
                 (HandoverRules.ShouldHoldBeforeShift(employee) ||
                  PreShiftCoordinator.IsTransitioning(employee) ||
-                    PreShiftLockerInteractionTest.IsOutgoingDressingActive(employee) ||
+                    PreShiftLockerInteraction.IsOutgoingDressingActive(employee) ||
                  (HandoverRules.IsInitialArrivalProtectionWindow(employee) && !__instance.IsAtWorkplace(employee))))
             {
                 __result = false;
@@ -548,7 +543,7 @@ namespace HospitalShiftHandover
             if (__result && employee != null &&
                 (HandoverRules.ShouldHoldBeforeShift(employee) ||
                  PreShiftCoordinator.IsTransitioning(employee) ||
-                    PreShiftLockerInteractionTest.IsOutgoingDressingActive(employee) ||
+                    PreShiftLockerInteraction.IsOutgoingDressingActive(employee) ||
                  (HandoverRules.IsInitialArrivalProtectionWindow(employee) && !__instance.IsAtWorkplace(employee))))
             {
                 __result = false;

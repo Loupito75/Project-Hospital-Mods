@@ -10,9 +10,9 @@
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0</AssemblyVersion>
-    <FileVersion>1.1.0</FileVersion>
+    <Version>1.1.1</Version>
+    <AssemblyVersion>1.1.1</AssemblyVersion>
+    <FileVersion>1.1.1</FileVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Shift Handover</Product>
@@ -33,12 +33,11 @@
     <Compile Include="PreShiftArrival.cs" />
     <Compile Include="PreShiftCoordinator.cs" />
     <Compile Include="PreShiftCommonAreaController.cs" />
-    <Compile Include="PreShiftLockerInteractionTest.cs" />
+    <Compile Include="PreShiftLockerInteraction.cs" />
     <Compile Include="PreShiftNeedEngine.cs" />
     <Compile Include="OrganicStaging.cs" />
     <Compile Include="OutgoingHandover.cs" />
     <Compile Include="WorkplaceTravelEstimator.cs" />
-    <Compile Include="ShiftDiagnostics.cs" />
   </ItemGroup>
 
   <ItemGroup>

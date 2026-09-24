@@ -45,6 +45,8 @@ namespace HospitalShiftHandover
 
         private static readonly Dictionary<EmployeeComponent, EmployeePlan> Plans =
             new Dictionary<EmployeeComponent, EmployeePlan>();
+        private static readonly Dictionary<EmployeeComponent, int> WorkplaceHoldLogStamps =
+            new Dictionary<EmployeeComponent, int>();
 
         private static readonly MethodInfo DoctorCheckNeeds =
             AccessTools.Method(typeof(BehaviorDoctor), "CheckNeeds", new Type[] { typeof(AccessRights) });
@@ -161,7 +163,7 @@ namespace HospitalShiftHandover
                     return true;
                 }
 
-                PreShiftLockerInteractionTest.AbandonForWorkplaceFallback(
+                PreShiftLockerInteraction.AbandonForWorkplaceFallback(
                     employee,
                     "route-estimate-unavailable");
                 PreShiftCommonAreaController.Clear(employee);
@@ -193,7 +195,6 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            ShiftDiagnostics.RecordWorkplaceDispatch(behavior, employee, routeEstimateMinutes);
             plan.OppositeEmployee = activeOpposite;
             plan.Phase = TransitionPhase.PreparingApproach;
             if (!TryStartApproach(behavior, employee, plan, activeOpposite))
@@ -230,6 +231,7 @@ namespace HospitalShiftHandover
         internal static void Shutdown()
         {
             Plans.Clear();
+            WorkplaceHoldLogStamps.Clear();
         }
 
         private static bool HandleIdle(Behavior behavior, EmployeeComponent employee)
@@ -251,12 +253,19 @@ namespace HospitalShiftHandover
                 {
                     Plans.Remove(employee);
                 }
+                WorkplaceHoldLogStamps.Remove(employee);
                 WorkplaceTravelEstimator.Clear(employee);
                 return true;
             }
 
             if (!PreShiftArrival.IsInCommonArea(behavior))
             {
+                if (IsAtWorkplace(behavior, employee))
+                {
+                    LogWorkplaceHoldOnce(behavior, employee);
+                    return false;
+                }
+
                 return true;
             }
 
@@ -275,7 +284,7 @@ namespace HospitalShiftHandover
                     return false;
                 }
 
-                PreShiftLockerInteractionTest.AbandonForWorkplaceFallback(
+                PreShiftLockerInteraction.AbandonForWorkplaceFallback(
                     employee,
                     "route-estimate-unavailable");
                 PreShiftCommonAreaController.Clear(employee);
@@ -289,7 +298,6 @@ namespace HospitalShiftHandover
 
             if (ShouldStartFinalTransition(employee, routeEstimateMinutes))
             {
-                ShiftDiagnostics.RecordWorkplaceDispatch(behavior, employee, routeEstimateMinutes);
                 RequestWorkplace(behavior);
                 return false;
             }
@@ -1481,6 +1489,26 @@ namespace HospitalShiftHandover
                 "WORKPLACE_HANDOVER_STAGE_UNAVAILABLE",
                 "fallback=stay-current-position" +
                 " | reason=" + WorkplaceTravelEstimator.GetLastApproachFailureReason(employee));
+        }
+
+        private static void LogWorkplaceHoldOnce(
+            Behavior behavior,
+            EmployeeComponent employee)
+        {
+            int stamp = GetStamp(employee);
+            int loggedStamp;
+            if (WorkplaceHoldLogStamps.TryGetValue(employee, out loggedStamp) &&
+                loggedStamp == stamp)
+            {
+                return;
+            }
+
+            WorkplaceHoldLogStamps[employee] = stamp;
+            LogActivity(
+                behavior,
+                employee,
+                "workplace-hold",
+                "reason=own-shift-not-started");
         }
 
         private static void LogActivity(

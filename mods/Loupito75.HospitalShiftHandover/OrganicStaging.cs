@@ -208,10 +208,8 @@ namespace HospitalShiftHandover
             int workplaceFloor,
             List<Vector2i> excludedPositions)
         {
-            // Keep patient-facing staging local to the real route-derived doorway anchor, but
-            // allow nearby corridor, waiting-room and reception tiles to compete. This avoids
-            // the old behavior where the anchor room alone strongly favored the tile directly
-            // in front of the consultation door.
+            // Keep patient-facing staging near the route-derived doorway anchor while allowing
+            // nearby corridor, waiting-room and reception tiles to compete.
             for (int deltaX = -PublicAreaRadius; deltaX <= PublicAreaRadius; deltaX++)
             {
                 for (int deltaY = -PublicAreaRadius; deltaY <= PublicAreaRadius; deltaY++)

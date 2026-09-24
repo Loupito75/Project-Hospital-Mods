@@ -36,7 +36,7 @@ namespace HospitalShiftHandover
                     Eligible = false,
                     CommonRoom = null
                 };
-                PreShiftLockerInteractionTest
+                PreShiftLockerInteraction
                     .RestoreProfessionalAtHomeIfDressingUnavailable(
                         employee);
                 return false;
@@ -54,7 +54,7 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            if (PreShiftLockerInteractionTest.HasResolvedDressingForCurrentShift(employee))
+            if (PreShiftLockerInteraction.HasResolvedDressingForCurrentShift(employee))
             {
                 return false;
             }
@@ -65,7 +65,7 @@ namespace HospitalShiftHandover
             {
                 if (!cached.Eligible)
                 {
-                    PreShiftLockerInteractionTest
+                    PreShiftLockerInteraction
                         .RestoreProfessionalAtHomeIfDressingUnavailable(
                             employee);
                 }
@@ -85,7 +85,7 @@ namespace HospitalShiftHandover
             };
             if (!eligible)
             {
-                PreShiftLockerInteractionTest
+                PreShiftLockerInteraction
                     .RestoreProfessionalAtHomeIfDressingUnavailable(
                         employee);
             }
@@ -148,9 +148,8 @@ namespace HospitalShiftHandover
             Room selectedCommonRoom = null;
             int bestDistanceSquared = int.MaxValue;
 
-            // The room was selected before the commute with the same historical
-            // common-room rules. Reuse that room so the +8 minute dressing lead is granted
-            // only to employees who are actually routed to a room containing a locker.
+            // Reuse the room selected before the commute so dressing lead time is granted
+            // only when that planned room contains a usable locker.
             if (plannedCommonRoom != null)
             {
                 List<Room> validCommonRooms =
@@ -172,8 +171,7 @@ namespace HospitalShiftHandover
                 }
             }
 
-            // Preserve the validated behavior whenever the employee's own department already
-            // provides a usable common room on the workplace floor.
+            // Prefer a usable department common room on the workplace floor.
             for (int i = 0;
                  commonAreaPosition == Vector2i.ZERO_VECTOR &&
                  i < departmentCommonRooms.Count;
@@ -275,14 +273,9 @@ namespace HospitalShiftHandover
 
             WorkplaceTravelEstimator.Clear(employee);
 
-            // Common-room selection above intentionally ignores lockers and matches the
-            // validated pre-dressing HSH routing. Dressing is considered only after that
-            // room has already been selected. If this exact room has no usable locker,
-            // the employee keeps professional clothes and HSH never reroutes to another
-            // common room just to find a locker.
-            //
-            // When the selected room does have a locker, the existing timing guard still
-            // requires enough margin for arrival -> locker/common room -> workplace.
+            // Common-room selection does not depend on lockers. Dressing is considered only
+            // after the room is selected, so a missing locker never causes a reroute.
+            // A usable locker still requires enough margin for arrival, dressing and workplace travel.
             float arrivalDistance = GridMap.GetInstance().GetDistance(
                 walk.GetFloorIndex(),
                 walk.GetCurrentTile(),
@@ -299,7 +292,7 @@ namespace HospitalShiftHandover
             bool civilianTimingSafe =
                 lockerDressingPlanned &&
                 selectedCommonRoom != null &&
-                PreShiftLockerInteractionTest.RoomHasUsableLocker(selectedCommonRoom) &&
+                PreShiftLockerInteraction.RoomHasUsableLocker(selectedCommonRoom) &&
                 arrivalDistance >= 0f &&
                 arrivalDistance < float.MaxValue &&
                 workplaceDistanceFromCommonArea >= 0f &&
@@ -322,12 +315,12 @@ namespace HospitalShiftHandover
 
                 civilianTimingSafe =
                     projectedLockerSlack >=
-                    PreShiftLockerInteractionTest.MinimumRequiredSlackMinutes;
+                    PreShiftLockerInteraction.MinimumRequiredSlackMinutes;
             }
 
             if (civilianTimingSafe)
             {
-                PreShiftLockerInteractionTest.PrepareCivilianArrival(
+                PreShiftLockerInteraction.PrepareCivilianArrival(
                     behavior,
                     employee,
                     selectedCommonRoom);
@@ -338,7 +331,6 @@ namespace HospitalShiftHandover
             walk.SetDestination(
                 new Vector2f(commonAreaPosition.m_x, commonAreaPosition.m_y),
                 commonAreaFloor);
-            ShiftDiagnostics.RecordCommonAreaRoute(behavior, employee);
             return true;
         }
 
@@ -553,9 +545,9 @@ namespace HospitalShiftHandover
             }
 
             return selectedCommonRoom != null &&
-                   PreShiftLockerInteractionTest.RoomHasUsableLocker(
+                   PreShiftLockerInteraction.RoomHasUsableLocker(
                        selectedCommonRoom) &&
-                   PreShiftLockerInteractionTest.ShouldUseArrivalDressing(
+                   PreShiftLockerInteraction.ShouldUseArrivalDressing(
                        employee);
         }
 
