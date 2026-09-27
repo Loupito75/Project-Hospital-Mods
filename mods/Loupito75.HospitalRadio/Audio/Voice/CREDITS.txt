@@ -1,0 +1,88 @@
+Hospital Radio - Voice Credits
+
+The bundled Hospital Radio announcements were generated locally with Piper TTS.
+The final mod contains pre-rendered audio only; Piper itself and the voice model
+files are not distributed with the mod.
+
+Bundled voice library
+---------------------
+The 100 Hospital Radio announcements use four English (United States) Piper
+voices, with 25 announcements generated from each voice.
+
+1. LJ Speech — US female
+   Piper model: en_US-ljspeech-medium
+   Language: English (United States)
+   Quality: medium
+   Sample rate: 22,050 Hz
+   Training: trained from scratch
+   Dataset: LJ Speech Dataset
+   Dataset license: Public Domain
+   Model repository license: MIT
+   Model card:
+   https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/ljspeech/medium/MODEL_CARD
+
+2. Kristin — US female
+   Piper model: en_US-kristin-medium
+   Language: English (United States)
+   Quality: medium
+   Sample rate: 22,050 Hz
+   Training: trained from scratch
+   Dataset: LibriVox recordings
+   Dataset license: Public Domain
+   Model repository license: MIT
+   Model card:
+   https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/kristin/medium/MODEL_CARD
+
+3. Norman — US male
+   Piper model: en_US-norman-medium
+   Language: English (United States)
+   Quality: medium
+   Sample rate: 22,050 Hz
+   Training: trained from scratch
+   Dataset: LibriVox recordings
+   Dataset license: Public Domain
+   Model repository license: MIT
+   Model card:
+   https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/norman/medium/MODEL_CARD
+
+4. John — US male
+   Piper model: en_US-john-medium
+   Language: English (United States)
+   Quality: medium
+   Sample rate: 22,050 Hz
+   Training: fine-tuned from Kristin
+   Dataset: LibriVox recordings
+   Dataset license: Public Domain
+   Base voice chain: Kristin, using a Public Domain LibriVox dataset
+   Model repository license: MIT
+   Model card:
+   https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/john/medium/MODEL_CARD
+
+Piper TTS
+---------
+The announcements were rendered with Piper TTS.
+
+Hospital Radio's local generation tool uses the maintained OHF-Voice Piper
+implementation:
+https://github.com/OHF-Voice/piper1-gpl
+
+Piper software license: GPL-3.0-or-later.
+
+Piper is a generation tool only and is not bundled with the Hospital Radio mod.
+The Piper documentation states that it adds no additional restrictions to voice
+models and that each voice model's MODEL_CARD should be reviewed for licensing.
+
+Final packaged announcements
+----------------------------
+Final announcement assets use the naming convention:
+
+HR_V001.ogg
+HR_V002.ogg
+...
+HR_V100.ogg
+
+The source TTS takes, Piper models and training datasets are not included in the
+distributed mod.
+
+Hospital Radio
+A Project Hospital mod by Loupito75
