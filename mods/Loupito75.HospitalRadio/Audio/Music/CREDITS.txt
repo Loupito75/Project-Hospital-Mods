@@ -1,0 +1,211 @@
+Hospital Radio - Music Credits
+
+This file lists the music and artists currently credited for the bundled
+Hospital Radio music library.
+
+The license information below is recorded per track or artist. License terms
+remain applicable to the individual works; inclusion in Hospital Radio does not
+change their original licenses.
+
+======================================================================
+CC BY-NC-ND 4.0
+Attribution-NonCommercial-NoDerivatives 4.0 International
+https://creativecommons.org/licenses/by-nc-nd/4.0/
+======================================================================
+
+03 Lady Of The Stars
+Artist: Maxim Novak
+
+06 My Timeless Voyage
+Artist: Maxim Novak
+
+02 Reflections
+Artist: Maxim Novak
+
+Oubliette
+Artist: Smallpox
+
+11 Her Tender Affection
+Artist: Maxim Novak
+
+Nine
+Artist: Smallpox
+
+Reflections of the Past
+Artist: Squire Tuck
+
+Sound of the Savanna
+Artist: Squire Tuck
+
+Crystal Cave (song18)
+Artist: Cynicmusic
+
+These tracks may be redistributed for noncommercial purposes with attribution,
+provided no adapted version is shared. Technical format conversion alone is not
+treated by Creative Commons as an adaptation. Hospital Radio must therefore
+keep these tracks otherwise unmodified.
+
+======================================================================
+CC BY 4.0
+Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+======================================================================
+
+Ebb and Flow
+Artist: Fabian Measures
+
+Serge's Theme Pt. 1
+Artist: Robert Blumenau
+
+Late Night Radio
+Artist: Kevin MacLeod
+
+Northern Glade
+Artist: Kevin MacLeod
+
+Farm
+Artist: Kevin MacLeod
+
+Crinoline Dreams
+Artist: Kevin MacLeod
+
+On My Way
+Artist: Kevin MacLeod
+
+Lobby Time
+Artist: Kevin MacLeod
+
+Secret of Tiki Island
+Artist: Kevin MacLeod
+
+Floating Cities
+Artist: Kevin MacLeod
+
+Jellyfish in Space
+Artist: Kevin MacLeod
+
+Infinite Perspective
+Artist: Kevin MacLeod
+
+Perspectives
+Artist: Kevin MacLeod
+
+Inner Light
+Artist: Kevin MacLeod
+
+Groove Grove
+Artist: Kevin MacLeod
+
+======================================================================
+CC BY-NC 4.0
+Attribution-NonCommercial 4.0 International
+https://creativecommons.org/licenses/by-nc/4.0/
+======================================================================
+
+Astrisx
+Artist: Blue Dot Sessions
+
+This track may be used and adapted for noncommercial purposes with attribution.
+
+======================================================================
+CC BY 3.0
+Attribution 3.0 Unported
+https://creativecommons.org/licenses/by/3.0/
+======================================================================
+
+White Sands Day Night
+Artist: MegaJackie
+
+Asian String Suite
+Artist: BossLevelVGM
+
+The Bard
+Artist: Alundra
+
+======================================================================
+CC BY-SA 3.0
+Attribution-ShareAlike 3.0 Unported
+https://creativecommons.org/licenses/by-sa/3.0/
+======================================================================
+
+Surfside
+Artist: Axtoncrolley
+
+If an adaptation of this track is distributed, the applicable ShareAlike terms
+must be respected.
+
+======================================================================
+CC0 1.0
+CC0 1.0 Universal Public Domain Dedication
+https://creativecommons.org/publicdomain/zero/1.0/
+======================================================================
+
+Artists represented under CC0 1.0:
+
+A Tape Full of Mistakes
+Loyalty Freak Music
+Komiku
+Rrrrrose Azerty
+Tozan
+Cleyton Kauffman
+Mrpoly
+
+Attribution is not required by CC0 1.0, but these artists are credited here for
+transparency and acknowledgement.
+
+======================================================================
+Source websites
+======================================================================
+
+incompetech.com
+- Kevin MacLeod
+
+freemusicarchive.org
+- Maxim Novak
+- Smallpox
+- Squire Tuck
+- Robert Blumenau
+- Fabian Measures
+- Blue Dot Sessions
+
+loyaltyfreakmusic.com
+- A Tape Full of Mistakes
+- Loyalty Freak Music
+- Komiku
+- Rrrrrose Azerty
+
+opengameart.org
+- MegaJackie
+- BossLevelVGM
+- Alundra
+- Tozan
+- Mrpoly
+- Cleyton Kauffman
+- Axtoncrolley
+- Cynicmusic
+
+======================================================================
+Notes
+======================================================================
+
+Attribution-required tracks should retain, where available, the original track
+title, artist name, license, and source information.
+
+NonCommercial licenses (CC BY-NC and CC BY-NC-ND) permit noncommercial use only.
+
+NoDerivatives licenses prohibit sharing adapted versions. Hospital Radio's OGG
+conversion is intended only as a technical format conversion and must not apply
+creative edits to CC BY-NC-ND tracks.
+
+Hospital Radio playback model
+-----------------------------
+Hospital Radio distributes music files as separate audio assets. The tracks are
+not edited, remixed, or embedded into a pre-rendered audiovisual work.
+
+During gameplay, tracks are selected and played dynamically as an independent
+radio stream. Playback is not intentionally timed, edited, or synchronized to a
+specific scene, animation, cinematic sequence, character action, or visual
+event. The music may simply be heard while gameplay continues independently.
+
+Hospital Radio
+A Project Hospital mod by Loupito75

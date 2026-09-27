@@ -1,0 +1,141 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Loupito75.HospitalRadio</AssemblyName>
+    <RootNamespace>HospitalRadio</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateFullPaths>false</GenerateFullPaths>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <FileVersion>1.0.0</FileVersion>
+    <Authors>Loupito75</Authors>
+    <Company>Loupito75</Company>
+    <Product>Hospital Radio</Product>
+    <Description>Global hospital radio with music playlists and announcements for Project Hospital.</Description>
+
+    <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_GAME_DIR)' != ''">$(PROJECT_HOSPITAL_GAME_DIR)</GameDir>
+    <ManagedDir Condition="'$(GameDir)' != ''">$(GameDir)\ProjectHospital_Data\Managed</ManagedDir>
+    <BepInExDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\core</BepInExDir>
+    <PluginDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\plugins\Loupito75.HospitalRadio</PluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Plugin.cs" />
+    <Compile Include="AudioEventFactory.cs" />
+    <Compile Include="HospitalRadioConfig.cs" />
+    <Compile Include="AnnouncementCatalog.cs" />
+    <Compile Include="HospitalRadioController.cs" />
+    <RadioMusicAudio Include="$(MSBuildProjectDirectory)\Audio\Music\**\*.ogg;$(MSBuildProjectDirectory)\Audio\Music\**\*.wav" />
+    <RadioMyMusicAudio Include="$(MSBuildProjectDirectory)\Audio\MyMusic\**\*.ogg;$(MSBuildProjectDirectory)\Audio\MyMusic\**\*.wav" />
+    <RadioVoiceAudio Include="$(MSBuildProjectDirectory)\Audio\Voice\HR_V*.ogg" />
+    <RadioMusicCredits Include="$(MSBuildProjectDirectory)\Audio\Music\CREDITS.txt" />
+    <RadioVoiceCredits Include="$(MSBuildProjectDirectory)\Audio\Voice\CREDITS.txt" />
+    <None Include="Loupito75.HospitalRadio.Config.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(GameDir)' != ''">
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExDir)\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExDir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine" Condition="Exists('$(ManagedDir)\UnityEngine.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule" Condition="Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule" Condition="Exists('$(ManagedDir)\UnityEngine.AudioModule.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule" Condition="Exists('$(ManagedDir)\UnityEngine.UnityWebRequestModule.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.UnityWebRequestModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule" Condition="Exists('$(ManagedDir)\UnityEngine.UnityWebRequestAudioModule.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestWWWModule" Condition="Exists('$(ManagedDir)\UnityEngine.UnityWebRequestWWWModule.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.UnityWebRequestWWWModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule" Condition="Exists('$(ManagedDir)\UnityEngine.InputLegacyModule.dll')">
+      <HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateProjectHospitalReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(GameDir)' == ''"
+           Text="GameDir is required. Use build.ps1, set PROJECT_HOSPITAL_GAME_DIR locally, or pass /p:GameDir=&lt;PROJECT_HOSPITAL_DIR&gt;." />
+    <Error Condition="!Exists('$(ManagedDir)\Assembly-CSharp.dll')"
+           Text="Assembly-CSharp.dll was not found under the configured GameDir." />
+    <Error Condition="!Exists('$(BepInExDir)\BepInEx.dll')"
+           Text="BepInEx.dll was not found under the configured GameDir." />
+    <Error Condition="!Exists('$(BepInExDir)\0Harmony.dll')"
+           Text="0Harmony.dll was not found under the configured GameDir." />
+    <Error Condition="!Exists('$(ManagedDir)\UnityEngine.dll') AND !Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')"
+           Text="No required UnityEngine assembly was found under the configured GameDir." />
+  </Target>
+
+  <Target Name="CopyPluginToGame" AfterTargets="Build" Condition="'$(PluginDir)' != ''">
+    <MakeDir Directories="$(PluginDir)" />
+    <MakeDir Directories="$(PluginDir)\Audio\Music" />
+    <MakeDir Directories="$(PluginDir)\Audio\MyMusic" />
+    <MakeDir Directories="$(PluginDir)\Audio\Voice" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Loupito75.HospitalRadio.Config.xml"
+          DestinationFolder="$(PluginDir)"
+          Condition="!Exists('$(PluginDir)\Loupito75.HospitalRadio.Config.xml')" />
+    <ItemGroup>
+      <MisplacedRadioAudio Include="$(PluginDir)\Audio\HR_M*.ogg;$(PluginDir)\Audio\HR_M*.wav;$(PluginDir)\Audio\HR_M*.mp3;$(PluginDir)\Audio\HR_V*.ogg;$(PluginDir)\Audio\HR_V*.wav;$(PluginDir)\Audio\HR_V*.mp3" />
+      <MisplacedCurrentRadioAudio Include="@(RadioMusicAudio->'$(PluginDir)\Audio\%(RecursiveDir)%(Filename)%(Extension)')" />
+      <MisplacedCurrentRadioAudio Include="@(RadioMyMusicAudio->'$(PluginDir)\Audio\%(RecursiveDir)%(Filename)%(Extension)')" />
+      <MisplacedCurrentRadioAudio Include="@(RadioVoiceAudio->'$(PluginDir)\Audio\%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <Delete Files="@(MisplacedRadioAudio)"
+            Condition="'@(MisplacedRadioAudio)' != ''" />
+    <Delete Files="@(MisplacedCurrentRadioAudio)"
+            Condition="'@(MisplacedCurrentRadioAudio)' != ''" />
+    <Copy SourceFiles="@(RadioMusicAudio)"
+          DestinationFiles="@(RadioMusicAudio->'$(PluginDir)\Audio\Music\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(RadioMusicAudio)' != ''" />
+    <Copy SourceFiles="@(RadioMyMusicAudio)"
+          DestinationFiles="@(RadioMyMusicAudio->'$(PluginDir)\Audio\MyMusic\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(RadioMyMusicAudio)' != ''" />
+    <Copy SourceFiles="@(RadioVoiceAudio)"
+          DestinationFiles="@(RadioVoiceAudio->'$(PluginDir)\Audio\Voice\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(RadioVoiceAudio)' != ''" />
+    <Copy SourceFiles="@(RadioMusicCredits)"
+          DestinationFolder="$(PluginDir)\Audio\Music"
+          SkipUnchangedFiles="true"
+          Condition="'@(RadioMusicCredits)' != ''" />
+    <Copy SourceFiles="@(RadioVoiceCredits)"
+          DestinationFolder="$(PluginDir)\Audio\Voice"
+          SkipUnchangedFiles="true"
+          Condition="'@(RadioVoiceCredits)' != ''" />
+  </Target>
+</Project>
