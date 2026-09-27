@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalRadio>
+  <!-- Bundled Hospital Radio music. Enabled accepts true/false; default true. VolumeDb accepts -30 through -16 dB; default -22. -->
+  <OurMusic Enabled="true" VolumeDb="-22" />
+
+  <!-- Personal tracks from Audio\MyMusic. Enabled accepts true/false; default false. VolumeDb accepts -30 through -16 dB; default -22. -->
+  <MyMusic Enabled="false" VolumeDb="-22" />
+
+  <!-- Include Project Hospital gameplay/day-night music in the shuffle. Enabled accepts true/false; default true. -->
+  <VanillaMusic Enabled="true" />
+
+  <!-- Diagnostic mode. Enabled accepts true/false; default false. When enabled, the normal playlist is replaced by the built-in short-track diagnostic pool. -->
+  <Diagnostics Enabled="false" />
+
+  <!-- Automatic announcements. Enabled accepts true/false; default true. VolumeDb accepts -14 through -4 dB; default -8. Song interval values accept integers from 1 through 100; RecentHistory accepts 0 through 100. -->
+  <Announcements Enabled="true"
+                 VolumeDb="-8"
+                 MinSongsBetween="3"
+                 MaxSongsBetween="5"
+                 RecentHistory="10">
+    <!-- Period start hours accept 0 through 23 and must remain ordered Morning < Afternoon < Evening < Night. Defaults: 6 / 12 / 17 / 21. -->
+    <Periods MorningStart="6"
+             AfternoonStart="12"
+             EveningStart="17"
+             NightStart="21" />
+  </Announcements>
+</HospitalRadio>
