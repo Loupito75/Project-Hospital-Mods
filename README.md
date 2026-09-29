@@ -15,6 +15,12 @@ Get <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3806092398">
 ⬆️⬆️⬆️
 </p>
 
+## ❤️ Support ❤️
+
+If you enjoy my Project Hospital mods and want to support future updates and new projects:
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/loupito75)
+
 ## Mods
 
 | Mod | Description | First release | Latest release | Links |
