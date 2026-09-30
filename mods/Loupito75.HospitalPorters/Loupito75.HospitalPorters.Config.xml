@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalPorters>
+  <!-- Number of retries before a waiting laboratory sample may fall back to the native Lab Specialist. Accepted range: 0-10. Default: 2. -->
+  <SampleFallbackRetries>2</SampleFallbackRetries>
+
+  <!-- In-game minutes between laboratory-sample fallback retries. Accepted range: 1-60. Default: 5. -->
+  <SampleFallbackRetryMinutes>5</SampleFallbackRetryMinutes>
+
+  <!-- Number of retries before a waiting patient transport may fall back to the native Nurse behavior. Accepted range: 0-10. Default: 1. -->
+  <PatientFallbackRetries>1</PatientFallbackRetries>
+
+  <!-- In-game minutes between patient-transport fallback retries. Accepted range: 1-60. Default: 2. -->
+  <PatientFallbackRetryMinutes>2</PatientFallbackRetryMinutes>
+
+  <!-- Maximum number of compatible samples carried in one Porter tour. Accepted range: 1-10. Default: 5. Set to 1 for single-sample trips. -->
+  <SampleTourMaxSamples>5</SampleTourMaxSamples>
+
+  <!-- Maximum staff-pathfinding distance used when searching for the next sample after the first pickup. Accepted range: 1-200. Default: 20. -->
+  <SampleTourSearchDistance>20</SampleTourSearchDistance>
+
+  <!-- Enables compact troubleshooting logs for transport assignment, fallback, completion and save/load recovery. Accepted values: true/false. Default: false. -->
+  <EnableDiagnostics>false</EnableDiagnostics>
+</HospitalPorters>
