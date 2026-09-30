@@ -30,6 +30,8 @@ jobs:
           persist-credentials: false
 
       - name: Update README and manifest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/update_latest_release.py
 
       - name: Check for metadata changes
