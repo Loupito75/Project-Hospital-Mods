@@ -3,6 +3,10 @@ import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 
 README_PATH = Path("README.md")
@@ -10,6 +14,7 @@ MANIFEST_PATH = Path("mod-updates.json")
 
 MANIFEST_AUTHOR = "Loupito75"
 MANIFEST_GUID_PREFIX = "loupito75."
+README_TIMEZONE = ZoneInfo("America/Toronto")
 
 
 def normalize_name(value):
@@ -33,26 +38,80 @@ def get_mod_name_from_cell(cell):
     return cell.strip()
 
 
-def humanize_technical_name(value):
-    value = value.replace("_", " ").replace("-", " ")
-    value = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", value)
-    value = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+def format_readme_date(published_at):
+    if not published_at:
+        raise RuntimeError("Release published_at is missing.")
+
+    try:
+        published = datetime.fromisoformat(
+            published_at.replace("Z", "+00:00")
+        )
+    except ValueError as error:
+        raise RuntimeError(
+            "Invalid release published_at value: " + published_at
+        ) from error
+
+    if published.tzinfo is None:
+        published = published.replace(tzinfo=timezone.utc)
+
+    local_date = published.astimezone(
+        README_TIMEZONE
+    ).strftime("%Y-%m-%d")
+
+    return local_date.replace(
+        "-",
+        "&#x2060;-&#x2060;",
+    )
 
 
-def get_release_display_name(release_name, technical_mod_name, version):
-    if release_name:
-        cleaned = re.sub(
-            r"\s+v?" + re.escape(version) + r"\s*$",
-            "",
-            release_name,
-            flags=re.IGNORECASE,
-        ).strip()
+def fetch_release_by_tag(repository, tag):
+    encoded_tag = quote(tag, safe="")
+    api_url = (
+        "https://api.github.com/repos/"
+        + repository
+        + "/releases/tags/"
+        + encoded_tag
+    )
 
-        if cleaned:
-            return cleaned
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Project-Hospital-Mods-release-metadata",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
 
-    return humanize_technical_name(technical_mod_name)
+    github_token = os.environ.get("GITHUB_TOKEN", "").strip()
+
+    if github_token:
+        headers["Authorization"] = "Bearer " + github_token
+
+    request = Request(
+        api_url,
+        headers=headers,
+        method="GET",
+    )
+
+    try:
+        with urlopen(request, timeout=30) as response:
+            release = json.load(response)
+    except HTTPError as error:
+        raise RuntimeError(
+            "GitHub API returned HTTP "
+            + str(error.code)
+            + " while loading release tag: "
+            + tag
+        ) from error
+    except URLError as error:
+        raise RuntimeError(
+            "Could not load release metadata from GitHub for tag: "
+            + tag
+        ) from error
+
+    if not isinstance(release, dict):
+        raise RuntimeError(
+            "GitHub returned invalid release metadata for tag: " + tag
+        )
+
+    return release
 
 
 def load_release():
@@ -70,6 +129,7 @@ def load_release():
         tag = (release.get("tag_name") or "").strip()
         release_name = (release.get("name") or "").strip()
         release_url = (release.get("html_url") or "").strip()
+        published_at = (release.get("published_at") or "").strip()
     else:
         inputs = event.get("inputs") or {}
         tag = (inputs.get("tag") or "").strip()
@@ -82,16 +142,22 @@ def load_release():
         if not repository:
             raise RuntimeError("GITHUB_REPOSITORY is not available.")
 
-        release_name = ""
-        release_url = (
-            "https://github.com/"
-            + repository
-            + "/releases/tag/"
-            + tag
-        )
+        release = fetch_release_by_tag(repository, tag)
 
-    if not tag or not release_url:
-        raise RuntimeError("Release tag or URL is missing.")
+        release_name = (release.get("name") or "").strip()
+        release_url = (release.get("html_url") or "").strip()
+        published_at = (release.get("published_at") or "").strip()
+
+    if not tag:
+        raise RuntimeError("Release tag is missing.")
+
+    if not release_url:
+        raise RuntimeError("Release URL is missing.")
+
+    if not published_at:
+        raise RuntimeError(
+            "Release publication date is missing for tag: " + tag
+        )
 
     # Expected format:
     # HospitalTrafficControl-v1.2.0
@@ -105,16 +171,28 @@ def load_release():
     technical_mod_name = match.group(1)
     version = match.group(2)
 
-    return technical_mod_name, version, release_name, release_url
+    return (
+        technical_mod_name,
+        version,
+        release_name,
+        release_url,
+        published_at,
+    )
 
 
 def update_readme(
     technical_mod_name,
     version,
-    release_name,
     release_url,
+    published_at,
 ):
-    latest_release = f"[{version}]({release_url})"
+    release_date = format_readme_date(published_at)
+
+    latest_release = (
+        f"[{version}]({release_url})"
+        f"<br>{release_date}"
+    )
+
     target_name = normalize_name(technical_mod_name)
 
     text = README_PATH.read_text(encoding="utf-8")
@@ -128,7 +206,9 @@ def update_readme(
             break
 
     if mods_heading is None:
-        raise RuntimeError("Could not find the '## Mods' section in README.md.")
+        raise RuntimeError(
+            "Could not find the '## Mods' section in README.md."
+        )
 
     section_end = len(lines)
 
@@ -158,7 +238,6 @@ def update_readme(
 
     found = False
     display_name = ""
-    last_table_row = header_index + 1
 
     for index in range(header_index + 2, section_end):
         line = lines[index]
@@ -166,7 +245,6 @@ def update_readme(
         if not line.strip().startswith("|"):
             break
 
-        last_table_row = index
         cells = split_row(line)
 
         while len(cells) < len(headers):
@@ -191,22 +269,11 @@ def update_readme(
         break
 
     if not found:
-        display_name = get_release_display_name(
-            release_name,
-            technical_mod_name,
-            version,
-        )
-
-        cells = [""] * len(headers)
-        cells[mod_column] = display_name
-        cells[latest_column] = latest_release
-
-        lines.insert(last_table_row + 1, build_row(cells))
-
-        print(
-            "Mod was not found in README table. "
-            "Added new row for: "
-            + display_name
+        raise RuntimeError(
+            "Mod was not found in the README table: "
+            + technical_mod_name
+            + ". Add its complete README row, including description, "
+            + "First release date and links, before publishing the release."
         )
 
     new_text = "\n".join(lines) + "\n"
@@ -254,7 +321,9 @@ def update_manifest(technical_mod_name, display_name, version):
 
     for candidate in mods:
         if not isinstance(candidate, dict):
-            raise RuntimeError("Manifest contains a non-object mod entry.")
+            raise RuntimeError(
+                "Manifest contains a non-object mod entry."
+            )
 
         candidate_guid = candidate.get("guid")
 
@@ -351,13 +420,26 @@ def main():
         version,
         release_name,
         release_url,
+        published_at,
     ) = load_release()
+
+    print(
+        "Processing release "
+        + technical_mod_name
+        + " "
+        + version
+        + (
+            " (" + release_name + ")"
+            if release_name
+            else ""
+        )
+    )
 
     display_name = update_readme(
         technical_mod_name,
         version,
-        release_name,
         release_url,
+        published_at,
     )
 
     update_manifest(
