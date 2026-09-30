@@ -1,0 +1,282 @@
+<Database>
+    <GameDBAsset ID="HPO_ASSET_SAMPLE_CART">
+        <Type>TEXTURE_OBJECTS</Type>
+        <File>MOD_ROOT/Textures/Objects/SampleCart/HPO_sample_cart_atlas_16x8.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_SAMPLE_CART_ICON">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/sample_cart.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_DISABLED">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_disabled.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_LIGHT">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_light.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_WORKSPACE_EMPTY">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_workspace_empty.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_EMPLOYEES">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_employees.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_EMPLOYEES_DISABLED">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_employees_disabled.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_RIGHT_PANEL">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_right_panel.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_LEVEL_EMPTY">
+        <Type>TEXTURE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_level_empty.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_LEVEL_FULL">
+        <Type>TEXTURE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_level_full.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_LEVEL_EMPTY_LIGHT">
+        <Type>TEXTURE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_level_empty_light.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_LEVEL_FULL_LIGHT">
+        <Type>TEXTURE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_level_full_light.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_QUALIFICATION">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_qualification.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_QUALIFICATION_LIGHT">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_qualification_light.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_ACTIVE">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_active.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_DISABLED">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_disabled.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_ACTIVE">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_active.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_DISABLED">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_disabled.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_ACTIVE">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_workspace_active.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_ACTIVE_LIGHT">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_workspace_active_light.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_DISABLED">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_workspace_disabled.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_ACTIVE">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_workspace_active.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_ACTIVE_LIGHT">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_workspace_active_light.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_DISABLED">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_workspace_disabled.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_STATION">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_station.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_STATION_LOCKED">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_station_locked.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_STATION_FLOOR">
+        <Type>TEXTURE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_station_floor.png</File>
+    </GameDBAsset>
+
+    <GameDBObject ID="HPO_OBJECT_SAMPLE_CART">
+        <AbbreviationLocID>L75_HPO_OBJECT_SAMPLE_CART_DESCRIPTION</AbbreviationLocID>
+        <TextureRef>HPO_ASSET_SAMPLE_CART</TextureRef>
+        <TextureAtlasLayout>LAYOUT_16_X_8</TextureAtlasLayout>
+        <SpriteShape>SHAPE_1_X_1</SpriteShape>
+        <TextureIDNW>0</TextureIDNW>
+        <TextureIDNE>1</TextureIDNE>
+        <TextureIDSE>2</TextureIDSE>
+        <TextureIDSW>3</TextureIDSW>
+        <IconIndex>791</IconIndex>
+        <CustomIconAssetRef>HPO_ASSET_SAMPLE_CART_ICON</CustomIconAssetRef>
+
+        <AttachedToCharacterDirection>NW</AttachedToCharacterDirection>
+        <AttachedToCharacterOffsetX>0.7</AttachedToCharacterOffsetX>
+
+        <UseOffsetXNW>-0.7</UseOffsetXNW>
+        <UseOffsetYNW>0.0</UseOffsetYNW>
+
+        <AccessPositions>
+            <AccessPosition>
+                <m_x>-1</m_x>
+                <m_y>0</m_y>
+            </AccessPosition>
+        </AccessPositions>
+
+        <PlacedToEdge>false</PlacedToEdge>
+        <AttachedToWall>false</AttachedToWall>
+        <NonBlocking>true</NonBlocking>
+        <Placement>INDOORS</Placement>
+
+        <Tags>
+            <Tag>ui_furniture</Tag>
+            <Tag>porter_sample_cart</Tag>
+            <Tag>ui_porter_sample_cart</Tag>
+        </Tags>
+
+        <Cost>99</Cost>
+    </GameDBObject>
+
+    <GameDBNotification ID="HPO_NOTIF_NOT_ENOUGH_SAMPLE_CARTS">
+        <TextLocID>L75_HPO_NOTIF_NOT_ENOUGH_SAMPLE_CARTS_TEXT</TextLocID>
+        <DefaultMessageLevel>POPUP</DefaultMessageLevel>
+        <PopupButtonActionA>POPUP_HIDDEN_BUTTON</PopupButtonActionA>
+        <PopupButtonActionB>POPUP_HIDDEN_BUTTON</PopupButtonActionB>
+        <PopupButtonActionC>POPUP_OK</PopupButtonActionC>
+        <DefaultColorRef>NOTIF_COLOR_YELLOW</DefaultColorRef>
+    </GameDBNotification>
+
+    <GameDBClothingStyle ID="HPO_CLTHSTL_MALE_PORTER">
+        <CompatibleGenders>
+            <GameDBGenderRef>GENDER_MALE</GameDBGenderRef>
+        </CompatibleGenders>
+        <AllowedTops>
+            <GameDBClothesRef>CLOTHES_MALE_MEDICAL_TSHIRT</GameDBClothesRef>
+        </AllowedTops>
+        <AllowedBottoms>
+            <GameDBClothesRef>CLOTHES_MALE_DOCTORS_PANTS</GameDBClothesRef>
+        </AllowedBottoms>
+        <AllowedShoes>
+            <GameDBClothesRef>CLOTHES_MALE_DOCTORS_SLIPPERS</GameDBClothesRef>
+        </AllowedShoes>
+        <ColorRangeSettingsA>CLRRNGSTTNGS_PARAMEDIC</ColorRangeSettingsA>
+        <ColorRangeSettingsB>CLRRNGSTTNGS_PARAMEDIC</ColorRangeSettingsB>
+    </GameDBClothingStyle>
+
+    <GameDBClothingStyle ID="HPO_CLTHSTL_FEMALE_PORTER">
+        <CompatibleGenders>
+            <GameDBGenderRef>GENDER_FEMALE</GameDBGenderRef>
+        </CompatibleGenders>
+        <AllowedTops>
+            <GameDBClothesRef>CLOTHES_FEMALE_TSHIRT_MEDICAL</GameDBClothesRef>
+        </AllowedTops>
+        <AllowedBottoms>
+            <GameDBClothesRef>CLOTHES_FEMALE_PANTS_DEFAULT</GameDBClothesRef>
+        </AllowedBottoms>
+        <AllowedShoes>
+            <GameDBClothesRef>CLOTHES_FEMALE_SHOES_DEFAULT</GameDBClothesRef>
+        </AllowedShoes>
+        <ColorRangeSettingsA>CLRRNGSTTNGS_PARAMEDIC</ColorRangeSettingsA>
+        <ColorRangeSettingsB>CLRRNGSTTNGS_PARAMEDIC</ColorRangeSettingsB>
+    </GameDBClothingStyle>
+
+    <GameDBOccupation ID="HPO_OCCUPATION_PORTER">
+        <IncompatibleAgeCategories>
+            <AgeCategoryRef>AGE_SENIOR</AgeCategoryRef>
+        </IncompatibleAgeCategories>
+        <CompatibleClothingStyles>
+            <ClothingStyleRef>HPO_CLTHSTL_MALE_PORTER</ClothingStyleRef>
+            <ClothingStyleRef>HPO_CLTHSTL_FEMALE_PORTER</ClothingStyleRef>
+        </CompatibleClothingStyles>
+        <CanBeGenerated>false</CanBeGenerated>
+        <SalaryBase>27</SalaryBase>
+        <SalaryPerLevel>41</SalaryPerLevel>
+        <SalaryHiredExtraPerLevelMin>10</SalaryHiredExtraPerLevelMin>
+        <SalaryHiredExtraPerLevelMax>50</SalaryHiredExtraPerLevelMax>
+    </GameDBOccupation>
+
+    <GameDBSkill ID="HPO_SKILL_PORTER_QUALIFICATION">
+        <AbbreviationLocID>L75_HPO_SKILL_PORTER_QUALIFICATION_DESCRIPTION</AbbreviationLocID>
+        <IconIndex>2418</IconIndex>
+        <CustomIconAssetRef>HPO_ASSET_PORTER_QUALIFICATION</CustomIconAssetRef>
+        <CustomIconLightBackgroundAssetRef>HPO_ASSET_PORTER_QUALIFICATION_LIGHT</CustomIconLightBackgroundAssetRef>
+    </GameDBSkill>
+
+    <GameDBRoomType ID="HPO_ROOM_TYPE_PORTER_STATION">
+        <AbbreviationLocID>L75_HPO_ROOM_TYPE_PORTER_STATION_DESCRIPTION</AbbreviationLocID>
+        <TextureID>396</TextureID>
+        <IconIndex>824</IconIndex>
+        <AccessRights>STAFF</AccessRights>
+
+        <RequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_pc</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_office_desk</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_chair_office</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_locker</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_porter_sample_cart</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_stretcher</Tag><MinCount>0</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_wheelchair</Tag><MinCount>0</MinCount></GameDBRequiredEquipment>
+        </RequiredEquipment>
+
+        <BuildingModeFilters>
+            <Tag>ui_pc</Tag>
+            <Tag>ui_office_desk</Tag>
+            <Tag>ui_chair_office</Tag>
+            <Tag>ui_locker</Tag>
+            <Tag>ui_stretcher</Tag>
+            <Tag>ui_wheelchair</Tag>
+            <Tag>ui_porter_sample_cart</Tag>
+            <Tag>ui_cabinets_equipment</Tag>
+            <Tag>ui_decorations</Tag>
+        </BuildingModeFilters>
+
+        <Tags>
+            <Tag>porter_workspace</Tag>
+            <Tag>hospitalization_workspace</Tag>
+        </Tags>
+
+        <RequiredSkill>HPO_SKILL_PORTER_QUALIFICATION</RequiredSkill>
+
+        <MinWidth>4</MinWidth>
+        <MinHeight>3</MinHeight>
+        <LockedByDefault>false</LockedByDefault>
+    </GameDBRoomType>
+
+    <GameDBEmployeeRole ID="HPO_EMPL_ROLE_PATIENT_TRANSPORT">
+        <FlagBit>65536</FlagBit>
+        <Icon>2418</Icon>
+        <AllowedOccupations>
+            <OccupationRef>HPO_OCCUPATION_PORTER</OccupationRef>
+        </AllowedOccupations>
+        <AlwaysChecked>false</AlwaysChecked>
+        <OnlyHospitalization>true</OnlyHospitalization>
+        <ForceWorkSpace>true</ForceWorkSpace>
+        <ForceWorkSpaceTag>porter_workspace</ForceWorkSpaceTag>
+    </GameDBEmployeeRole>
+
+    <GameDBEmployeeRole ID="HPO_EMPL_ROLE_SAMPLE_TRANSPORT">
+        <FlagBit>131072</FlagBit>
+        <Icon>2406</Icon>
+        <AllowedOccupations>
+            <OccupationRef>HPO_OCCUPATION_PORTER</OccupationRef>
+        </AllowedOccupations>
+        <AlwaysChecked>false</AlwaysChecked>
+        <OnlyHospitalization>true</OnlyHospitalization>
+        <ForceWorkSpace>true</ForceWorkSpace>
+        <ForceWorkSpaceTag>porter_workspace</ForceWorkSpaceTag>
+    </GameDBEmployeeRole>
+</Database>
