@@ -55,9 +55,8 @@ namespace HospitalTrafficControl
         }
 
         // Writes happen on Unity's main thread. PathfinderJob workers only read
-        // the latest immutable array snapshot. No lock/Monitor is used because
-        // Project Hospital's old Mono lacks the Monitor.Enter overload emitted by
-        // the compiler used for the previous implementation.
+        // the latest immutable array snapshot. Avoid lock patterns that can emit
+        // Monitor.Enter overloads unavailable on Project Hospital's Mono runtime.
         private static volatile DoorRule[] s_rules = new DoorRule[0];
         private static int s_revision;
 

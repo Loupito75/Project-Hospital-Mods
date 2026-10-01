@@ -8,10 +8,10 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 
-    <Version>1.2.0</Version>
-    <AssemblyVersion>1.2.0</AssemblyVersion>
-    <FileVersion>1.2.0</FileVersion>
-    <InformationalVersion>1.2.0</InformationalVersion>
+    <Version>1.3.0</Version>
+    <AssemblyVersion>1.3.0</AssemblyVersion>
+    <FileVersion>1.3.0</FileVersion>
+    <InformationalVersion>1.3.0</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Traffic Control</Product>
@@ -32,7 +32,8 @@
     <Compile Include="JanitorCleaningManager.cs" />
     <Compile Include="LocalizationManager.cs" />
     <Compile Include="NavigationChangeTracker.cs" />
-    <Compile Include="NotificationPreferences.cs" />
+    <Compile Include="HtcDatabase.cs" />
+    <Compile Include="NotificationPreferenceMigration.cs" />
     <Compile Include="NotificationService.cs" />
     <Compile Include="OneWayDirectionHelper.cs" />
     <Compile Include="OneWayDoorGroup.cs" />
@@ -47,6 +48,7 @@
     <Compile Include="PathfindingDebugMarkerRenderer.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="RoomTransitManager.cs" />
+    <Compile Include="RuntimeStateManager.cs" />
     <Compile Include="TrafficControlConfig.cs" />
     <Compile Include="Patches\AccessAwareElevatorPatch.cs" />
     <Compile Include="Patches\AccessRightsChangedPatch.cs" />
@@ -57,13 +59,13 @@
     <Compile Include="Patches\CrossFloorPathPatch.cs" />
     <Compile Include="Patches\JanitorCleaningPatch.cs" />
     <Compile Include="Patches\NoPathPatch.cs" />
-    <Compile Include="Patches\NotificationOptionsPatch.cs" />
+    <Compile Include="Patches\DatabaseReadFilesPatch.cs" />
+    <Compile Include="Patches\PlayerProfileLoadPatch.cs" />
     <Compile Include="Patches\OneWayAccessPatch.cs" />
     <Compile Include="Patches\OneWayManagementClickPatch.cs" />
     <Compile Include="Patches\OneWayPathfinderJobPatch.cs" />
     <Compile Include="Patches\OneWayPersistencePatch.cs" />
     <Compile Include="Patches\RoomMovementCostPatch.cs" />
-    <Compile Include="Patches\RuntimeNotificationProfilePatch.cs" />
     <Compile Include="Patches\StrictFallbackPatch.cs" />
     <Compile Include="Patches\StringTablePatch.cs" />
     <Compile Include="Patches\VisitorAccessSelectionPatch.cs" />
@@ -71,6 +73,7 @@
 
   <ItemGroup>
     <None Include="Loupito75.HospitalTrafficControl.Config.xml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Database\HTCNotifications.xml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -121,9 +124,12 @@
 
   <Target Name="CopyPluginToGame" AfterTargets="Build">
     <MakeDir Directories="$(PluginDir)" />
+    <MakeDir Directories="$(PluginDir)\Database" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Loupito75.HospitalTrafficControl.Config.xml"
           DestinationFolder="$(PluginDir)"
           Condition="!Exists('$(PluginDir)\Loupito75.HospitalTrafficControl.Config.xml')" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Database\HTCNotifications.xml"
+          DestinationFolder="$(PluginDir)\Database" />
   </Target>
 </Project>

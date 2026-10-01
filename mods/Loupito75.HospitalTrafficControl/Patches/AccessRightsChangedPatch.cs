@@ -56,6 +56,20 @@ namespace HospitalTrafficControl.Patches
                     " result=prepared-before-native-recalculate.");
             }
 
+            bool accessGraphChanged =
+                accessChange != null || roomAccessChangedDuringRebuild;
+
+            if (accessGraphChanged &&
+                TrafficControlConfig.PathfindingDebug)
+            {
+                // Existing markers describe the graph that produced the previous
+                // NoPath. An access-rights edit invalidates that diagnosis immediately.
+                // If the replacement routes still fail, the normal NoPath flow will
+                // publish fresh causal markers from the rebuilt graph.
+                PathfindingDebugMarkerRenderer.ClearMarkersForFloor(
+                    __instance.m_floorIndex);
+            }
+
             if (accessChange != null)
             {
                 AccessZoneRecoveryManager.HandleAccessRightsChanged(

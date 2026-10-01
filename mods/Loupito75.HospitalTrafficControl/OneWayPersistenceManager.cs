@@ -254,7 +254,7 @@ namespace HospitalTrafficControl
                     : tileWalls?.m_doorSE;
 
                 // Windows share the Door entity type in Project Hospital, but their
-                // GameDBDoor is non-passable. Ignore stale 0.9.0 rules on them.
+                // GameDBDoor is non-passable. Ignore persisted rules targeting them.
                 if (!OneWayDoorGroup.IsEligible(door))
                 {
                     continue;

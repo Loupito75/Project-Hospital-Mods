@@ -12,7 +12,7 @@ namespace HospitalTrafficControl
         public const string HarmonyId = "Loupito75:HospitalTrafficControl";
         public const string PluginName = "Hospital Traffic Control";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "1.3.0";
 
         internal static ManualLogSource Log { get; private set; }
 
@@ -86,9 +86,7 @@ namespace HospitalTrafficControl
 
         private void OnDestroy()
         {
-            OneWayIndicatorRenderer.Reset();
-            PathfindingDebugMarkerRenderer.Reset();
-            AccessZoneRecoveryManager.Reset();
+            RuntimeStateManager.Reset();
             _harmony?.UnpatchSelf();
 
             if (_formattedLog != null)

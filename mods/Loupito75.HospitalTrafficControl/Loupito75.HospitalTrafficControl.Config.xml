@@ -19,6 +19,9 @@
     <!-- false = vanilla cleaning; true = avoid short-procedure rooms while the procedure patient is inside. Hospitalization rooms remain cleanable; operating rooms are protected when reserved or active. -->
     <AvoidCleaningActiveProcedureRooms>false</AvoidCleaningActiveProcedureRooms>
 
+    <!-- false = vanilla cleaning; true = janitors do not select or enter a WC room while a bladder-need user is physically inside; a distant WC reservation alone does not block cleaning. -->
+    <AvoidCleaningOccupiedBathrooms>false</AvoidCleaningOccupiedBathrooms>
+
     <!-- false = vanilla hospitalization-room priority; true = at night, prefer other work before ordinary cleaning in occupied hospitalization rooms; blood remains urgent. -->
     <ReduceOccupiedHospitalizationCleaningAtNight>false</ReduceOccupiedHospitalizationCleaningAtNight>
   </JanitorCleaning>

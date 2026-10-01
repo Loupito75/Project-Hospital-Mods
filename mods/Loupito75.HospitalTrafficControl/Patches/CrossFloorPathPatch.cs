@@ -19,6 +19,14 @@ namespace HospitalTrafficControl.Patches
         [ThreadStatic]
         private static DLCProcedureLoungeVisit s_pendingLoungeVisit;
 
+        internal static void Reset()
+        {
+            s_activatingRoomVisit = null;
+            s_activatingLoungeVisit = null;
+            s_pendingRoomVisit = null;
+            s_pendingLoungeVisit = null;
+        }
+
         internal static void BeginRoomVisit(DLCProcedureRoomVisit procedure)
         {
             s_activatingRoomVisit = procedure;

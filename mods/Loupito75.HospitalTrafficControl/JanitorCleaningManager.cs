@@ -24,10 +24,9 @@ namespace HospitalTrafficControl
         private static bool s_missingNativeMethodLogged;
         private static bool s_nativeInvocationErrorLogged;
 
-        internal static bool TryInterruptActiveProcedureRoom(BehaviorJanitor janitor)
+        internal static bool TryInterruptProtectedCleaningRoom(BehaviorJanitor janitor)
         {
-            if (!TrafficControlConfig.AvoidCleaningActiveProcedureRooms ||
-                janitor == null ||
+            if (janitor == null ||
                 janitor.m_state == null ||
                 janitor.m_entity == null ||
                 janitor.m_state.m_janitorState != BehaviorJanitorState.Cleaning)
@@ -49,19 +48,158 @@ namespace HospitalTrafficControl
                     walk.GetFloorIndex());
             }
 
-            // Never use the selector cache here. This check runs while the janitor is
-            // cleaning and must always see a patient who has just entered the room.
-            if (!HasActiveProcedure(room))
+            // This check is intentionally fresh. A patient or staff member can enter
+            // a protected room after the janitor selected it.
+            if (!ShouldAvoidRoomFresh(room))
             {
                 return false;
             }
 
-            // Movement and cart placement stay completely native. By waiting for the
-            // Cleaning state, HTC only intervenes after the janitor has finished walking.
             ReleaseRoomReservation(janitor, room);
             ReleaseReservedTile(janitor, walk);
             janitor.m_state.m_room = null;
 
+            return ReselectJanitor(janitor);
+        }
+
+        internal static bool TryInterruptOccupiedBathroomBeforeRoomTravel(
+            BehaviorJanitor janitor)
+        {
+            if (!TrafficControlConfig.AvoidCleaningOccupiedBathrooms ||
+                janitor == null ||
+                janitor.m_state == null ||
+                janitor.m_entity == null ||
+                janitor.m_state.m_janitorState !=
+                    BehaviorJanitorState.WalkingToCartToNextRoom)
+            {
+                return false;
+            }
+
+            Room room = janitor.m_state.m_room == null
+                ? null
+                : janitor.m_state.m_room.GetEntity();
+
+            if (!IsOccupiedBathroom(room))
+            {
+                return false;
+            }
+
+            WalkComponent walk = janitor.GetComponent<WalkComponent>();
+            ReleaseRoomReservation(janitor, room);
+            ReleaseReservedTile(janitor, walk);
+            janitor.m_state.m_room = null;
+
+            return ReselectJanitor(janitor);
+        }
+
+        internal static bool TryHandleOccupiedBathroomRoomTravel(
+            BehaviorJanitor janitor)
+        {
+            if (!TrafficControlConfig.AvoidCleaningOccupiedBathrooms ||
+                janitor == null ||
+                janitor.m_state == null ||
+                janitor.m_entity == null ||
+                janitor.m_state.m_janitorState !=
+                    BehaviorJanitorState.WalkingToNextRoom)
+            {
+                return false;
+            }
+
+            Room room = janitor.m_state.m_room == null
+                ? null
+                : janitor.m_state.m_room.GetEntity();
+            WalkComponent walk = janitor.GetComponent<WalkComponent>();
+
+            if (room == null || walk == null)
+            {
+                return false;
+            }
+
+            bool janitorInside = IsEntityPhysicallyInsideRoom(
+                janitor.m_entity,
+                room);
+
+            if (IsOccupiedBathroom(room))
+            {
+                ReleaseRoomReservation(janitor, room);
+
+                if (janitorInside)
+                {
+                    janitor.m_state.m_room = null;
+
+                    if (IsCartAttached(janitor))
+                    {
+                        walk.SetDestination(
+                            janitor.m_state.m_cartHomeTile,
+                            janitor.m_state.m_cartHomeFloorIndex);
+                        janitor.SwitchState(BehaviorJanitorState.ReturningCart);
+                        return true;
+                    }
+
+                    return ReselectJanitor(janitor);
+                }
+
+                // Stop before entering the occupied WC room. Keep the selected room
+                // pointer so the native trip can resume when the user leaves.
+                if (walk.IsBusy())
+                {
+                    walk.SetDestination(
+                        walk.GetCurrentTile(),
+                        walk.GetFloorIndex());
+                }
+
+                return true;
+            }
+
+            // A janitor paused outside an occupied WC is still in WalkingToNextRoom
+            // with an idle WalkComponent. Resume the same native room trip once free.
+            if (!walk.IsBusy() && !janitorInside)
+            {
+                Vector2i destination;
+                if (IsCartAttached(janitor))
+                {
+                    destination = MapScriptInterface.Instance.FindClosest3x3Area(
+                        walk.GetCurrentTile(),
+                        room);
+
+                    if (destination == Vector2i.ZERO_VECTOR)
+                    {
+                        janitor.m_state.m_room = null;
+                        walk.SetDestination(
+                            janitor.m_state.m_cartHomeTile,
+                            janitor.m_state.m_cartHomeFloorIndex);
+                        janitor.SwitchState(BehaviorJanitorState.ReturningCart);
+                        return true;
+                    }
+
+                    janitor.m_state.m_cartAvailable = true;
+                }
+                else
+                {
+                    destination =
+                        MapScriptInterface.Instance.FindDirtiestTileInARoom(room);
+
+                    if (destination == Vector2i.ZERO_VECTOR)
+                    {
+                        ReleaseRoomReservation(janitor, room);
+                        janitor.m_state.m_room = null;
+                        return ReselectJanitor(janitor);
+                    }
+
+                    janitor.m_state.m_cartAvailable = false;
+                }
+
+                room.m_roomPersistentData.m_reservedByCharacter =
+                    janitor.m_entity;
+                walk.SetDestination(destination, room.GetFloorIndex());
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool ReselectJanitor(BehaviorJanitor janitor)
+        {
             if (InvokeBool(TryToSelectTileInARoomMethod, janitor, null))
             {
                 return true;
@@ -75,12 +213,21 @@ namespace HospitalTrafficControl
                 return true;
             }
 
-            if (InvokeVoid(GoReturnCartMethod, janitor, null))
-            {
-                return true;
-            }
+            return InvokeVoid(GoReturnCartMethod, janitor, null);
+        }
 
-            return false;
+        private static bool IsCartAttached(BehaviorJanitor janitor)
+        {
+            TileObject cart =
+                janitor == null ||
+                janitor.m_state == null ||
+                janitor.m_state.m_cart == null
+                    ? null
+                    : janitor.m_state.m_cart.GetEntity();
+
+            return cart != null &&
+                   cart.m_state != null &&
+                   cart.m_state.m_attachedToCharacter;
         }
 
         internal static Vector3i FindDirtiestTileInRoomWithMatchingAssignmentAnyFloor(
@@ -88,36 +235,56 @@ namespace HospitalTrafficControl
             Department department,
             int threshold)
         {
-            float highestDirt = 0f;
-            Vector2i selectedPosition = Vector2i.ZERO_VECTOR;
-            int selectedFloor = 0;
+            return FindDirtiestRoomTile(
+                behaviorJanitor,
+                department,
+                threshold,
+                true);
+        }
 
-            if (behaviorJanitor == null ||
-                behaviorJanitor.m_state == null ||
-                department == null)
+        internal static Vector3i FindDirtiestTileInAnyUnreservedRoomAnyFloor(
+            Department department,
+            int threshold)
+        {
+            return FindDirtiestRoomTile(
+                null,
+                department,
+                threshold,
+                false);
+        }
+
+        private static Vector3i FindDirtiestRoomTile(
+            BehaviorJanitor behaviorJanitor,
+            Department department,
+            int threshold,
+            bool respectAssignments)
+        {
+            if (department == null ||
+                (respectAssignments &&
+                 (behaviorJanitor == null || behaviorJanitor.m_state == null)))
             {
                 return new Vector3i(0, 0, 0);
             }
 
-            // The protection state is room-wide. Reuse it between the native-style
-            // blood pass and regular dirt pass, then discard the cache when this scan ends.
-            Dictionary<Room, bool> procedureRoomCache = new Dictionary<Room, bool>();
+            Dictionary<Room, bool> procedureRoomCache =
+                new Dictionary<Room, bool>();
+            Dictionary<Room, bool> bathroomRoomCache =
+                new Dictionary<Room, bool>();
 
-            foreach (EntityIDPointer<Room> roomPointer in department.m_departmentPersistentData.m_rooms)
+            float highestDirt = 0f;
+            Vector2i selectedPosition = Vector2i.ZERO_VECTOR;
+            int selectedFloor = 0;
+
+            foreach (EntityIDPointer<Room> roomPointer in
+                     department.m_departmentPersistentData.m_rooms)
             {
                 Room room = roomPointer.GetEntity();
-                if (room == null || room.m_roomPersistentData == null)
-                {
-                    continue;
-                }
-
-                bool assignedToJanitor = behaviorJanitor.m_state.m_assignedRooms.Contains(room);
-                bool unrestrictedAssignments =
-                    room.m_roomPersistentData.m_assignedJanitors.Count == 0 &&
-                    behaviorJanitor.m_state.m_assignedRooms.Count == 0;
-
-                if ((!assignedToJanitor && !unrestrictedAssignments) ||
-                    ShouldAvoidActiveProcedureCached(room, procedureRoomCache))
+                if (!IsEligibleRoom(
+                        behaviorJanitor,
+                        room,
+                        respectAssignments,
+                        procedureRoomCache,
+                        bathroomRoomCache))
                 {
                     continue;
                 }
@@ -138,14 +305,14 @@ namespace HospitalTrafficControl
                             floor.m_tileObjects[x, y].GetAllObjects().Count == 0 &&
                             floor.m_accessibility[x, y] != 2)
                         {
-                            highestDirt = floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel;
+                            highestDirt =
+                                floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel;
                             selectedPosition = new Vector2i(x, y);
                             selectedFloor = room.GetFloorIndex();
                         }
                     }
                 }
 
-                // Preserve the native priority: blood in the first eligible room wins.
                 if (highestDirt > 0f)
                 {
                     return new Vector3i(
@@ -161,21 +328,16 @@ namespace HospitalTrafficControl
             Vector2i deferredPosition = Vector2i.ZERO_VECTOR;
             int deferredFloor = 0;
 
-            foreach (EntityIDPointer<Room> roomPointer in department.m_departmentPersistentData.m_rooms)
+            foreach (EntityIDPointer<Room> roomPointer in
+                     department.m_departmentPersistentData.m_rooms)
             {
                 Room room = roomPointer.GetEntity();
-                if (room == null || room.m_roomPersistentData == null)
-                {
-                    continue;
-                }
-
-                bool assignedToJanitor = behaviorJanitor.m_state.m_assignedRooms.Contains(room);
-                bool unrestrictedAssignments =
-                    room.m_roomPersistentData.m_assignedJanitors.Count == 0 &&
-                    behaviorJanitor.m_state.m_assignedRooms.Count == 0;
-
-                if ((!assignedToJanitor && !unrestrictedAssignments) ||
-                    ShouldAvoidActiveProcedureCached(room, procedureRoomCache))
+                if (!IsEligibleRoom(
+                        behaviorJanitor,
+                        room,
+                        respectAssignments,
+                        procedureRoomCache,
+                        bathroomRoomCache))
                 {
                     continue;
                 }
@@ -190,7 +352,9 @@ namespace HospitalTrafficControl
                          y <= room.m_roomPersistentData.m_positionTop.m_y;
                          y++)
                     {
-                        float dirtLevel = floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel;
+                        float dirtLevel =
+                            floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel;
+
                         if (dirtLevel <= (float)threshold ||
                             floor.m_mapPersistentData.m_tiles[x, y].m_user != null ||
                             floor.m_roomTiles[x, y] == null ||
@@ -234,132 +398,35 @@ namespace HospitalTrafficControl
                 deferredFloor);
         }
 
-        internal static Vector3i FindDirtiestTileInAnyUnreservedRoomAnyFloor(
-            Department department,
-            int threshold)
+        private static bool IsEligibleRoom(
+            BehaviorJanitor behaviorJanitor,
+            Room room,
+            bool respectAssignments,
+            Dictionary<Room, bool> procedureRoomCache,
+            Dictionary<Room, bool> bathroomRoomCache)
         {
-            float highestDirt = 0f;
-            Vector2i selectedPosition = Vector2i.ZERO_VECTOR;
-            int selectedFloor = 0;
-
-            if (department == null)
+            if (room == null ||
+                room.m_roomPersistentData == null ||
+                ShouldAvoidRoomCached(
+                    room,
+                    procedureRoomCache,
+                    bathroomRoomCache))
             {
-                return new Vector3i(0, 0, 0);
+                return false;
             }
 
-            Dictionary<Room, bool> procedureRoomCache = new Dictionary<Room, bool>();
-
-            foreach (EntityIDPointer<Room> roomPointer in department.m_departmentPersistentData.m_rooms)
+            if (!respectAssignments)
             {
-                Room room = roomPointer.GetEntity();
-                if (room == null ||
-                    room.m_roomPersistentData == null ||
-                    ShouldAvoidActiveProcedureCached(room, procedureRoomCache))
-                {
-                    continue;
-                }
-
-                Floor floor = Hospital.Instance.m_floors[room.GetFloorIndex()];
-                for (int x = room.m_roomPersistentData.m_positionBottom.m_x;
-                     x <= room.m_roomPersistentData.m_positionTop.m_x;
-                     x++)
-                {
-                    for (int y = room.m_roomPersistentData.m_positionBottom.m_y;
-                         y <= room.m_roomPersistentData.m_positionTop.m_y;
-                         y++)
-                    {
-                        if (floor.m_mapPersistentData.m_tiles[x, y].m_dirtType == DirtType.BLOOD &&
-                            floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel > highestDirt &&
-                            floor.m_roomTiles[x, y] != null &&
-                            floor.m_roomTiles[x, y].m_roomPersistentData.m_reservedByCharacter == null &&
-                            floor.m_tileObjects[x, y].GetAllObjects().Count == 0 &&
-                            floor.m_accessibility[x, y] != 2)
-                        {
-                            highestDirt = floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel;
-                            selectedPosition = new Vector2i(x, y);
-                            selectedFloor = room.GetFloorIndex();
-                        }
-                    }
-                }
-
-                // Preserve the native priority: blood in the first eligible room wins.
-                if (highestDirt > 0f)
-                {
-                    return new Vector3i(
-                        selectedPosition.m_x,
-                        selectedPosition.m_y,
-                        selectedFloor);
-                }
+                return true;
             }
 
-            selectedPosition = Vector2i.ZERO_VECTOR;
-            highestDirt = 0f;
-            float deferredHighestDirt = 0f;
-            Vector2i deferredPosition = Vector2i.ZERO_VECTOR;
-            int deferredFloor = 0;
+            bool assignedToJanitor =
+                behaviorJanitor.m_state.m_assignedRooms.Contains(room);
+            bool unrestrictedAssignments =
+                room.m_roomPersistentData.m_assignedJanitors.Count == 0 &&
+                behaviorJanitor.m_state.m_assignedRooms.Count == 0;
 
-            foreach (EntityIDPointer<Room> roomPointer in department.m_departmentPersistentData.m_rooms)
-            {
-                Room room = roomPointer.GetEntity();
-                if (room == null ||
-                    room.m_roomPersistentData == null ||
-                    ShouldAvoidActiveProcedureCached(room, procedureRoomCache))
-                {
-                    continue;
-                }
-
-                bool deferRoom = ShouldDeferOrdinaryCleaning(room);
-                Floor floor = Hospital.Instance.m_floors[room.GetFloorIndex()];
-                for (int x = room.m_roomPersistentData.m_positionBottom.m_x;
-                     x <= room.m_roomPersistentData.m_positionTop.m_x;
-                     x++)
-                {
-                    for (int y = room.m_roomPersistentData.m_positionBottom.m_y;
-                         y <= room.m_roomPersistentData.m_positionTop.m_y;
-                         y++)
-                    {
-                        float dirtLevel = floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel;
-                        if (dirtLevel <= (float)threshold ||
-                            floor.m_mapPersistentData.m_tiles[x, y].m_user != null ||
-                            floor.m_roomTiles[x, y] == null ||
-                            floor.m_roomTiles[x, y].m_roomPersistentData.m_reservedByCharacter != null ||
-                            floor.m_tileObjects[x, y].GetAllObjects().Count != 0 ||
-                            floor.m_accessibility[x, y] == 2)
-                        {
-                            continue;
-                        }
-
-                        if (deferRoom)
-                        {
-                            if (dirtLevel > deferredHighestDirt)
-                            {
-                                deferredHighestDirt = dirtLevel;
-                                deferredPosition = new Vector2i(x, y);
-                                deferredFloor = room.GetFloorIndex();
-                            }
-                        }
-                        else if (dirtLevel > highestDirt)
-                        {
-                            highestDirt = dirtLevel;
-                            selectedPosition = new Vector2i(x, y);
-                            selectedFloor = room.GetFloorIndex();
-                        }
-                    }
-                }
-            }
-
-            if (selectedPosition != Vector2i.ZERO_VECTOR)
-            {
-                return new Vector3i(
-                    selectedPosition.m_x,
-                    selectedPosition.m_y,
-                    selectedFloor);
-            }
-
-            return new Vector3i(
-                deferredPosition.m_x,
-                deferredPosition.m_y,
-                deferredFloor);
+            return assignedToJanitor || unrestrictedAssignments;
         }
 
         internal static Vector2i FindClosestDirtyIndoorsTile(
@@ -374,6 +441,7 @@ namespace HospitalTrafficControl
             // The vanilla fallback scans the floor twice (blood, then regular dirt).
             // Cache only the room-wide HTC decision during this one call.
             Dictionary<Room, bool> procedureRoomCache = new Dictionary<Room, bool>();
+            Dictionary<Room, bool> bathroomRoomCache = new Dictionary<Room, bool>();
             Dictionary<Room, bool> nightCleaningCache = new Dictionary<Room, bool>();
 
             for (int x = 0; x < floor.Size.m_x; x++)
@@ -390,7 +458,10 @@ namespace HospitalTrafficControl
                         floor.m_mapPersistentData.m_tiles[x, y].m_user == null &&
                         floor.m_mapPersistentData.m_foundationsLayer.m_foundations[x, y] == 2 &&
                         !floor.m_tileObjects[x, y].IsAnyObjectBlocking() &&
-                        !ShouldAvoidActiveProcedureCached(floor.m_roomTiles[x, y], procedureRoomCache))
+                        !ShouldAvoidRoomCached(
+                            floor.m_roomTiles[x, y],
+                            procedureRoomCache,
+                            bathroomRoomCache))
                     {
                         closestDistance = distance;
                         selectedPosition = new Vector2i(x, y);
@@ -419,7 +490,10 @@ namespace HospitalTrafficControl
                         floor.m_mapPersistentData.m_tiles[x, y].m_user != null ||
                         floor.m_mapPersistentData.m_foundationsLayer.m_foundations[x, y] != 2 ||
                         floor.m_tileObjects[x, y].IsAnyObjectBlocking() ||
-                        ShouldAvoidActiveProcedureCached(floor.m_roomTiles[x, y], procedureRoomCache))
+                        ShouldAvoidRoomCached(
+                            floor.m_roomTiles[x, y],
+                            procedureRoomCache,
+                            bathroomRoomCache))
                     {
                         continue;
                     }
@@ -494,6 +568,107 @@ namespace HospitalTrafficControl
 
             Floor floor = Hospital.Instance.m_floors[floorIndex];
             return room.GetBedReservationPercent(floor) > 0f;
+        }
+
+        private static bool ShouldAvoidRoomFresh(Room room)
+        {
+            return (TrafficControlConfig.AvoidCleaningActiveProcedureRooms &&
+                    HasActiveProcedure(room)) ||
+                   (TrafficControlConfig.AvoidCleaningOccupiedBathrooms &&
+                    IsOccupiedBathroom(room));
+        }
+
+        private static bool ShouldAvoidRoomCached(
+            Room room,
+            Dictionary<Room, bool> procedureRoomCache,
+            Dictionary<Room, bool> bathroomRoomCache)
+        {
+            return ShouldAvoidActiveProcedureCached(
+                       room,
+                       procedureRoomCache) ||
+                   ShouldAvoidOccupiedBathroomCached(
+                       room,
+                       bathroomRoomCache);
+        }
+
+        private static bool ShouldAvoidOccupiedBathroomCached(
+            Room room,
+            Dictionary<Room, bool> bathroomRoomCache)
+        {
+            if (!TrafficControlConfig.AvoidCleaningOccupiedBathrooms ||
+                room == null)
+            {
+                return false;
+            }
+
+            bool occupied;
+            if (bathroomRoomCache != null &&
+                bathroomRoomCache.TryGetValue(room, out occupied))
+            {
+                return occupied;
+            }
+
+            occupied = IsOccupiedBathroom(room);
+
+            if (bathroomRoomCache != null)
+            {
+                bathroomRoomCache[room] = occupied;
+            }
+
+            return occupied;
+        }
+
+        internal static bool IsOccupiedBathroom(Room room)
+        {
+            if (room == null ||
+                room.m_roomPersistentData == null ||
+                room.m_roomPersistentData.m_roomType.Entry == null ||
+                !room.m_roomPersistentData.m_roomType.Entry.HasTag("wc"))
+            {
+                return false;
+            }
+
+            ProcedureManager procedureManager = ProcedureManager.GetInstance();
+            if (procedureManager == null ||
+                procedureManager.m_scriptEntities == null)
+            {
+                return false;
+            }
+
+            foreach (ProcedureScript script in procedureManager.m_scriptEntities)
+            {
+                ProcedureScriptNeedBladder bladderScript =
+                    script as ProcedureScriptNeedBladder;
+
+                if (bladderScript == null ||
+                    bladderScript.m_stateData == null ||
+                    !IsActiveBathroomState(bladderScript.m_stateData.m_state) ||
+                    bladderScript.m_stateData.m_procedureScene == null)
+                {
+                    continue;
+                }
+
+                Entity character =
+                    bladderScript.m_stateData.m_procedureScene.MainCharacter;
+
+                if (IsEntityPhysicallyInsideRoom(character, room))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsActiveBathroomState(string state)
+        {
+            return state == ProcedureScriptNeedBladder.STATE_GOING_TO_OBJECT ||
+                   state == ProcedureScriptNeedBladder.STATE_USING_OBJECT ||
+                   state == ProcedureScriptNeedBladder.STATE_GOING_TO_SINK ||
+                   state == ProcedureScriptNeedBladder.STATE_USING_SINK ||
+                   state == ProcedureScriptNeedBladder.STATE_USING_SINK_GERMAPHOBE ||
+                   state == ProcedureScriptNeedBladder.STATE_GOING_TO_DRYER ||
+                   state == ProcedureScriptNeedBladder.STATE_USING_DRYER;
         }
 
         private static bool ShouldAvoidActiveProcedureCached(
@@ -759,7 +934,7 @@ namespace HospitalTrafficControl
 
             s_missingNativeMethodLogged = true;
             Plugin.Log?.LogWarning(
-                "Janitor active-procedure avoidance could not resolve one or more native BehaviorJanitor methods.");
+                "Janitor protected-room handling could not resolve one or more native BehaviorJanitor methods.");
         }
 
         private static void LogNativeInvocationErrorOnce(Exception exception)
@@ -772,7 +947,7 @@ namespace HospitalTrafficControl
             s_nativeInvocationErrorLogged = true;
             Exception root = exception.InnerException ?? exception;
             Plugin.Log?.LogError(
-                "Janitor active-procedure avoidance failed while calling native BehaviorJanitor logic: " +
+                "Janitor protected-room handling failed while calling native BehaviorJanitor logic: " +
                 root.GetType().FullName + ": " + root.Message);
         }
     }

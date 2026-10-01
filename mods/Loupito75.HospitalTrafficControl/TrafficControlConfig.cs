@@ -12,6 +12,7 @@ namespace HospitalTrafficControl
         private const bool DefaultAvoidRoomShortcuts = false;
         private const float DefaultRoomTransitPenalty = 8f;
         private const bool DefaultAvoidCleaningActiveProcedureRooms = false;
+        private const bool DefaultAvoidCleaningOccupiedBathrooms = false;
         private const bool DefaultReduceOccupiedHospitalizationCleaningAtNight = false;
         private const bool DefaultReleaseToiletOwnerAfterUse = false;
         private const bool DefaultPathfindingDebug = false;
@@ -47,6 +48,7 @@ namespace HospitalTrafficControl
         internal static bool AvoidRoomShortcuts { get; private set; }
         internal static float RoomTransitPenalty { get; private set; }
         internal static bool AvoidCleaningActiveProcedureRooms { get; private set; }
+        internal static bool AvoidCleaningOccupiedBathrooms { get; private set; }
         internal static bool ReduceOccupiedHospitalizationCleaningAtNight { get; private set; }
         internal static bool ReleaseToiletOwnerAfterUse { get; private set; }
         internal static bool PathfindingDebug { get; private set; }
@@ -141,6 +143,19 @@ namespace HospitalTrafficControl
                 }
 
                 AvoidCleaningActiveProcedureRooms = parsedJanitorSetting;
+            }
+
+            string occupiedBathroomText = GetElementValue(xml, "AvoidCleaningOccupiedBathrooms");
+            if (!string.IsNullOrEmpty(occupiedBathroomText))
+            {
+                bool parsedOccupiedBathroomSetting;
+                if (!bool.TryParse(occupiedBathroomText.Trim(), out parsedOccupiedBathroomSetting))
+                {
+                    throw new FormatException(
+                        "AvoidCleaningOccupiedBathrooms must be true or false.");
+                }
+
+                AvoidCleaningOccupiedBathrooms = parsedOccupiedBathroomSetting;
             }
 
             string nightCleaningText = GetElementValue(xml, "ReduceOccupiedHospitalizationCleaningAtNight");
@@ -320,6 +335,7 @@ namespace HospitalTrafficControl
             AvoidRoomShortcuts = DefaultAvoidRoomShortcuts;
             RoomTransitPenalty = DefaultRoomTransitPenalty;
             AvoidCleaningActiveProcedureRooms = DefaultAvoidCleaningActiveProcedureRooms;
+            AvoidCleaningOccupiedBathrooms = DefaultAvoidCleaningOccupiedBathrooms;
             ReduceOccupiedHospitalizationCleaningAtNight = DefaultReduceOccupiedHospitalizationCleaningAtNight;
             ReleaseToiletOwnerAfterUse = DefaultReleaseToiletOwnerAfterUse;
             PathfindingDebug = DefaultPathfindingDebug;
