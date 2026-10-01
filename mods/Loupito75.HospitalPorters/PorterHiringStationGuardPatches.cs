@@ -8,10 +8,8 @@ namespace HospitalPorters
     {
         private static bool Prefix()
         {
-            // Suppress automatic Porter selections until the native
-            // OpenHiringCard transaction has fully completed. Do not emit locker warnings for
-            // those deliberately skipped intermediate attempts. The final authoritative
-            // selection runs with Depth == 0 and therefore uses this guard normally.
+            // Ignore intermediate Porter selections while OpenHiringCard is still running.
+            // The final selection runs at Depth == 0 and performs the normal station guard.
             if (Porter048HiringOpenState.Depth > 0)
             {
                 return true;

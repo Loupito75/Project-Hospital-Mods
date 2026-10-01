@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Reflection;
 using GLib;
 using HarmonyLib;
 using Lopital;
@@ -11,9 +9,6 @@ namespace HospitalPorters
 {
     internal static class Porter049HospitalizationHiringUi
     {
-        private static readonly FieldInfo StatesField =
-            AccessTools.Field(typeof(PorterHiringUi), "States");
-
         internal static void RefreshDisabledPorterFilter(HiringPanelController controller)
         {
             if (controller == null || HiringManager.Instance == null ||
@@ -41,7 +36,7 @@ namespace HospitalPorters
             }
 
             PorterHiringUi.EnsureButton(controller);
-            if (!TryGetState(controller, out PorterHiringUiState state) ||
+            if (!PorterHiringUi.TryGetState(controller, out PorterHiringUiState state) ||
                 state.Button == null || state.IconButton == null || state.CountText == null)
             {
                 return;
@@ -73,21 +68,6 @@ namespace HospitalPorters
                     }
                 }
             }
-        }
-
-        private static bool TryGetState(
-            HiringPanelController controller,
-            out PorterHiringUiState state)
-        {
-            state = null;
-            if (object.ReferenceEquals(StatesField, null))
-            {
-                return false;
-            }
-
-            Dictionary<HiringPanelController, PorterHiringUiState> states =
-                StatesField.GetValue(null) as Dictionary<HiringPanelController, PorterHiringUiState>;
-            return states != null && states.TryGetValue(controller, out state);
         }
 
         private static void PositionBesideNativeJanitor(

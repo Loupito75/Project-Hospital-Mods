@@ -8,7 +8,6 @@ namespace HospitalPorters
     internal static class PorterHiringIcons
     {
         internal const int PorterIcon = PorterVisuals.CategoryFallbackIcon;
-        internal const int SampleTransportIcon = 2406;
 
         internal static IconButtonController FindPorterButton(HiringPanelController controller)
         {

@@ -239,13 +239,13 @@ namespace HospitalPorters
                     return 0;
                 }
 
-                bool leftColumn = Mathf.Abs(leftRect.anchoredPosition.x - LeftColumn) <=
+                bool leftInLeftColumn = Mathf.Abs(leftRect.anchoredPosition.x - LeftColumn) <=
                     PositionTolerance;
-                bool rightColumn = Mathf.Abs(rightRect.anchoredPosition.x - LeftColumn) <=
+                bool rightInLeftColumn = Mathf.Abs(rightRect.anchoredPosition.x - LeftColumn) <=
                     PositionTolerance;
-                if (leftColumn != rightColumn)
+                if (leftInLeftColumn != rightInLeftColumn)
                 {
-                    return leftColumn ? -1 : 1;
+                    return leftInLeftColumn ? -1 : 1;
                 }
 
                 if (Mathf.Abs(leftRect.anchoredPosition.y - rightRect.anchoredPosition.y) >

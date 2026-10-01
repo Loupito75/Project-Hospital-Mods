@@ -317,14 +317,26 @@ namespace HospitalPorters
             TileObject seat = PorterIdleResting.GetCurrentSeat(walk);
             TileObject pc = null;
 
-            if (walk != null &&
+            bool restingAtManagedIdleSeat =
+                walk != null &&
                 walk.IsSitting() &&
                 seat != null &&
                 seat.User == porter &&
+                PorterIdleResting.IsRestingAtValidIdlePlace(
+                    porter,
+                    employee,
+                    station);
+
+            if (restingAtManagedIdleSeat &&
                 MapScriptInterface.Instance.GetRoomAt(walk) == station)
             {
                 pc = FindPcForSeat(station, seat);
             }
+
+            UpdateIdleSittingAnimation(
+                porter,
+                restingAtManagedIdleSeat ? seat : null,
+                pc);
 
             TileObject previous;
             ActivePcByPorter.TryGetValue(porter, out previous);
@@ -366,7 +378,7 @@ namespace HospitalPorters
             ActivePcByPorter.Remove(porter);
         }
 
-        private static TileObject FindPcForSeat(
+        internal static TileObject FindPcForSeat(
             Room station,
             TileObject seat)
         {
@@ -437,6 +449,120 @@ namespace HospitalPorters
             return candidate;
         }
 
+        private static void UpdateIdleSittingAnimation(
+            Entity porter,
+            TileObject seat,
+            TileObject pc)
+        {
+            BehaviorNurse nurse =
+                porter == null
+                    ? null
+                    : porter.GetComponent<BehaviorNurse>();
+            AnimModelComponent animation =
+                porter == null
+                    ? null
+                    : porter.GetComponent<AnimModelComponent>();
+            if (nurse == null ||
+                nurse.m_state == null ||
+                animation == null ||
+                animation.m_state == null)
+            {
+                return;
+            }
+
+            if (seat == null ||
+                nurse.m_state.m_nurseState != NurseState.Idle)
+            {
+                nurse.m_state.m_isBrowsing = false;
+                return;
+            }
+
+            // Porters use a locker as their native workspace object, so
+            // EmployeeComponent.GetWorkChair() does not reliably describe
+            // the chair that is actually connected to a PC. Keep vanilla's
+            // browsing guard active while HPO selects the animation from the
+            // real pc_work -> seat relationship instead.
+            nurse.m_state.m_isBrowsing = true;
+
+            string currentAnimation =
+                animation.m_state.m_currentAnimationID;
+
+            if (pc != null)
+            {
+                if (!IsPcAnimation(currentAnimation) &&
+                    !HasQueuedPcAnimation(animation))
+                {
+                    animation.QueueAnimation(
+                        "sit_relax_pc_in",
+                        looping: false,
+                        force: true);
+                    animation.QueueAnimation(
+                        "sit_relax_pc_idle",
+                        looping: true);
+                }
+
+                return;
+            }
+
+            if (!IsPcAnimation(currentAnimation) &&
+                !HasQueuedPcAnimation(animation))
+            {
+                return;
+            }
+
+            GameDBObject seatType =
+                seat.m_state == null ||
+                seat.m_state.m_gameDBObject == null ||
+                seat.m_state.m_gameDBObject.IsDeleted
+                    ? null
+                    : seat.m_state.m_gameDBObject.Entry;
+            string[] idleAnimations =
+                seatType == null
+                    ? null
+                    : seatType.DefaultUseAnimations;
+            if (idleAnimations == null ||
+                idleAnimations.Length == 0 ||
+                string.IsNullOrEmpty(idleAnimations[0]))
+            {
+                return;
+            }
+
+            animation.PlayAnimation(idleAnimations[0]);
+        }
+
+        private static bool IsPcAnimation(
+            string animationId)
+        {
+            return animationId == "sit_relax_pc_in" ||
+                animationId == "sit_relax_pc_idle";
+        }
+
+        private static bool HasQueuedPcAnimation(
+            AnimModelComponent animation)
+        {
+            if (animation == null ||
+                animation.m_state == null ||
+                animation.m_state.m_animationQueue == null)
+            {
+                return false;
+            }
+
+            for (int i = 0;
+                i < animation.m_state.m_animationQueue.Count;
+                i++)
+            {
+                AnimationPlaybackInstance queued =
+                    animation.m_state.m_animationQueue[i];
+                if (queued != null &&
+                    IsPcAnimation(queued.m_animationName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static void SetPcActive(
             TileObject pc,
             bool active)
@@ -480,11 +606,38 @@ namespace HospitalPorters
         new Type[] { typeof(int) })]
     internal static class PorterLockerPassiveAnimationPatch
     {
+        private static bool s_allowExplicitPorterFrame;
+
+        internal static void ForceExplicitFrame(
+            TileObject locker,
+            int frame)
+        {
+            AnimatedObjectComponent animation =
+                locker == null
+                    ? null
+                    : locker.GetComponent<AnimatedObjectComponent>();
+            if (animation == null)
+            {
+                return;
+            }
+
+            s_allowExplicitPorterFrame = true;
+            try
+            {
+                animation.ForceFrame(frame);
+            }
+            finally
+            {
+                s_allowExplicitPorterFrame = false;
+            }
+        }
+
         private static bool Prefix(
             AnimatedObjectComponent __instance,
             int frame)
         {
             if (__instance == null ||
+                s_allowExplicitPorterFrame ||
                 frame <= 0)
             {
                 return true;
@@ -502,6 +655,93 @@ namespace HospitalPorters
             Entity nightOwner = locker.GetWorkspaceOwner(Shift.NIGHT);
             return !PorterIdentity.IsPorter(dayOwner) &&
                 !PorterIdentity.IsPorter(nightOwner);
+        }
+    }
+
+    [HarmonyPatch(
+        typeof(BehaviorNurse),
+        "UpdateStateIdle",
+        new Type[] { typeof(float) })]
+    internal static class PorterLockerShiftHandoverVisualPatch
+    {
+        private static void Prefix(
+            BehaviorNurse __instance,
+            ref TileObject __state)
+        {
+            __state = null;
+
+            Entity outgoing = PorterIdleResting.GetEntity(__instance);
+            EmployeeComponent employee =
+                outgoing == null
+                    ? null
+                    : outgoing.GetComponent<EmployeeComponent>();
+            if (!PorterIdentity.IsPorter(outgoing) ||
+                employee == null ||
+                employee.m_state == null ||
+                employee.m_state.m_workDesk == null ||
+                DayTime.Instance == null ||
+                DayTime.Instance.GetShift() == employee.m_state.m_shift)
+            {
+                return;
+            }
+
+            TileObject locker =
+                employee.m_state.m_workDesk.GetEntity();
+            if (locker == null ||
+                !locker.HasTag("ui_locker") ||
+                !HasActiveCurrentShiftPorter(locker, outgoing))
+            {
+                return;
+            }
+
+            __state = locker;
+        }
+
+        private static void Postfix(TileObject __state)
+        {
+            if (__state == null ||
+                !HasActiveCurrentShiftPorter(__state, null))
+            {
+                return;
+            }
+
+            PorterLockerPassiveAnimationPatch.ForceExplicitFrame(
+                __state,
+                1);
+        }
+
+        private static bool HasActiveCurrentShiftPorter(
+            TileObject locker,
+            Entity excludedPorter)
+        {
+            if (locker == null ||
+                DayTime.Instance == null)
+            {
+                return false;
+            }
+
+            Shift currentShift =
+                DayTime.Instance.GetShift();
+            Entity porter =
+                locker.GetWorkspaceOwner(currentShift);
+            if (!PorterIdentity.IsPorter(porter) ||
+                porter == excludedPorter)
+            {
+                return false;
+            }
+
+            EmployeeComponent employee =
+                porter.GetComponent<EmployeeComponent>();
+            BehaviorNurse behavior =
+                porter.GetComponent<BehaviorNurse>();
+            return employee != null &&
+                employee.m_state != null &&
+                !employee.IsFired() &&
+                employee.m_state.m_shift == currentShift &&
+                employee.m_state.m_workDesk != null &&
+                employee.m_state.m_workDesk.GetEntity() == locker &&
+                behavior != null &&
+                !behavior.IsHidden();
         }
     }
 

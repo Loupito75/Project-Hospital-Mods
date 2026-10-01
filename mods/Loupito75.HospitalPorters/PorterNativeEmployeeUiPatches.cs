@@ -342,9 +342,8 @@ namespace HospitalPorters
             }
             else if (porterSelector)
             {
-                // The Porter locker selector still opens its native table through the historical
-                // LAB_SPECIALIST route. Limit this scoped type swap to that selector only; the
-                // normal Technologists Employees filter never receives Porters.
+                // The Porter locker selector opens its native table through the LAB_SPECIALIST route.
+                // Limit this scoped type swap to that selector; the normal Technologist filter stays unchanged.
                 data.m_labSpecialists = selectablePorterPointers;
                 state.LabSpecialistsChanged = true;
             }
@@ -461,7 +460,6 @@ namespace HospitalPorters
 
     internal sealed class PorterBiohazardColorState
     {
-        internal bool Active;
         internal Vector3 Coat;
         internal Vector3 Top;
         internal Vector3 Pants;
@@ -498,7 +496,6 @@ namespace HospitalPorters
 
             __state = new PorterBiohazardColorState
             {
-                Active = true,
                 Coat = __instance.m_state.m_clothes.m_colorClothesCoat,
                 Top = __instance.m_state.m_clothes.m_colorClothesTop,
                 Pants = __instance.m_state.m_clothes.m_colorClothesPants
@@ -510,7 +507,6 @@ namespace HospitalPorters
             PorterBiohazardColorState __state)
         {
             if (__state == null ||
-                !__state.Active ||
                 __instance == null ||
                 __instance.m_state == null ||
                 __instance.m_state.m_clothes == null)

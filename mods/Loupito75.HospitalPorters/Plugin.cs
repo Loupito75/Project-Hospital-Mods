@@ -10,7 +10,7 @@ namespace HospitalPorters
     {
         public const string PluginGuid = "loupito75.HospitalPorters";
         public const string PluginName = "Hospital Porters";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.0.1";
         public const string PluginAuthor = "Loupito75";
         public const string HarmonyId = "Loupito75:HospitalPorters";
 
@@ -32,9 +32,8 @@ namespace HospitalPorters
 
             try
             {
-                // HiringManager patches are deliberately NOT part of PatchAll().
-                // HiringManager owns a static singleton whose constructor calls Reset();
-                // touching it before Database.ReadFiles() finishes can poison the type initializer.
+                // HiringManager initializes through a static singleton that calls Reset().
+                // Patch it only after Database.ReadFiles() completes to avoid type-initializer failure.
                 _harmony.PatchAll();
             }
             catch (Exception exception)
@@ -43,8 +42,7 @@ namespace HospitalPorters
                 return;
             }
 
-            // Normally Database.ReadFiles() loads our database entries and then applies the
-            // deferred HiringManager patches. If BepInEx starts after database loading, do it now.
+            // If BepInEx starts after database loading, apply the deferred HiringManager patches here.
             if (Database.Instance != null && Database.Instance.Loaded)
             {
                 ModDatabase.Load(Database.Instance);
