@@ -1,5 +1,5 @@
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using GLib;
 using HarmonyLib;
@@ -20,11 +20,19 @@ namespace HospitalTrafficControl
         private static readonly FieldInfo PathfinderJobField =
             AccessTools.Field(typeof(WalkComponent), "m_pathfinderJob");
 
-        private static readonly Hashtable FailedJobs =
-            Hashtable.Synchronized(new Hashtable());
+        private const int MaxPendingJobs = 64;
 
-        private static readonly Hashtable SuccessfulDetourJobs =
-            Hashtable.Synchronized(new Hashtable());
+        private sealed class PendingJobInfo
+        {
+            internal WeakReference Job;
+            internal OneWayFailureInfo Failure;
+        }
+
+        private static readonly object PendingJobsLock = new object();
+        private static readonly List<PendingJobInfo> FailedJobs =
+            new List<PendingJobInfo>();
+        private static readonly List<PendingJobInfo> SuccessfulDetourJobs =
+            new List<PendingJobInfo>();
 
         private static volatile int s_generation;
 
@@ -116,13 +124,13 @@ namespace HospitalTrafficControl
 
                     if (noRoute)
                     {
-                        FailedJobs[job] = info;
+                        StorePendingJob(FailedJobs, job, info);
                     }
                     else if (TrafficControlConfig.PathfindingDebug)
                     {
                         // Worker-thread invariant: do not inspect entities, Unity state,
                         // floors or route tiles here. Only queue primitive path metadata.
-                        SuccessfulDetourJobs[job] = info;
+                        StorePendingJob(SuccessfulDetourJobs, job, info);
                     }
                 }
             }
@@ -151,46 +159,139 @@ namespace HospitalTrafficControl
             }
 
             PathfinderJob job = PathfinderJobField.GetValue(walk) as PathfinderJob;
-            if (job == null || !FailedJobs.ContainsKey(job))
-            {
-                return false;
-            }
-
-            failure = FailedJobs[job] as OneWayFailureInfo;
-            FailedJobs.Remove(job);
-            return failure != null;
+            return TryTakePendingJob(FailedJobs, job, out failure);
         }
 
         internal static bool ConsumeSuccessfulDetour(
             PathfinderJob job,
             out OneWayFailureInfo failure)
         {
-            failure = null;
-
-            if (job == null || !SuccessfulDetourJobs.ContainsKey(job))
-            {
-                return false;
-            }
-
-            failure = SuccessfulDetourJobs[job] as OneWayFailureInfo;
-            SuccessfulDetourJobs.Remove(job);
-            return failure != null;
+            return TryTakePendingJob(
+                SuccessfulDetourJobs,
+                job,
+                out failure);
         }
 
         internal static void Forget(PathfinderJob job)
         {
-            if (job != null)
+            if (job == null)
             {
-                FailedJobs.Remove(job);
-                SuccessfulDetourJobs.Remove(job);
+                return;
+            }
+
+            lock (PendingJobsLock)
+            {
+                RemovePendingJobNoLock(FailedJobs, job);
+                RemovePendingJobNoLock(SuccessfulDetourJobs, job);
             }
         }
 
         internal static void Reset()
         {
             s_generation++;
-            FailedJobs.Clear();
-            SuccessfulDetourJobs.Clear();
+
+            lock (PendingJobsLock)
+            {
+                FailedJobs.Clear();
+                SuccessfulDetourJobs.Clear();
+            }
+        }
+
+        private static void StorePendingJob(
+            List<PendingJobInfo> pending,
+            PathfinderJob job,
+            OneWayFailureInfo failure)
+        {
+            if (job == null || failure == null)
+            {
+                return;
+            }
+
+            lock (PendingJobsLock)
+            {
+                RemovePendingJobNoLock(pending, job);
+                RemoveCollectedJobsNoLock(pending);
+
+                while (pending.Count >= MaxPendingJobs)
+                {
+                    pending.RemoveAt(0);
+                }
+
+                pending.Add(new PendingJobInfo
+                {
+                    Job = new WeakReference(job),
+                    Failure = failure
+                });
+            }
+        }
+
+        private static bool TryTakePendingJob(
+            List<PendingJobInfo> pending,
+            PathfinderJob job,
+            out OneWayFailureInfo failure)
+        {
+            failure = null;
+            if (job == null)
+            {
+                return false;
+            }
+
+            lock (PendingJobsLock)
+            {
+                for (int i = pending.Count - 1; i >= 0; i--)
+                {
+                    PendingJobInfo record = pending[i];
+                    PathfinderJob recordedJob =
+                        record.Job == null ? null : record.Job.Target as PathfinderJob;
+
+                    if (recordedJob == null)
+                    {
+                        pending.RemoveAt(i);
+                        continue;
+                    }
+
+                    if (ReferenceEquals(recordedJob, job))
+                    {
+                        failure = record.Failure;
+                        pending.RemoveAt(i);
+                        return failure != null;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static void RemovePendingJobNoLock(
+            List<PendingJobInfo> pending,
+            PathfinderJob job)
+        {
+            for (int i = pending.Count - 1; i >= 0; i--)
+            {
+                PendingJobInfo record = pending[i];
+                PathfinderJob recordedJob =
+                    record.Job == null ? null : record.Job.Target as PathfinderJob;
+
+                if (recordedJob == null || ReferenceEquals(recordedJob, job))
+                {
+                    pending.RemoveAt(i);
+                }
+            }
+        }
+
+        private static void RemoveCollectedJobsNoLock(
+            List<PendingJobInfo> pending)
+        {
+            for (int i = pending.Count - 1; i >= 0; i--)
+            {
+                PendingJobInfo record = pending[i];
+                if (record.Job == null ||
+                    !record.Job.IsAlive ||
+                    record.Job.Target == null)
+                {
+                    pending.RemoveAt(i);
+                }
+            }
         }
     }
 }

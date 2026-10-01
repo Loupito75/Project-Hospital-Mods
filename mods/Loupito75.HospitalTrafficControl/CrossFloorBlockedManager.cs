@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using GLib;
-using HarmonyLib;
 using Lopital;
 
 namespace HospitalTrafficControl
@@ -226,12 +225,4 @@ namespace HospitalTrafficControl
         }
     }
 
-    [HarmonyPatch(typeof(MapEditorController), nameof(MapEditorController.Destroy))]
-    internal static class CrossFloorMapDestroyedPatch
-    {
-        private static void Prefix()
-        {
-            CrossFloorBlockedManager.Reset();
-        }
-    }
 }

@@ -18,6 +18,7 @@ namespace HospitalTrafficControl.Patches
             ref Vector3i __result)
         {
             if (!TrafficControlConfig.AvoidCleaningActiveProcedureRooms &&
+                !TrafficControlConfig.AvoidCleaningOccupiedBathrooms &&
                 !TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight)
             {
                 return true;
@@ -43,6 +44,7 @@ namespace HospitalTrafficControl.Patches
             ref Vector3i __result)
         {
             if (!TrafficControlConfig.AvoidCleaningActiveProcedureRooms &&
+                !TrafficControlConfig.AvoidCleaningOccupiedBathrooms &&
                 !TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight)
             {
                 return true;
@@ -68,6 +70,7 @@ namespace HospitalTrafficControl.Patches
             ref Vector2i __result)
         {
             if (!TrafficControlConfig.AvoidCleaningActiveProcedureRooms &&
+                !TrafficControlConfig.AvoidCleaningOccupiedBathrooms &&
                 !TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight)
             {
                 return true;
@@ -82,11 +85,31 @@ namespace HospitalTrafficControl.Patches
     }
 
     [HarmonyPatch(typeof(BehaviorJanitor), "UpdateStateCleaning", new Type[] { typeof(float) })]
-    internal static class JanitorActiveProcedureCleaningStatePatch
+    internal static class JanitorProtectedCleaningStatePatch
     {
         private static bool Prefix(BehaviorJanitor __instance)
         {
-            return !JanitorCleaningManager.TryInterruptActiveProcedureRoom(__instance);
+            return !JanitorCleaningManager.TryInterruptProtectedCleaningRoom(__instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(BehaviorJanitor), "UpdateStateWalkingToCartToNextRoom")]
+    internal static class JanitorOccupiedBathroomPreTravelPatch
+    {
+        private static bool Prefix(BehaviorJanitor __instance)
+        {
+            return !JanitorCleaningManager.TryInterruptOccupiedBathroomBeforeRoomTravel(
+                __instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(BehaviorJanitor), "UpdateStateWalkingToNextRoom")]
+    internal static class JanitorOccupiedBathroomRoomTravelPatch
+    {
+        private static bool Prefix(BehaviorJanitor __instance)
+        {
+            return !JanitorCleaningManager.TryHandleOccupiedBathroomRoomTravel(
+                __instance);
         }
     }
 

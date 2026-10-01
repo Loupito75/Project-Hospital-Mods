@@ -19,78 +19,55 @@ namespace HospitalTrafficControl
                 return;
             }
 
-            NotificationLevel level = NotificationPreferences.Level;
+            GameDBNotification notification =
+                Database.Instance.GetEntry<GameDBNotification>(
+                    LocalizationManager.NoPathTitleId);
+
+            if (notification == null)
+            {
+                Plugin.Log?.LogWarning(
+                    "Blocked-path notification skipped because the HTC notification database entry is missing.");
+                return;
+            }
+
+            NotificationLevel level =
+                PlayerProfile.Instance.GetNotificationLevel(
+                    LocalizationManager.NoPathTitleId);
+
             if (level == NotificationLevel.NONE)
             {
                 return;
             }
 
             NotificationManager manager = NotificationManager.GetInstance();
-            DayTime dayTime = DayTime.Instance;
-            GameTimeController gameTime = GameTimeController.Instance;
-            GameDBNotificationColor color = NotificationPreferences.GetColor();
-
-            if (manager == null || dayTime == null || gameTime == null || color == null)
+            if (manager == null)
             {
                 Plugin.Log?.LogWarning(
-                    "Blocked-path notification skipped because native notification UI is not ready.");
+                    "Blocked-path notification skipped because NotificationManager is not ready.");
+                return;
+            }
+
+            if (level == NotificationLevel.POPUP &&
+                (DayTime.Instance == null || GameTimeController.Instance == null))
+            {
+                Plugin.Log?.LogWarning(
+                    "Blocked-path popup skipped because the game-time UI is not ready.");
                 return;
             }
 
             string characterName = entity.Name?.Trim() ?? string.Empty;
-            bool isPatient = entity.GetComponent<BehaviorPatient>() != null;
+            Vector2i position = walk.GetCurrentTile();
 
-            var message = new NotificationMessage
-            {
-                m_character = entity,
-                m_textTitleLocID = LocalizationManager.NoPathTitleId,
-                m_textLocID = isPatient
-                    ? LocalizationManager.NoPathPatientTextId
-                    : LocalizationManager.NoPathTextId,
-                m_textParameter = characterName,
-                m_textParameter2 = string.Empty,
-                m_textParameter3 = string.Empty,
-                m_iconOverride = 0,
-                m_actionButtonA = PopupButtonAction.POPUP_GOTO,
-                m_actionButtonB = PopupButtonAction.POPUP_HIDDEN_BUTTON,
-                m_actionButtonC = PopupButtonAction.POPUP_OK,
-                m_color = color,
-                m_position = walk.GetCurrentTile(),
-                m_floorIndex = walk.GetFloorIndex(),
-                m_pauseGame = level == NotificationLevel.POPUP,
-                m_unClosable = false,
-                m_iconOverrideAssetID = null
-            };
-
-            if (level == NotificationLevel.LOG)
-            {
-                manager.m_messages.Add(message);
-            }
-            else
-            {
-                manager.m_popups.Add(message);
-                manager.m_messages.Add(message);
-                dayTime.ResetFastForwardTime();
-
-                if (gameTime.TimeMultiplier == 0 &&
-                    manager.m_pauseState != NotificationPauseState.GAME_PAUSED_BY_POPUP)
-                {
-                    manager.m_pauseState = NotificationPauseState.GAME_PAUSED;
-                }
-                else
-                {
-                    manager.m_pauseState = NotificationPauseState.GAME_PAUSED_BY_POPUP;
-                }
-
-                gameTime.TimeMultiplier = 0;
-            }
-
-            manager.m_lastShownMessageIndex = manager.m_messages.Count - 1;
-
-            if (UISoundManager.sm_instance != null)
-            {
-                UISoundManager.sm_instance.PlayPopup();
-            }
+            manager.AddMessage(
+                entity,
+                LocalizationManager.NoPathTitleId,
+                characterName,
+                string.Empty,
+                string.Empty,
+                0,
+                position.m_x,
+                position.m_y,
+                walk.GetFloorIndex());
         }
 
         private static bool IsLoadingScreenVisible()
