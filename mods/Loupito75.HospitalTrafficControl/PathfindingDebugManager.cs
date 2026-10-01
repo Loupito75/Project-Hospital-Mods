@@ -68,6 +68,13 @@ namespace HospitalTrafficControl
         }
 
         private const int MaxLoggedTransitions = 32;
+        private const int MaxPendingFailedJobs = 64;
+
+        private sealed class FailedJobRecord
+        {
+            internal WeakReference Job;
+            internal FailedPathTrace Trace;
+        }
 
         private static readonly FieldInfo PathfinderJobField =
             AccessTools.Field(typeof(WalkComponent), "m_pathfinderJob");
@@ -75,8 +82,9 @@ namespace HospitalTrafficControl
         private static readonly FieldInfo NoFloorField =
             AccessTools.Field(typeof(Floor), "sm_noFloor");
 
-        private static readonly Hashtable FailedJobs =
-            Hashtable.Synchronized(new Hashtable());
+        private static readonly object FailedJobsLock = new object();
+        private static readonly List<FailedJobRecord> FailedJobs =
+            new List<FailedJobRecord>();
 
         [ThreadStatic]
         private static PathfinderJob s_currentJob;
@@ -174,11 +182,11 @@ namespace HospitalTrafficControl
 
                 if (noRoute)
                 {
-                    FailedJobs[job] = s_currentTrace ?? new FailedPathTrace();
+                    StoreFailedJob(job, s_currentTrace ?? new FailedPathTrace());
                 }
                 else
                 {
-                    FailedJobs.Remove(job);
+                    RemoveFailedJob(job);
                 }
             }
             finally
@@ -242,7 +250,7 @@ namespace HospitalTrafficControl
                 " stepLimit=" + job.m_stepLimit +
                 " exception=" + exceptionText + ".");
 
-            FailedPathTrace trace = FailedJobs[job] as FailedPathTrace;
+            FailedPathTrace trace = TakeFailedTrace(job);
             if (trace == null)
             {
                 Plugin.Log?.LogWarning(
@@ -276,22 +284,121 @@ namespace HospitalTrafficControl
                 PublishMarkers(trace, floorIndex, job.m_end);
             }
 
-            FailedJobs.Remove(job);
         }
 
         internal static void Forget(PathfinderJob job)
         {
-            if (job != null)
-            {
-                FailedJobs.Remove(job);
-            }
+            RemoveFailedJob(job);
         }
 
         internal static void Reset()
         {
-            FailedJobs.Clear();
+            lock (FailedJobsLock)
+            {
+                FailedJobs.Clear();
+            }
+
             s_currentJob = null;
             s_currentTrace = null;
+        }
+
+        private static void StoreFailedJob(PathfinderJob job, FailedPathTrace trace)
+        {
+            if (job == null)
+            {
+                return;
+            }
+
+            lock (FailedJobsLock)
+            {
+                RemoveFailedJobNoLock(job);
+                RemoveCollectedFailedJobsNoLock();
+
+                while (FailedJobs.Count >= MaxPendingFailedJobs)
+                {
+                    FailedJobs.RemoveAt(0);
+                }
+
+                FailedJobs.Add(new FailedJobRecord
+                {
+                    Job = new WeakReference(job),
+                    Trace = trace
+                });
+            }
+        }
+
+        private static FailedPathTrace TakeFailedTrace(PathfinderJob job)
+        {
+            if (job == null)
+            {
+                return null;
+            }
+
+            lock (FailedJobsLock)
+            {
+                for (int i = FailedJobs.Count - 1; i >= 0; i--)
+                {
+                    FailedJobRecord record = FailedJobs[i];
+                    PathfinderJob recordedJob =
+                        record.Job == null ? null : record.Job.Target as PathfinderJob;
+
+                    if (recordedJob == null)
+                    {
+                        FailedJobs.RemoveAt(i);
+                        continue;
+                    }
+
+                    if (ReferenceEquals(recordedJob, job))
+                    {
+                        FailedPathTrace trace = record.Trace;
+                        FailedJobs.RemoveAt(i);
+                        return trace;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static void RemoveFailedJob(PathfinderJob job)
+        {
+            if (job == null)
+            {
+                return;
+            }
+
+            lock (FailedJobsLock)
+            {
+                RemoveFailedJobNoLock(job);
+                RemoveCollectedFailedJobsNoLock();
+            }
+        }
+
+        private static void RemoveFailedJobNoLock(PathfinderJob job)
+        {
+            for (int i = FailedJobs.Count - 1; i >= 0; i--)
+            {
+                FailedJobRecord record = FailedJobs[i];
+                PathfinderJob recordedJob =
+                    record.Job == null ? null : record.Job.Target as PathfinderJob;
+
+                if (recordedJob == null || ReferenceEquals(recordedJob, job))
+                {
+                    FailedJobs.RemoveAt(i);
+                }
+            }
+        }
+
+        private static void RemoveCollectedFailedJobsNoLock()
+        {
+            for (int i = FailedJobs.Count - 1; i >= 0; i--)
+            {
+                FailedJobRecord record = FailedJobs[i];
+                if (record.Job == null || !record.Job.IsAlive || record.Job.Target == null)
+                {
+                    FailedJobs.RemoveAt(i);
+                }
+            }
         }
 
         private static NativeDenialDiagnosis DiagnoseVanillaDenial(

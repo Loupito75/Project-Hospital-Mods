@@ -85,6 +85,7 @@ namespace HospitalTrafficControl.Patches
             BiohazardEndpointAccessTracker.AdjustAccessRightsForEndpointBiohazardRoom(
                 __instance,
                 currentPosition,
+                nextPosition,
                 startPosition,
                 targetPosition,
                 ref accessRightsLevel);
@@ -156,11 +157,9 @@ namespace HospitalTrafficControl.Patches
                 return;
             }
 
-            // Vanilla intends FLOOR_TYPE_NONE to be inaccessible. During HTC testing,
-            // accepted routes were observed on tiles whose stable database ID was
-            // FLOOR_TYPE_NONE. The reason the native comparison missed those tiles was
-            // not proven, so preserve the native rule defensively only in the confirmed
-            // character-navigation contexts instead of changing unrelated callers.
+            // FLOOR_TYPE_NONE is not a walkable floor type. Enforce the stable
+            // database-ID check only in confirmed character-navigation contexts so
+            // unrelated Floor.IsAccessible callers remain unchanged.
             if (IsNoFloor(__instance, nextPosition))
             {
                 if (TrafficControlConfig.PathfindingDebug)
@@ -249,19 +248,7 @@ namespace HospitalTrafficControl.Patches
     {
         private static void Prefix()
         {
-            OneWayIndicatorRenderer.Reset();
-            PathfindingDebugMarkerRenderer.Reset();
-            DoorDebugManager.Reset();
-            BiohazardEndpointAccessTracker.Reset();
-            AccessZoneRecoveryManager.Reset();
-            OneWayPathfinderTracker.Reset();
-            OneWayWalkValidationContext.Reset();
-            PathfindingDebugManager.Reset();
-            OneWayPersistenceManager.Reset();
-            OneWayManager.Reset();
-            OneWayRouteManager.Reset();
-            BlockedRouteManager.Reset();
-            NavigationChangeTracker.Reset();
+            RuntimeStateManager.Reset();
         }
     }
 }
