@@ -37,11 +37,8 @@ namespace HospitalPorters
             PorterHiringState.SelectingPorter = true;
             try
             {
-                // Keep the real engine type as CharacterNurse. This prefix only guarantees that
-                // every native hiring-panel entry path for a Porter locker (including the
-                // "hire more" button) selects the Porter presentation before Update() builds
-                // candidate cards. The existing lower-priority Update prefix then swaps in the
-                // Porter candidate pool for this native CharacterNurse branch.
+                // Porters remain CharacterNurse internally. Select the Porter presentation before
+                // Update() builds cards; the Update prefix supplies the Porter candidate pool.
                 __instance.SetCharacterType(
                     LopitalTypes.CharacterNurse,
                     PorterHiringIcons.PorterIcon,

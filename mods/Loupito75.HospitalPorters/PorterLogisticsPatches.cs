@@ -157,10 +157,8 @@ namespace HospitalPorters
                 DisplayedCharacterType.LAB_SPECIALIST,
                 locker);
 
-            // DisplayedCharacterType is an UI classification here. Porter entities still carry
-            // BehaviorNurse and stay in Department.m_nurses for the native transport engine.
-            // LAB_SPECIALIST is retained only as the already-validated internal workspace routing key;
-            // Hospital Porters replaces the visible recruitment/employee presentation with Porter UI.
+            // DisplayedCharacterType is UI-only here. Porters remain BehaviorNurse entities in
+            // Department.m_nurses; LAB_SPECIALIST is used only as the internal workspace routing key.
             panelController.SetWorkspaceButtonClickedDelegate(delegate(Shift shift)
             {
                 HandleLockerWorkspaceClick(controller, department, room, locker, shift);
