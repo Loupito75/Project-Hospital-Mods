@@ -369,11 +369,13 @@ namespace HospitalPorters
             typeof(string),
             typeof(string)
         })]
-    internal static class PorterSamplePersistenceLoadResetPatch
+    internal static class PorterRuntimeLoadResetPatch
     {
         private static void Prefix()
         {
             PorterSampleTransportRuntime.Reset();
+            PorterIdleWorkstationVisuals.Reset();
+            StretcherDestinationPatch.ResetFallbackTracking();
         }
     }
 

@@ -16,10 +16,8 @@ namespace HospitalPorters
                 return;
             }
 
-            // SetCharacterType() changes the title/category but does not rebuild candidate cards.
-            // A manual Porter-filter click must refresh through the same native Update() path used
-            // by the authoritative OpenHiringCard finalization, otherwise stale Nurse cards remain
-            // under the "Porter candidates" title.
+            // SetCharacterType() does not rebuild candidate cards.
+            // Refresh through the native Update() path so stale Nurse cards are not displayed as Porters.
             controller.Update();
             PorterHiringUi.UpdateStaffingVisual(controller);
         }

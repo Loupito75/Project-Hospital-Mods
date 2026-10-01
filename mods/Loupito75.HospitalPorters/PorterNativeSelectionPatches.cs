@@ -146,9 +146,8 @@ namespace HospitalPorters
             EmployeesTable table = __instance.m_table.GetComponent<EmployeesTable>();
             if (table != null)
             {
-                // Native code has already opened the table and applied the historical
-                // LAB_SPECIALIST routing key. Replace only the visible/list filter with
-                // the dedicated Porter filter; Porters remain Department.m_nurses.
+                // Replace only the visible/list filter after the native LAB_SPECIALIST route opens the table.
+                // Porters remain stored in Department.m_nurses.
                 PorterNativeEmployeeUi.SelectPorters(table);
             }
         }

@@ -356,7 +356,7 @@ namespace HospitalPorters
         internal static void RecoverOrphanedCartForPorter(
             Entity porter)
         {
-            if (porter == null ||
+            if (!PorterIdentity.IsPorter(porter) ||
                 PorterSampleTransportRuntime.IsBusy(porter))
             {
                 return;
@@ -625,11 +625,14 @@ namespace HospitalPorters
             return cart;
         }
 
-        private static bool IsSampleCart(
+        internal static bool IsSampleCart(
             TileObject cart)
         {
             return cart != null &&
                 cart.m_state != null &&
+                cart.m_state.m_gameDBObject != null &&
+                !cart.m_state.m_gameDBObject.IsDeleted &&
+                cart.m_state.m_gameDBObject.Entry != null &&
                 cart.HasTag(PorterIds.SampleCartTag);
         }
 
@@ -955,4 +958,101 @@ namespace HospitalPorters
             }
         }
     }
+    [HarmonyPatch(
+        typeof(ObjectRenderer),
+        nameof(ObjectRenderer.RenderObjects),
+        new Type[]
+        {
+            typeof(bool), typeof(float), typeof(Floor),
+            typeof(LightMap2DUnity), typeof(FloorRenderData)
+        })]
+    internal static class PorterSampleCartBuildingGhostPatch
+    {
+        private static readonly MethodInfo RenderSingleObjectMethod =
+            AccessTools.Method(
+                typeof(ObjectRenderer),
+                "RenderSingleObject",
+                new Type[]
+                {
+                    typeof(TileObject), typeof(float), typeof(float),
+                    typeof(Floor), typeof(LightMap2DUnity),
+                    typeof(bool), typeof(bool)
+                });
+
+        private static bool s_loggedRenderFailure;
+
+        private static void Postfix(
+            ObjectRenderer __instance,
+            float zoomScale,
+            Floor floor,
+            LightMap2DUnity lightMap)
+        {
+            if (__instance == null ||
+                floor == null ||
+                ViewModeController.Instance == null)
+            {
+                return;
+            }
+
+            if ((ViewModeController.Instance.m_currentMode !=
+                    ViewModes.BUILDING &&
+                 ViewModeController.Instance.m_currentMode !=
+                    ViewModes.BUILDING_FLOORS) ||
+                RenderSingleObjectMethod == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null)
+            {
+                return;
+            }
+
+            foreach (Floor sourceFloor in Hospital.Instance.m_floors)
+            {
+                if (sourceFloor == null ||
+                    sourceFloor.m_movingObjects == null)
+                {
+                    continue;
+                }
+
+                foreach (TileObject cart in sourceFloor.m_movingObjects)
+                {
+                    if (!PorterSampleCartRuntime.IsSampleCart(cart) ||
+                        !cart.m_state.m_moving ||
+                        cart.m_state.m_originalFloorIndex !=
+                            floor.m_floorIndex)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        RenderSingleObjectMethod.Invoke(
+                            __instance,
+                            new object[]
+                            {
+                                cart,
+                                -0.25f,
+                                zoomScale,
+                                floor,
+                                lightMap,
+                                false,
+                                true
+                            });
+                    }
+                    catch (Exception exception)
+                    {
+                        if (!s_loggedRenderFailure)
+                        {
+                            s_loggedRenderFailure = true;
+                            Plugin.Log?.LogError(
+                                "Could not render the native-style sample-cart building ghost: " +
+                                exception);
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+    }
+
 }

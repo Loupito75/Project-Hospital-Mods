@@ -31,6 +31,15 @@ namespace HospitalPorters
             return PorterLogisticsUi.IsPorterLocker(tileObject);
         }
 
+        internal static bool TryGetState(
+            HiringPanelController controller,
+            out PorterHiringUiState state)
+        {
+            state = null;
+            return controller != null &&
+                States.TryGetValue(controller, out state);
+        }
+
         internal static void EnsureButton(HiringPanelController controller)
         {
             if (controller == null || States.ContainsKey(controller) ||
@@ -475,6 +484,69 @@ namespace HospitalPorters
             {
                 __state.AvailableCharacters.m_availableNormalNurses = __state.OriginalNurses;
             }
+            return __exception;
+        }
+    }
+
+    [HarmonyPatch(typeof(IconButtonController), nameof(IconButtonController.OnClick))]
+    internal static class PorterHiringRevealPerksPatch
+    {
+        private static void Prefix(
+            IconButtonController __instance,
+            ref NurseListSwapState __state)
+        {
+            if (!PorterHiringState.Active ||
+                __instance == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_activeDepartment.GetEntity() == null)
+            {
+                return;
+            }
+
+            GameObject hiringPanel = MapEditorUIController.Instance?.m_hiringPanel;
+            HiringPanelController controller =
+                hiringPanel == null ? null : hiringPanel.GetComponent<HiringPanelController>();
+            if (controller == null || controller.m_buttonUncoverPerks == null)
+            {
+                return;
+            }
+
+            IconButtonController revealButton =
+                controller.m_buttonUncoverPerks.GetComponent<IconButtonController>();
+            if (!object.ReferenceEquals(__instance, revealButton))
+            {
+                return;
+            }
+
+            GameDBDepartment department =
+                Hospital.Instance.m_activeDepartment.GetEntity().GetDepartmentType();
+            AvailableCharacters availableCharacters =
+                HiringManager.Instance.m_availableCharacters[department];
+            if (availableCharacters == null)
+            {
+                return;
+            }
+
+            __state = new NurseListSwapState
+            {
+                AvailableCharacters = availableCharacters,
+                OriginalNurses = availableCharacters.m_availableNormalNurses
+            };
+
+            availableCharacters.m_availableNormalNurses =
+                PorterCandidatePool.Ensure(department);
+        }
+
+        private static Exception Finalizer(
+            Exception __exception,
+            NurseListSwapState __state)
+        {
+            if (__state?.AvailableCharacters != null)
+            {
+                __state.AvailableCharacters.m_availableNormalNurses =
+                    __state.OriginalNurses;
+            }
+
             return __exception;
         }
     }

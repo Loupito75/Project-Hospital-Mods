@@ -627,16 +627,6 @@ namespace HospitalPorters
                 state == NurseState.FinishedProcedure;
         }
 
-        private static string GetDepartmentId(
-            Department department)
-        {
-            return department == null ||
-                department.GetDepartmentType() == null
-                    ? "UNKNOWN"
-                    : department.GetDepartmentType()
-                        .DatabaseID.ToString();
-        }
-
         private static void ClearFallbackTracking(
             Entity patient)
         {

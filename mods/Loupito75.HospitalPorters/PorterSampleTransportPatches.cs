@@ -234,7 +234,7 @@ namespace HospitalPorters
         internal static bool UpdateActiveMission(BehaviorNurse nurse)
         {
             Entity porter = GetEntity(nurse);
-            if (porter == null)
+            if (!PorterIdentity.IsPorter(porter))
             {
                 return false;
             }
@@ -630,10 +630,16 @@ namespace HospitalPorters
             GameDBObject cartEntry =
                 Database.Instance.GetEntry<GameDBObject>(
                     PorterIds.SampleCart);
+            string iconAssetId =
+                cartEntry == null ||
+                cartEntry.CustomIconAssetRef == null
+                    ? null
+                    : cartEntry.CustomIconAssetRef.XmlID;
             int icon =
-                cartEntry == null
-                    ? 0
-                    : cartEntry.IconIndex;
+                string.IsNullOrEmpty(iconAssetId) &&
+                cartEntry != null
+                    ? cartEntry.IconIndex
+                    : 0;
             string departmentName =
                 StringTable.GetInstance().GetLocalizedText(
                     department.m_departmentPersistentData.m_departmentType.Entry);
@@ -644,7 +650,11 @@ namespace HospitalPorters
                 departmentName,
                 string.Empty,
                 string.Empty,
-                icon);
+                icon,
+                0,
+                0,
+                0,
+                iconAssetId);
 
             PorterDiagnostics.Log(
                 "sample cart capacity notification: department=" +
@@ -2031,9 +2041,7 @@ namespace HospitalPorters
                 return;
             }
 
-            bool restored =
-                PorterSampleCartRuntime.RestoreCart(job, porter);
-
+            PorterSampleCartRuntime.RestoreCart(job, porter);
 
             FinalizeJob(porter, nurse, job, job.NativeTimeout);
         }
