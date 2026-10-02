@@ -1,6 +1,42 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 164233,
-  "updatedUtc": "2026-10-01T00:00:00Z",
-  "items": []
+  "manifestRevision": 164234,
+  "updatedUtc": "2026-10-02T03:44:36Z",
+  "items": [
+    {
+      "id": 20,
+      "title": "2026-09-07",
+      "text": "New mod: Hospital Always Lit.\nNew mod: Hospital Traffic Control."
+    },
+    {
+      "id": 19,
+      "title": "2026-09-08",
+      "text": "New mod: Hospital Care Level Transfer."
+    },
+    {
+      "id": 18,
+      "title": "2026-09-10",
+      "text": "New mod: Hospital Shift Handover.\nNew mod: Hospital EMS."
+    },
+    {
+      "id": 17,
+      "title": "2026-09-18",
+      "text": "New mod: Hospital Patient Life."
+    },
+    {
+      "id": 16,
+      "title": "2026-09-22",
+      "text": "New mod: Hospital Mod Update Checker."
+    },
+    {
+      "id": 15,
+      "title": "2026-09-26",
+      "text": "New mod: Hospital Radio."
+    },
+    {
+      "id": 14,
+      "title": "2026-09-30",
+      "text": "New mod: Hospital Porters."
+    }
+  ]
 }
