@@ -10,16 +10,16 @@
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0</AssemblyVersion>
-    <FileVersion>1.0.0</FileVersion>
-    <InformationalVersion>1.0.0</InformationalVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0</AssemblyVersion>
+    <FileVersion>1.1.0</FileVersion>
+    <InformationalVersion>1.1.0</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Mod Update Checker</Product>
     <Description>Project Hospital mod update notification checker powered by BepInEx and Harmony.</Description>
 
-    <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_GAME_DIR)' != ''">$(PROJECT_HOSPITAL_GAME_DIR)</GameDir>
+    <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_DIR)' != ''">$(PROJECT_HOSPITAL_DIR)</GameDir>
     <ManagedDir Condition="'$(GameDir)' != ''">$(GameDir)\ProjectHospital_Data\Managed</ManagedDir>
     <BepInExDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\core</BepInExDir>
     <PluginDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\plugins\Loupito75.HospitalModUpdateChecker</PluginDir>
@@ -30,10 +30,12 @@
     <Compile Include="UpdateChecker.cs" />
     <Compile Include="UpdateCheckerConfig.cs" />
     <Compile Include="UpdateManifest.cs" />
+    <Compile Include="NewsManifest.cs" />
     <Compile Include="SimpleJsonParser.cs" />
     <Compile Include="TitleScreenPatches.cs" />
     <Compile Include="TitleScreenUpdatePanel.cs" />
     <Compile Include="UpdatePanelLocalization.cs" />
+    <Compile Include="PluginLogStatusTracker.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -85,7 +87,7 @@
 
   <Target Name="ValidateProjectHospitalReferences" BeforeTargets="ResolveReferences">
     <Error Condition="'$(GameDir)' == ''"
-           Text="GameDir is required. Use build.ps1, set PROJECT_HOSPITAL_GAME_DIR locally, or pass /p:GameDir=&lt;PROJECT_HOSPITAL_DIR&gt;." />
+           Text="GameDir is required. Use build.ps1, set PROJECT_HOSPITAL_DIR locally, or pass /p:GameDir=&lt;PROJECT_HOSPITAL_DIR&gt;." />
     <Error Condition="'$(GameDir)' != '' AND !Exists('$(ManagedDir)\Assembly-CSharp.dll')"
            Text="Assembly-CSharp.dll was not found under the configured GameDir." />
     <Error Condition="'$(GameDir)' != '' AND !Exists('$(BepInExDir)\BepInEx.dll')"
