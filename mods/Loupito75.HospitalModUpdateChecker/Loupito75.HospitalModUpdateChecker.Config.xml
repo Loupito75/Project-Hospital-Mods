@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <HospitalModUpdateChecker>
   <!--
-    false: normal behavior; a successful check with no pending update is cached for 24 hours.
-    true: check online every time Project Hospital starts (testing only).
+    false: normal behavior; update and News checks use their independent 24-hour caches.
+    true: force update and News checks online every time Project Hospital starts (testing only).
   -->
   <CheckEveryLaunch>false</CheckEveryLaunch>
+
+  <!--
+    true: show the News block on the HMUC title-screen dashboard.
+    false: hide the News block completely.
+  -->
+  <ShowNews>true</ShowNews>
+
+  <!--
+    true: use built-in HMUC test content for updates, news and status rendering.
+    false: use normal live data.
+  -->
+  <Debug>false</Debug>
 </HospitalModUpdateChecker>

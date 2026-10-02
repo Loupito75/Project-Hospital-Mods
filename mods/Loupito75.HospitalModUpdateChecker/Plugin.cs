@@ -11,7 +11,7 @@ namespace HospitalModUpdateChecker
             "loupito75.HospitalModUpdateChecker";
         public const string PluginName =
             "Hospital Mod Update Checker";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
         public const string PluginAuthor = "Loupito75";
         public const string HarmonyId =
             "Loupito75:HospitalModUpdateChecker";
@@ -29,6 +29,7 @@ namespace HospitalModUpdateChecker
 
             Log = _formattedLog;
 
+            PluginLogStatusTracker.Start();
             UpdateCheckerConfig.Load();
 
             _harmony = new Harmony(HarmonyId);
@@ -48,8 +49,18 @@ namespace HospitalModUpdateChecker
             StartCoroutine(UpdateChecker.CheckForUpdates());
         }
 
+        private void Update()
+        {
+            if (PluginLogStatusTracker.ConsumeChanged())
+            {
+                TitleScreenUpdatePanel.Refresh();
+            }
+        }
+
         private void OnDestroy()
         {
+            PluginLogStatusTracker.Stop();
+
             if (_harmony != null)
             {
                 _harmony.UnpatchSelf();
