@@ -254,8 +254,7 @@ namespace HospitalTrafficControl.Patches
                 ? "<unknown>"
                 : (visitor.Name ?? string.Empty).Trim();
 
-            Plugin.Log?.LogWarning(
-                "[PathDebug] CROSS_FLOOR_VISITOR_RECOVERY entity='" +
+            Plugin.Log?.LogInfo("[PathDebug] CROSS_FLOOR_VISITOR_RECOVERY entity='" +
                 characterName + "' recovery=" + recovery +
                 ". Invalid visit movement was cancelled through native movement and procedure states.");
         }
@@ -352,7 +351,7 @@ namespace HospitalTrafficControl.Patches
                            exception.GetType().Name + ": " + exception.Message;
             }
 
-            Plugin.Log?.LogWarning(message);
+            Plugin.Log?.LogInfo(message);
         }
     }
 

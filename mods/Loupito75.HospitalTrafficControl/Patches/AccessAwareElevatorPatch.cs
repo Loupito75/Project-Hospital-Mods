@@ -70,7 +70,7 @@ namespace HospitalTrafficControl.Patches
                     string characterName =
                         entity == null ? "<unknown>" : (entity.Name ?? string.Empty).Trim();
 
-                    Plugin.Log?.LogWarning(
+                    Plugin.Log?.LogInfo(
                         "[PathDebug] ACCESS_AWARE_ELEVATOR entity='" + characterName +
                         "' access=" + actualAccess + "(" + (int)actualAccess + ")" +
                         " currentFloor=" + currentFloor +
@@ -85,7 +85,7 @@ namespace HospitalTrafficControl.Patches
             {
                 if (TrafficControlConfig.PathfindingDebug)
                 {
-                    Plugin.Log?.LogWarning(
+                    Plugin.Log?.LogInfo(
                         "[PathDebug] ACCESS_AWARE_ELEVATOR failed; using vanilla CheckElevator: " +
                         exception.GetType().Name + ": " + exception.Message);
                 }

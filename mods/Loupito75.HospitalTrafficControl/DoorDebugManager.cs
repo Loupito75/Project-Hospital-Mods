@@ -28,8 +28,7 @@ namespace HospitalTrafficControl
                 return;
             }
 
-            Plugin.Log?.LogWarning(
-                "[DoorDebug] CLICK MISS " +
+            Plugin.Log?.LogInfo("[DoorDebug] CLICK MISS " +
                 "floor=" + (floor != null ? floor.m_floorIndex.ToString() : "null") +
                 " cursorTile=" + Format(cursorTile) +
                 " mouse=(" + mouseCoords.x.ToString("0.###") + ", " + mouseCoords.y.ToString("0.###") + ")" +
@@ -53,8 +52,7 @@ namespace HospitalTrafficControl
                 return;
             }
 
-            Plugin.Log?.LogWarning(
-                "[DoorDebug] CLICK " +
+            Plugin.Log?.LogInfo("[DoorDebug] CLICK " +
                 "floor=" + (floor != null ? floor.m_floorIndex.ToString() : "null") +
                 " cursorTile=" + Format(cursorTile) +
                 " mouse=(" + mouseCoords.x.ToString("0.###") + ", " + mouseCoords.y.ToString("0.###") + ")" +
@@ -71,8 +69,7 @@ namespace HospitalTrafficControl
 
             for (int i = 0; i < group.Length; i++)
             {
-                Plugin.Log?.LogWarning(
-                    "[DoorDebug]   GROUP #" + (i + 1) + " " + DescribeDoor(group[i]) + ".");
+                Plugin.Log?.LogInfo("[DoorDebug]   GROUP #" + (i + 1) + " " + DescribeDoor(group[i]) + ".");
             }
         }
 
@@ -113,8 +110,7 @@ namespace HospitalTrafficControl
 
             LastArrowSignatures[key] = signature;
 
-            Plugin.Log?.LogWarning(
-                "[DoorDebug] ARROW " +
+            Plugin.Log?.LogInfo("[DoorDebug] ARROW " +
                 DescribeDoor(door) +
                 " mode=" + mode +
                 " source=" + Format(sourceTile) +

@@ -24,6 +24,41 @@ namespace HospitalTrafficControl
         private static bool s_missingNativeMethodLogged;
         private static bool s_nativeInvocationErrorLogged;
 
+        internal static void LogBathroomCleaningStart(BehaviorJanitor janitor)
+        {
+            if (!TrafficControlConfig.BathroomFlowDebug ||
+                janitor == null ||
+                janitor.m_state == null)
+            {
+                return;
+            }
+
+            WalkComponent walk = janitor.GetComponent<WalkComponent>();
+            Room room = janitor.m_state.m_room == null
+                ? null
+                : janitor.m_state.m_room.GetEntity();
+
+            if (room == null && walk != null)
+            {
+                room = MapScriptInterface.Instance.GetRoomAt(
+                    walk.GetCurrentTile(),
+                    walk.GetFloorIndex());
+            }
+
+            if (!IsBathroomRoom(room))
+            {
+                return;
+            }
+
+            Plugin.Log?.LogInfo("[BathroomDebug] JANITOR_WC_CLEANING_START" +
+                " | janitor=" + CharacterName(janitor.m_entity) +
+                " | floor=" + room.GetFloorIndex() +
+                " | roomType=" + RoomTypeId(room) +
+                " | avoidOccupied=" +
+                    TrafficControlConfig.AvoidCleaningOccupiedBathrooms +
+                " | occupied=" + IsOccupiedBathroom(room));
+        }
+
         internal static bool TryInterruptProtectedCleaningRoom(BehaviorJanitor janitor)
         {
             if (janitor == null ||
@@ -55,11 +90,13 @@ namespace HospitalTrafficControl
                 return false;
             }
 
-            ReleaseRoomReservation(janitor, room);
-            ReleaseReservedTile(janitor, walk);
-            janitor.m_state.m_room = null;
+            if (TrafficControlConfig.AvoidCleaningOccupiedBathrooms &&
+                IsOccupiedBathroom(room))
+            {
+                LogBathroomCleaningBlock(janitor, room, "cleaning-recheck");
+            }
 
-            return ReselectJanitor(janitor);
+            return ReleaseCleaningTargetAndReselect(janitor, room);
         }
 
         internal static bool TryInterruptOccupiedBathroomBeforeRoomTravel(
@@ -84,12 +121,8 @@ namespace HospitalTrafficControl
                 return false;
             }
 
-            WalkComponent walk = janitor.GetComponent<WalkComponent>();
-            ReleaseRoomReservation(janitor, room);
-            ReleaseReservedTile(janitor, walk);
-            janitor.m_state.m_room = null;
-
-            return ReselectJanitor(janitor);
+            LogBathroomCleaningBlock(janitor, room, "before-room-travel");
+            return ReleaseCleaningTargetAndReselect(janitor, room);
         }
 
         internal static bool TryHandleOccupiedBathroomRoomTravel(
@@ -121,6 +154,7 @@ namespace HospitalTrafficControl
 
             if (IsOccupiedBathroom(room))
             {
+                LogBathroomCleaningBlock(janitor, room, "room-travel");
                 ReleaseRoomReservation(janitor, room);
 
                 if (janitorInside)
@@ -196,6 +230,63 @@ namespace HospitalTrafficControl
             }
 
             return false;
+        }
+
+        private static void LogBathroomCleaningBlock(
+            BehaviorJanitor janitor,
+            Room room,
+            string reason)
+        {
+            if (!TrafficControlConfig.BathroomFlowDebug)
+            {
+                return;
+            }
+
+            Plugin.Log?.LogInfo("[BathroomDebug] JANITOR_WC_CLEANING_BLOCK" +
+                " | janitor=" + CharacterName(
+                    janitor == null ? null : janitor.m_entity) +
+                " | floor=" + (room == null ? -1 : room.GetFloorIndex()) +
+                " | roomType=" + RoomTypeId(room) +
+                " | reason=" + reason + ".");
+        }
+
+        private static bool IsBathroomRoom(Room room)
+        {
+            return room != null &&
+                   room.m_roomPersistentData != null &&
+                   room.m_roomPersistentData.m_roomType.Entry != null &&
+                   room.m_roomPersistentData.m_roomType.Entry.HasTag("wc");
+        }
+
+        private static string RoomTypeId(Room room)
+        {
+            GameDBRoomType roomType =
+                room == null ||
+                room.m_roomPersistentData == null
+                    ? null
+                    : room.m_roomPersistentData.m_roomType.Entry;
+
+            return roomType == null
+                ? "<none>"
+                : roomType.DatabaseID.ToString();
+        }
+
+        private static string CharacterName(Entity entity)
+        {
+            return entity == null
+                ? "<unknown>"
+                : (entity.Name ?? string.Empty).Trim();
+        }
+
+        private static bool ReleaseCleaningTargetAndReselect(
+            BehaviorJanitor janitor,
+            Room room)
+        {
+            WalkComponent walk = janitor.GetComponent<WalkComponent>();
+            ReleaseRoomReservation(janitor, room);
+            ReleaseReservedTile(janitor, walk);
+            janitor.m_state.m_room = null;
+            return ReselectJanitor(janitor);
         }
 
         private static bool ReselectJanitor(BehaviorJanitor janitor)

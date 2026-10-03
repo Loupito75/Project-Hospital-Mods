@@ -23,6 +23,15 @@ namespace HospitalTrafficControl.Patches
                     return;
                 }
 
+                // Recovery that starts a replacement path is deferred until
+                // UpdateLookingForPath() finishes native NoPath cleanup. This covers
+                // both access-rights drops after a procedure and collapse rerouting.
+                if (AccessZoneRecoveryManager.IsRestrictedNoPathCandidate(__instance) ||
+                    CollapseRouteRecoveryManager.IsRecoveryCandidate(__instance))
+                {
+                    return;
+                }
+
                 if (OneWayRouteManager.ShouldRegisterNoPathAsOneWay(__instance))
                 {
                     BlockedRouteManager.RegisterOneWay(__instance);
@@ -48,6 +57,59 @@ namespace HospitalTrafficControl.Patches
             CrossFloorBlockedManager.Clear(__instance);
             BlockedRouteManager.ClearRecovered(__instance);
             OneWayRouteManager.OnWalkStateChanged(__instance, state);
+        }
+    }
+
+    [HarmonyPatch(typeof(WalkComponent), "UpdateLookingForPath")]
+    internal static class DeferredNoPathRecoveryPatch
+    {
+        private static void Postfix(WalkComponent __instance)
+        {
+            if (__instance == null ||
+                __instance.m_state == null ||
+                __instance.m_state.m_walkState != WalkState.NoPath)
+            {
+                return;
+            }
+
+            // UpdateLookingForPath has now completed the native NoPath cleanup,
+            // including aborting and clearing the failed pathfinder job. Start any
+            // replacement route only here so vanilla cannot abort HTC's new job.
+            if (AccessZoneRecoveryManager.IsRestrictedNoPathCandidate(__instance) &&
+                AccessZoneRecoveryManager.TryRecoverRestrictedNoPath(__instance))
+            {
+                ClearRecoveredMarkers(__instance);
+                return;
+            }
+
+            if (CollapseRouteRecoveryManager.IsRecoveryCandidate(__instance) &&
+                CollapseRouteRecoveryManager.TryRecoverNoPath(__instance))
+            {
+                ClearRecoveredMarkers(__instance);
+                return;
+            }
+
+            if (OneWayRouteManager.ShouldRegisterNoPathAsOneWay(__instance))
+            {
+                BlockedRouteManager.RegisterOneWay(__instance);
+            }
+            else
+            {
+                BlockedRouteManager.Register(__instance);
+            }
+        }
+
+        private static void ClearRecoveredMarkers(WalkComponent walk)
+        {
+            if (!TrafficControlConfig.PathfindingDebug ||
+                walk == null ||
+                walk.Floor == null)
+            {
+                return;
+            }
+
+            PathfindingDebugMarkerRenderer.ClearMarkersForFloor(
+                walk.Floor.m_floorIndex);
         }
     }
 
@@ -94,7 +156,7 @@ namespace HospitalTrafficControl.Patches
             string entityName =
                 entity == null ? "<unknown>" : (entity.Name ?? string.Empty).Trim();
 
-            Plugin.Log?.LogWarning(
+            Plugin.Log?.LogInfo(
                 "[PathDebug] ACCESS_CONTEXT entity='" + entityName +
                 "' behavior=" + (behavior == null ? "null" : behavior.GetType().Name) +
                 " access=" + FormatAccess(currentAccess) +

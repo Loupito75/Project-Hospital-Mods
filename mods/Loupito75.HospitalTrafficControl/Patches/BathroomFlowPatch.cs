@@ -104,6 +104,10 @@ namespace HospitalTrafficControl.Patches
                 " | sameFloor=" + sameFloor +
                 " | hasWcTag=" + hasWcTag +
                 " | reservationPortraitsEnabled=" + indicatorEnabled);
+
+            BathroomAvailabilityAudit.LogHospitalizedSelectionSnapshot(
+                character,
+                toilet);
         }
 
         internal static void LogReserveObjectAnomalies(UseComponent useComponent, TileObject tileObject)
@@ -123,8 +127,7 @@ namespace HospitalTrafficControl.Patches
                 previousReserved != tileObject &&
                 previousReserved.HasTag("wc"))
             {
-                Plugin.Log?.LogWarning(
-                    "[BathroomDebug] wc-reservation-overwrite" +
+                Plugin.Log?.LogInfo("[BathroomDebug] wc-reservation-overwrite" +
                     " | character=" + CharacterName(character) +
                     " | oldWc=" + ObjectName(previousReserved) +
                     " | oldWcUser=" + CharacterName(previousReserved.User) +
@@ -138,8 +141,7 @@ namespace HospitalTrafficControl.Patches
 
             if (tileObject.User != null && tileObject.User != character)
             {
-                Plugin.Log?.LogWarning(
-                    "[BathroomDebug] sink-reserve-collision" +
+                Plugin.Log?.LogInfo("[BathroomDebug] sink-reserve-collision" +
                     " | requester=" + CharacterName(character) +
                     " | requesterGermaphobe=" + HasGermaphobePerk(character) +
                     " | sink=" + ObjectName(tileObject) +
@@ -397,8 +399,7 @@ namespace HospitalTrafficControl.Patches
             {
                 if (TrafficControlConfig.BathroomFlowDebug)
                 {
-                    Plugin.Log?.LogWarning(
-                        "[BathroomDebug] handoff-hold-collision" +
+                    Plugin.Log?.LogInfo("[BathroomDebug] handoff-hold-collision" +
                         " | character=" + BathroomFlowDiagnostics.CharacterName(character) +
                         " | fixture=" + BathroomFlowDiagnostics.ObjectName(fixture) +
                         " | existingUser=" + BathroomFlowDiagnostics.CharacterName(fixture.User));
@@ -411,8 +412,7 @@ namespace HospitalTrafficControl.Patches
             {
                 if (TrafficControlConfig.BathroomFlowDebug)
                 {
-                    Plugin.Log?.LogWarning(
-                        "[BathroomDebug] handoff-hold-skipped-reserved-object" +
+                    Plugin.Log?.LogInfo("[BathroomDebug] handoff-hold-skipped-reserved-object" +
                         " | character=" + BathroomFlowDiagnostics.CharacterName(character) +
                         " | fixture=" + BathroomFlowDiagnostics.ObjectName(fixture) +
                         " | reservedObject=" + BathroomFlowDiagnostics.ObjectName(reservedObject));
