@@ -30,7 +30,18 @@ namespace HospitalPatientLife.Patches
             }
 
             BehaviorPatient behavior = patient.GetComponent<BehaviorPatient>();
-            if (behavior != null && behavior.GetAccessRights() == AccessRights.PATIENT_PROCEDURE)
+            HospitalizationComponent hospitalization =
+                patient.GetComponent<HospitalizationComponent>();
+
+            // Clinic patients can temporarily report PATIENT_PROCEDURE while they
+            // are being examined/treated or while standing inside a restricted room.
+            // That transient right must not widen their personal WC search: once the
+            // procedure ends they return to PATIENT and could otherwise be trapped
+            // inside the blue WC they just selected.
+            if (behavior != null &&
+                hospitalization != null &&
+                hospitalization.IsHospitalized() &&
+                behavior.GetAccessRights() == AccessRights.PATIENT_PROCEDURE)
             {
                 return AccessRights.PATIENT_PROCEDURE;
             }
@@ -180,10 +191,9 @@ namespace HospitalPatientLife.Patches
                         Room room = floor.m_roomTiles[
                             candidatePosition.m_x,
                             candidatePosition.m_y];
-                        if (room == null ||
-                            room.m_roomPersistentData == null ||
-                            (room.m_roomPersistentData.m_valid != RoomValidity.OK &&
-                             room.m_roomPersistentData.m_valid != RoomValidity.MISSING_STAFF) ||
+                        if (!IsRoomAllowedForBladder(
+                                room,
+                                accessRights) ||
                             !HasAllowedRoomTag(room, roomTags))
                         {
                             continue;
@@ -226,6 +236,30 @@ namespace HospitalPatientLife.Patches
                 position.m_x + "," +
                 position.m_y +
                 ",floor=" + target.GetFloorIndex();
+        }
+
+        internal static bool IsRoomAllowedForBladder(
+            Room room,
+            AccessRights accessRights)
+        {
+            if (room == null || room.m_roomPersistentData == null)
+            {
+                return false;
+            }
+
+            RoomValidity validity = room.m_roomPersistentData.m_valid;
+            if (validity == RoomValidity.OK ||
+                validity == RoomValidity.MISSING_STAFF)
+            {
+                return true;
+            }
+
+            // INACCESSIBLE_PATIENTS means the room failed the game's generic
+            // PATIENT flood-fill. For bladder only, a PATIENT_PROCEDURE patient may
+            // still use an exact WC endpoint when object tile, use tile and route
+            // have all passed the stricter checks in FindClosestAllowedBladderTarget.
+            return accessRights == AccessRights.PATIENT_PROCEDURE &&
+                   validity == RoomValidity.INACCESSIBLE_PATIENTS;
         }
 
         private static bool HasAllowedRoomTag(Room room, string[] roomTags)
@@ -309,48 +343,84 @@ namespace HospitalPatientLife.Patches
                 __result == null ||
                 equipmentListRules != EquipmentListRules.ONLY_FREE_SAME_FLOOR ||
                 __result.m_equipment == null ||
-                __result.m_equipment.Length == 0 ||
-                __result.m_equipment[0] == null)
+                __result.m_equipment.Length == 0)
             {
                 return;
             }
 
-            TileObject selected = __result.m_equipment[0].GetEntity();
-            if (selected == null ||
-                !PatientBladderRules.IsBiohazardPaintedWc(selected) ||
-                PatientBladderRules.IsInfectiousDiseasesPatient(patient))
-            {
-                return;
-            }
+            TileObject selected =
+                __result.m_equipment[0] == null
+                    ? null
+                    : __result.m_equipment[0].GetEntity();
 
             AccessRights effectiveAccess =
-                PatientBladderRules.GetEffectiveSearchAccess(patient, accessRights);
-            TileObject replacement = PatientBladderRules.FindClosestAllowedBladderTarget(
-                patient,
-                effectiveAccess,
-                procedure.RequiredRoomTags);
+                PatientBladderRules.GetEffectiveSearchAccess(
+                    patient,
+                    accessRights);
 
-            ref EntityIDPointer<TileObject> equipment = ref __result.m_equipment[0];
-            equipment = replacement;
-            if (replacement == null)
+            bool reselectForProcedureAccess =
+                effectiveAccess == AccessRights.PATIENT_PROCEDURE;
+            bool rejectBiohazard =
+                selected != null &&
+                PatientBladderRules.IsBiohazardPaintedWc(selected) &&
+                !PatientBladderRules.IsInfectiousDiseasesPatient(patient);
+
+            if (!reselectForProcedureAccess && !rejectBiohazard)
             {
-                __result.m_availability &= ~ProcedureSceneAvailability.AVAILABLE;
-                __result.m_availability |= ProcedureSceneAvailability.EQUIPMENT_UNAVAILABLE;
+                return;
             }
 
-            BehaviorPatient behavior = patient.GetComponent<BehaviorPatient>();
-            Department patientDepartment = behavior.m_state == null ||
+            TileObject replacement =
+                PatientBladderRules.FindClosestAllowedBladderTarget(
+                    patient,
+                    effectiveAccess,
+                    procedure.RequiredRoomTags);
+
+            ref EntityIDPointer<TileObject> equipment =
+                ref __result.m_equipment[0];
+            equipment = replacement;
+
+            if (replacement == null)
+            {
+                __result.m_availability &=
+                    ~ProcedureSceneAvailability.AVAILABLE;
+                __result.m_availability |=
+                    ProcedureSceneAvailability.EQUIPMENT_UNAVAILABLE;
+            }
+            else
+            {
+                __result.m_availability &=
+                    ~ProcedureSceneAvailability.EQUIPMENT_UNAVAILABLE;
+
+                if (__result.m_availability ==
+                    (ProcedureSceneAvailability)0)
+                {
+                    __result.m_availability =
+                        ProcedureSceneAvailability.AVAILABLE;
+                }
+            }
+
+            BehaviorPatient behavior =
+                patient.GetComponent<BehaviorPatient>();
+            Department patientDepartment =
+                behavior.m_state == null ||
                 behavior.m_state.m_department == null
                     ? null
                     : behavior.m_state.m_department.GetEntity();
 
             HospitalizedPatientTrace.Log(
                 HospitalizedPatientTrace.GetName(patient) +
-                " | bladder-biohazard-wc=REJECTED_NON_DID" +
+                " | bladder-wc-reselect=" +
+                (reselectForProcedureAccess
+                    ? "PATIENT_PROCEDURE"
+                    : "BIOHAZARD_FILTER") +
                 " | patientDpt=" +
-                NeedDestinationDiagnostics.GetDepartmentId(patientDepartment) +
-                " | rejected=" + PatientBladderRules.DescribeWc(selected) +
-                " | replacement=" + PatientBladderRules.DescribeWc(replacement) +
+                NeedDestinationDiagnostics.GetDepartmentId(
+                    patientDepartment) +
+                " | original=" +
+                PatientBladderRules.DescribeWc(selected) +
+                " | replacement=" +
+                PatientBladderRules.DescribeWc(replacement) +
                 " | searchAccess=" + effectiveAccess);
         }
     }

@@ -181,12 +181,21 @@ namespace HospitalPatientLife.Patches
                 : behavior.m_state.m_department.GetEntity();
             string patientDepartmentId = GetDepartmentId(preferredDepartment);
             Vector2i origin = walk.GetCurrentTile();
-            AccessRights accessRights = AccessRights.PATIENT_PROCEDURE;
+            AccessRights accessRights =
+                tag == "wc"
+                    ? PatientBladderRules.GetEffectiveSearchAccess(
+                        patient,
+                        AccessRights.PATIENT)
+                    : AccessRights.PATIENT_PROCEDURE;
+            bool infectiousDiseasesPatient =
+                tag == "wc" &&
+                PatientBladderRules.IsInfectiousDiseasesPatient(patient);
 
             int tagged = 0;
             int invalidObject = 0;
             int busy = 0;
             int accessBlocked = 0;
+            int bladderPolicyBlocked = 0;
             int invalidRoom = 0;
             int roomTagBlocked = 0;
             int objectSameDepartment = 0;
@@ -273,11 +282,22 @@ namespace HospitalPatientLife.Patches
                             candidatePosition.m_x,
                             candidatePosition.m_y];
 
-                        bool validRoom =
-                            (allowedOutsideOfRoom && room == null) ||
-                            (room != null &&
-                                (room.m_roomPersistentData.m_valid == RoomValidity.OK ||
-                                 room.m_roomPersistentData.m_valid == RoomValidity.MISSING_STAFF));
+                        bool validRoom;
+                        if (tag == "wc")
+                        {
+                            validRoom =
+                                PatientBladderRules.IsRoomAllowedForBladder(
+                                    room,
+                                    accessRights);
+                        }
+                        else
+                        {
+                            validRoom =
+                                (allowedOutsideOfRoom && room == null) ||
+                                (room != null &&
+                                    (room.m_roomPersistentData.m_valid == RoomValidity.OK ||
+                                     room.m_roomPersistentData.m_valid == RoomValidity.MISSING_STAFF));
+                        }
 
                         if (!validRoom)
                         {
@@ -304,6 +324,14 @@ namespace HospitalPatientLife.Patches
                         if (roomTags != null && !allowedRoomTag)
                         {
                             roomTagBlocked++;
+                            continue;
+                        }
+
+                        if (tag == "wc" &&
+                            !infectiousDiseasesPatient &&
+                            PatientBladderRules.IsBiohazardPaintedWc(candidate))
+                        {
+                            bladderPolicyBlocked++;
                             continue;
                         }
 
@@ -339,7 +367,9 @@ namespace HospitalPatientLife.Patches
                             ref roomNoDepartment);
 
                         bool departmentAllowed = true;
-                        if (room != null && preferredDepartment != null &&
+                        if (tag != "wc" &&
+                            room != null &&
+                            preferredDepartment != null &&
                             objectDepartment != preferredDepartment &&
                             (ignoreDepartmentForRoomTag == null ||
                              !room.m_roomPersistentData.m_roomType.Entry.HasTag(
@@ -388,7 +418,13 @@ namespace HospitalPatientLife.Patches
             result.Append(" | tagged=").Append(tagged);
             result.Append(" | invalid=").Append(invalidObject);
             result.Append(" | busy=").Append(busy);
+            result.Append(" | access=").Append(accessRights);
             result.Append(" | accessBlocked=").Append(accessBlocked);
+            if (tag == "wc")
+            {
+                result.Append(" | bladderPolicyBlocked=")
+                    .Append(bladderPolicyBlocked);
+            }
             result.Append(" | invalidRoom=").Append(invalidRoom);
             result.Append(" | roomTagBlocked=").Append(roomTagBlocked);
             result.Append(" | objectDptSame=").Append(objectSameDepartment);
@@ -498,7 +534,7 @@ namespace HospitalPatientLife.Patches
             ref TileObject __result)
         {
             if (accessRights != AccessRights.PATIENT_PROCEDURE ||
-                (tag != "wc" && tag != "food"))
+                tag != "food")
             {
                 return;
             }
@@ -516,8 +552,9 @@ namespace HospitalPatientLife.Patches
                 return;
             }
 
-            // Need scripts walk to GetDefaultUsePosition(), not the object's storage tile.
-            // Validate the exact destination for both food and WC before the procedure starts.
+            // Food need scripts walk to GetDefaultUsePosition(), not the object's storage tile.
+            // Bladder selection is handled separately in PatientBladderPatch so WC rules
+            // cannot widen cafeteria or other PATIENT_PROCEDURE searches.
             if (__result != null)
             {
                 Vector2i resultUseTile;
@@ -562,33 +599,13 @@ namespace HospitalPatientLife.Patches
                         }
 
                         Vector2i candidatePosition = candidate.m_state.m_position;
-                        Vector2i routePosition = candidatePosition;
+                        Vector2i routePosition;
                         bool accessAllowed =
-                            PatientProcedureNeedAccessRules.IsCandidateAccessAllowed(
+                            PatientProcedureNeedAccessRules.IsFoodDestinationAllowed(
                                 floor,
-                                position,
-                                candidatePosition,
+                                candidate,
                                 accessRights,
-                                tag);
-
-                        if (tag == "food")
-                        {
-                            accessAllowed =
-                                PatientProcedureNeedAccessRules.IsFoodDestinationAllowed(
-                                    floor,
-                                    candidate,
-                                    accessRights,
-                                    out routePosition);
-                        }
-                        else if (tag == "wc")
-                        {
-                            accessAllowed =
-                                PatientProcedureNeedAccessRules.IsObjectAndUseDestinationAllowed(
-                                    floor,
-                                    candidate,
-                                    accessRights,
-                                    out routePosition);
-                        }
+                                out routePosition);
 
                         if (!accessAllowed)
                         {

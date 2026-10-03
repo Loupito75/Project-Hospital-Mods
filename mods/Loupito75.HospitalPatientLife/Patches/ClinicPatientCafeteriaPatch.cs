@@ -154,6 +154,12 @@ namespace HospitalPatientLife.Patches
             }
         }
 
+        internal static void ResetRuntimeState()
+        {
+            Decisions.Clear();
+            ClearForcedTarget();
+        }
+
         internal static bool IsDecisionTargetStillAvailable(
             ClinicCafeteriaDecision decision)
         {

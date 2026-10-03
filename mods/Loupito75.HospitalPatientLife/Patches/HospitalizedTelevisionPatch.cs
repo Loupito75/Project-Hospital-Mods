@@ -40,6 +40,12 @@ namespace HospitalPatientLife.Patches
             }
         }
 
+        internal static void ResetRuntimeState()
+        {
+            s_pendingAmbulatory.Clear();
+            s_activeAmbulatoryBed.Clear();
+        }
+
         internal static void QueueAmbulatoryTelevision(
             ProcedureScriptControlHopitalizedFreeTime script,
             Entity patient,
