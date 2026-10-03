@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731441,
-  "updatedUtc": "2026-10-02T04:48:02Z",
+  "manifestRevision": 731442,
+  "updatedUtc": "2026-10-03T03:06:02Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -25,7 +25,7 @@
       "guid": "loupito75.HospitalPatientLife",
       "name": "Hospital Patient Life",
       "author": "Loupito75",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "guid": "loupito75.HospitalTrafficControl",
