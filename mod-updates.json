@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731442,
-  "updatedUtc": "2026-10-03T03:06:02Z",
+  "manifestRevision": 731443,
+  "updatedUtc": "2026-10-03T03:59:31Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -31,7 +31,7 @@
       "guid": "loupito75.HospitalTrafficControl",
       "name": "Hospital Traffic Control",
       "author": "Loupito75",
-      "version": "1.3.0"
+      "version": "1.4.0"
     },
     {
       "guid": "loupito75.HospitalShiftHandover",
