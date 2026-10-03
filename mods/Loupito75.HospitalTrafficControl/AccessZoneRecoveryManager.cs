@@ -83,6 +83,92 @@ namespace HospitalTrafficControl
             AccessZoneRecoveryTracker.Reset();
         }
 
+        internal static bool IsRestrictedNoPathCandidate(WalkComponent walk)
+        {
+            return walk != null &&
+                   walk.m_state != null &&
+                   walk.Floor != null &&
+                   !walk.m_state.m_lying &&
+                   CharacterAccess.CanBeRestrictedByAccessChange(walk) &&
+                   IsCurrentTileRestricted(walk);
+        }
+
+        internal static bool TryRecoverRestrictedNoPath(WalkComponent walk)
+        {
+            if (!IsRestrictedNoPathCandidate(walk))
+            {
+                return false;
+            }
+
+            Entity entity = CharacterAccess.GetEntity(walk);
+            Behavior behavior = entity == null
+                ? null
+                : entity.GetComponent<Behavior>();
+            if (behavior == null)
+            {
+                return false;
+            }
+
+            Vector2i currentTile = walk.GetCurrentTileSafe();
+            AccessRights accessRights = behavior.GetAccessRights();
+
+            HashSet<Vector2i> allowedForbiddenTiles;
+            Vector2i exitTile;
+            int temporaryAccessLevel;
+            bool oneWayPreventedExit;
+
+            if (!TryFindExit(
+                    walk.Floor,
+                    currentTile,
+                    accessRights,
+                    out allowedForbiddenTiles,
+                    out exitTile,
+                    out temporaryAccessLevel,
+                    out oneWayPreventedExit))
+            {
+                LogRecovery(
+                    entity,
+                    oneWayPreventedExit
+                        ? "no-path-no-safe-exit-oneway"
+                        : "no-path-no-safe-exit",
+                    currentTile,
+                    Vector2i.ZERO_VECTOR,
+                    accessRights);
+                return false;
+            }
+
+            AccessZoneRecoveryEntry entry = new AccessZoneRecoveryEntry
+            {
+                FloorIndex = walk.Floor.m_floorIndex,
+                TemporaryAccessLevel = temporaryAccessLevel,
+                AllowedForbiddenTiles = allowedForbiddenTiles,
+                TemporaryExit = true,
+                OriginalDestination = walk.m_state.m_destination,
+                OriginalDestinationFloor = walk.m_state.m_destinationFloor,
+                OriginalWalkState = WalkState.Walking,
+                OriginalMovementType = walk.m_state.m_movementType,
+                OriginalObjectToSitOn = BlockedRouteManager.GetReservedObject(walk)
+            };
+
+            Active[walk] = entry;
+            BlockedRouteManager.ClearForAccessRecovery(
+                walk,
+                restoreReservation: false);
+            ReleaseCurrentSitReservation(walk, entity);
+
+            walk.SetDestination(
+                new Vector2f(exitTile.m_x, exitTile.m_y),
+                walk.Floor.m_floorIndex);
+
+            LogRecovery(
+                entity,
+                "no-path-temporary-exit",
+                currentTile,
+                exitTile,
+                accessRights);
+            return true;
+        }
+
         internal static void HandleAccessRightsChanged(
             Floor floor,
             AccessChangeSet accessChange)
@@ -752,7 +838,7 @@ namespace HospitalTrafficControl
             string characterName =
                 entity == null ? "<unknown>" : (entity.Name ?? string.Empty).Trim();
 
-            Plugin.Log?.LogWarning(
+            Plugin.Log?.LogInfo(
                 "[PathDebug] ACCESS_ZONE_RECOVERY entity='" + characterName +
                 "' result=" + result +
                 " current=" + current +

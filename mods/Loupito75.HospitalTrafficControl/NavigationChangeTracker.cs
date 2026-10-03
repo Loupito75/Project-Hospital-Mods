@@ -106,6 +106,39 @@ namespace HospitalTrafficControl
             }
         }
 
+        internal static AccessChangeSet CompleteExternalAccessMutation(Floor floor)
+        {
+            if (!CanSnapshot(floor))
+            {
+                return null;
+            }
+
+            int floorIndex = floor.m_floorIndex;
+            AccessSnapshot baseline;
+            if (!ExternalMutationSnapshots.TryGetValue(floorIndex, out baseline))
+            {
+                return null;
+            }
+
+            AccessSnapshot current = CreateSnapshot(floor);
+            AccessChangeSet changeSet = null;
+
+            if (!AccessEquals(baseline, current))
+            {
+                changeSet = new AccessChangeSet(
+                    current.Width,
+                    current.Height,
+                    baseline.RoomAccess,
+                    baseline.LogisticsAccess,
+                    current.RoomAccess,
+                    current.LogisticsAccess);
+            }
+
+            LastAppliedSnapshots[floorIndex] = current;
+            ExternalMutationSnapshots.Remove(floorIndex);
+            return changeSet;
+        }
+
         internal static void BeginNavigationRebuild(Floor floor)
         {
             if (!CanSnapshot(floor))

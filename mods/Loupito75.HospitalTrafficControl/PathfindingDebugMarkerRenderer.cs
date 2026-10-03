@@ -227,7 +227,7 @@ namespace HospitalTrafficControl
                 if (renderedCount != s_lastRenderedMarkerCount)
                 {
                     s_lastRenderedMarkerCount = renderedCount;
-                    Plugin.Log?.LogWarning(
+                    Plugin.Log?.LogInfo(
                         "[PathDebug] Native Logistics room renderer built " +
                         renderedCount + " flashing tile marker(s) on floor " +
                         floor.m_floorIndex + ".");
@@ -415,7 +415,7 @@ namespace HospitalTrafficControl
             }
 
             s_renderErrorLogged = true;
-            Plugin.Log?.LogWarning(message);
+            Plugin.Log?.LogInfo(message);
         }
     }
 }

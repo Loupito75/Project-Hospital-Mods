@@ -113,6 +113,30 @@ namespace HospitalTrafficControl.Patches
         }
     }
 
+    [HarmonyPatch(typeof(BehaviorJanitor), nameof(BehaviorJanitor.SwitchState))]
+    internal static class JanitorBathroomCleaningDiagnosticPatch
+    {
+        private static void Postfix(
+            BehaviorJanitor __instance,
+            BehaviorJanitorState state)
+        {
+            if (state != BehaviorJanitorState.Cleaning)
+            {
+                return;
+            }
+
+            // SwitchState(Cleaning) itself performs no cleaning in vanilla. Recheck
+            // immediately so an occupied WC selected just before this transition is
+            // abandoned before the first UpdateStateCleaning() tick.
+            if (JanitorCleaningManager.TryInterruptProtectedCleaningRoom(__instance))
+            {
+                return;
+            }
+
+            JanitorCleaningManager.LogBathroomCleaningStart(__instance);
+        }
+    }
+
     [HarmonyPatch(
         typeof(MapScriptInterface),
         nameof(MapScriptInterface.FindDirtiestTileInARoom),

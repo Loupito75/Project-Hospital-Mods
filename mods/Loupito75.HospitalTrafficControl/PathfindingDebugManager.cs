@@ -217,7 +217,7 @@ namespace HospitalTrafficControl
 
             if (job == null)
             {
-                Plugin.Log?.LogWarning(
+                Plugin.Log?.LogInfo(
                     "[PathDebug] NO PATH entity='" + entityName + "' kind=" + entityKind +
                     " floor=" + floorIndex +
                     " current=" + currentTile +
@@ -234,7 +234,7 @@ namespace HospitalTrafficControl
                     ? "none"
                     : result.m_exception.GetType().FullName + ": " + result.m_exception.Message;
 
-            Plugin.Log?.LogWarning(
+            Plugin.Log?.LogInfo(
                 "[PathDebug] NO PATH entity='" + entityName + "' kind=" + entityKind +
                 " floor=" + floorIndex +
                 " current=" + currentTile +
@@ -253,7 +253,7 @@ namespace HospitalTrafficControl
             FailedPathTrace trace = TakeFailedTrace(job);
             if (trace == null)
             {
-                Plugin.Log?.LogWarning(
+                Plugin.Log?.LogInfo(
                     "[PathDebug] No denied-transition trace was captured for this final job.");
                 PublishFallbackMarker(floorIndex, job.m_end);
                 return;
@@ -261,13 +261,13 @@ namespace HospitalTrafficControl
 
             if (trace.DeniedTransitions.Count == 0)
             {
-                Plugin.Log?.LogWarning(
+                Plugin.Log?.LogInfo(
                     "[PathDebug] Final job failed without a captured Floor.IsAccessible denial.");
                 PublishFallbackMarker(floorIndex, job.m_end);
             }
             else
             {
-                Plugin.Log?.LogWarning(
+                Plugin.Log?.LogInfo(
                     "[PathDebug] Denied transitions captured=" + trace.DeniedTransitions.Count +
                     " totalChecksRejected=" + trace.DeniedTransitionCount +
                     (trace.DeniedTransitionCount > trace.DeniedTransitions.Count
@@ -276,7 +276,7 @@ namespace HospitalTrafficControl
 
                 for (int i = 0; i < trace.DeniedTransitions.Count; i++)
                 {
-                    Plugin.Log?.LogWarning(
+                    Plugin.Log?.LogInfo(
                         "[PathDebug]   #" + (i + 1) + " " +
                         trace.DeniedTransitions[i].ToLogString());
                 }
@@ -772,7 +772,7 @@ namespace HospitalTrafficControl
             }
 
             PathfindingDebugMarkerRenderer.SetMarkers(markers);
-            Plugin.Log?.LogWarning(
+            Plugin.Log?.LogInfo(
                 "[PathDebug] Logistics marker updated: " + markers.Count +
                 " blocked tile(s). Open Logistics view on the reported floor to see the flashing white marker(s).");
         }
@@ -782,7 +782,7 @@ namespace HospitalTrafficControl
             var markers = new List<PathfindingDebugMarkerTile>();
             AddMarkerIfMissing(markers, floorIndex, position);
             PathfindingDebugMarkerRenderer.SetMarkers(markers);
-            Plugin.Log?.LogWarning(
+            Plugin.Log?.LogInfo(
                 "[PathDebug] Logistics marker fallback placed on destination " + position +
                 " floor=" + floorIndex + ".");
         }
