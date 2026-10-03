@@ -344,6 +344,22 @@ namespace HospitalTrafficControl
 
             string code = languageCode.Trim().ToLowerInvariant().Replace('_', '-');
 
+            if (code == "cz")
+            {
+                return "cs";
+            }
+            if (code == "jp")
+            {
+                return "ja";
+            }
+            if (code == "kr")
+            {
+                return "ko";
+            }
+            if (code == "swe")
+            {
+                return "sv";
+            }
             if (code == "pt" || code.StartsWith("pt-br"))
             {
                 return "pt-br";

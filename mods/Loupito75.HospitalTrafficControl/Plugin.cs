@@ -12,7 +12,7 @@ namespace HospitalTrafficControl
         public const string HarmonyId = "Loupito75:HospitalTrafficControl";
         public const string PluginName = "Hospital Traffic Control";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.3.0";
+        public const string PluginVersion = "1.4.0";
 
         internal static ManualLogSource Log { get; private set; }
 
@@ -34,15 +34,15 @@ namespace HospitalTrafficControl
             Log.LogInfo($"{PluginName} {PluginVersion} by {PluginAuthor} loaded.");
             if (TrafficControlConfig.PathfindingDebug)
             {
-                Log.LogWarning("[PathDebug] Pathfinding diagnostics are ENABLED.");
+                Log.LogInfo("[PathDebug] Pathfinding diagnostics are ENABLED.");
             }
             if (TrafficControlConfig.DoorDebug)
             {
-                Log.LogWarning("[DoorDebug] Door and OneWay arrow diagnostics are ENABLED.");
+                Log.LogInfo("[DoorDebug] Door and OneWay arrow diagnostics are ENABLED.");
             }
             if (TrafficControlConfig.BathroomFlowDebug)
             {
-                Log.LogWarning("[BathroomDebug] Bathroom flow diagnostics are ENABLED.");
+                Log.LogInfo("[BathroomDebug] Bathroom flow diagnostics are ENABLED.");
             }
         }
 

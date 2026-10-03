@@ -7,6 +7,7 @@ namespace HospitalTrafficControl.Patches
     [HarmonyPatch(typeof(MapEditorController), "FillAccessRights")]
     internal static class FillAccessRightsPatch
     {
+        [HarmonyPriority(Priority.First)]
         private static void Prefix()
         {
             Floor floor = Hospital.Instance?.GetCurrentFloor();
@@ -14,6 +15,40 @@ namespace HospitalTrafficControl.Patches
             {
                 NavigationChangeTracker.BeginExternalAccessMutation(floor);
             }
+        }
+
+        [HarmonyPriority(Priority.Last)]
+        private static void Postfix()
+        {
+            Floor floor = Hospital.Instance?.GetCurrentFloor();
+            if (floor == null)
+            {
+                return;
+            }
+
+            AccessChangeSet accessChange =
+                NavigationChangeTracker.CompleteExternalAccessMutation(floor);
+            if (accessChange == null)
+            {
+                return;
+            }
+
+            if (TrafficControlConfig.PathfindingDebug)
+            {
+                PathfindingDebugMarkerRenderer.ClearMarkersForFloor(
+                    floor.m_floorIndex);
+            }
+
+            // FillAccessRights() changes the logistics layer directly and vanilla
+            // does not call Floor.UpdateStaticNavigationData() from this method.
+            // Complete the access mutation here so characters already standing on
+            // newly forbidden tiles can receive HTC's bounded temporary-exit recovery.
+            AccessZoneRecoveryManager.HandleAccessRightsChanged(
+                floor,
+                accessChange);
+
+            CrossFloorBlockedManager.RetryForNavigationFloor(floor);
+            BlockedRouteManager.RepathFloor(floor);
         }
     }
 
@@ -50,7 +85,7 @@ namespace HospitalTrafficControl.Patches
             if (roomAccessChangedDuringRebuild &&
                 TrafficControlConfig.PathfindingDebug)
             {
-                Plugin.Log?.LogWarning(
+                Plugin.Log?.LogInfo(
                     "[PathDebug] ACCESS_GRAPH_RESYNC floor=" +
                     __instance.m_floorIndex +
                     " result=prepared-before-native-recalculate.");

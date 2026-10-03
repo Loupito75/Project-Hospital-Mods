@@ -113,7 +113,7 @@ namespace HospitalTrafficControl.Patches
             catch (Exception ex)
             {
                 // Diagnostics must never be able to break movement or save loading.
-                Plugin.Log?.LogWarning(
+                Plugin.Log?.LogInfo(
                     "[PathDebug] ONE_WAY_EMPLOYEE_DETOUR diagnostic failed: " +
                     ex.GetType().Name + ": " + ex.Message);
             }
@@ -146,7 +146,7 @@ namespace HospitalTrafficControl.Patches
                 ? "<unknown>"
                 : FormatAccessRights((int)behavior.GetDefaultAccessRights());
 
-            Plugin.Log?.LogWarning(
+            Plugin.Log?.LogInfo(
                 "[PathDebug] ONE_WAY_EMPLOYEE_DETOUR" +
                 " entity='" + characterName + "'" +
                 " behavior=" + behaviorType +
@@ -209,7 +209,7 @@ namespace HospitalTrafficControl.Patches
                 }
             }
 
-            Plugin.Log?.LogWarning(
+            Plugin.Log?.LogInfo(
                 "[PathDebug]   DETOUR_SUMMARY" +
                 " start=" + GetNodePosition(route, 0) +
                 " end=" + GetNodePosition(route, route.Nodes.Count - 1) +
@@ -227,12 +227,12 @@ namespace HospitalTrafficControl.Patches
                 PathfinderNode node = route.Nodes[routeIndex];
                 if (node == null)
                 {
-                    Plugin.Log?.LogWarning(
+                    Plugin.Log?.LogInfo(
                         "[PathDebug]   DETOUR_ANOMALY #" + routeIndex + " <null>.");
                     continue;
                 }
 
-                Plugin.Log?.LogWarning(
+                Plugin.Log?.LogInfo(
                     "[PathDebug]   DETOUR_ANOMALY #" + routeIndex +
                     " pos=" + node.Position +
                     " " + DescribeTile(floor, node.Position) + ".");
@@ -240,7 +240,7 @@ namespace HospitalTrafficControl.Patches
 
             if (nullNodes + outOfBoundsNodes + noFloorNodes > anomalyIndices.Count)
             {
-                Plugin.Log?.LogWarning(
+                Plugin.Log?.LogInfo(
                     "[PathDebug]   DETOUR_ANOMALY details capped at " +
                     MaxAnomalyNodesToLog + " node(s).");
             }

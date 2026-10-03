@@ -222,8 +222,7 @@ namespace HospitalTrafficControl
             }
 
             PathfindingDebugMarkerRenderer.SetMarkers(markers);
-            Plugin.Log?.LogWarning(
-                "[PathDebug] Logistics markers replaced with causal OneWay edge " +
+            Plugin.Log?.LogInfo("[PathDebug] Logistics markers replaced with causal OneWay edge " +
                 failure.From + " -> " + failure.To +
                 " floor=" + failure.FloorIndex +
                 " deniedChecks=" + failure.DeniedChecks + ".");

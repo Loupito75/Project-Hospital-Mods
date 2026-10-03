@@ -38,6 +38,17 @@ namespace HospitalTrafficControl
                 return;
             }
 
+            string legacyDatabaseFile =
+                Path.Combine(databaseDirectory, "HTCNotifications.xml");
+
+            if (File.Exists(legacyDatabaseFile))
+            {
+                Plugin.Log?.LogError(
+                    "Legacy HTC database file detected: Database\\HTCNotifications.xml. " +
+                    "Delete this obsolete file from the HospitalTrafficControl plugin folder. " +
+                    "Keeping it can load duplicate database entries.");
+            }
+
             s_loading = true;
             try
             {

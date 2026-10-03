@@ -216,7 +216,7 @@ namespace HospitalTrafficControl
                 ? "<unknown>"
                 : (entity.Name ?? string.Empty).Trim();
 
-            Plugin.Log?.LogWarning(
+            Plugin.Log?.LogInfo(
                 "[PathDebug] CROSS_FLOOR_RETRY entity='" + characterName +
                 "' floor=" + (walk.Floor == null ? -1 : walk.Floor.m_floorIndex) +
                 " destinationFloor=" +
