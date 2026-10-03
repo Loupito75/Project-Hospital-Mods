@@ -61,6 +61,12 @@ namespace HospitalPatientLife.Patches
             MealDecisions.Remove(patient);
         }
 
+        internal static void ResetRuntimeState()
+        {
+            PendingPatients.Clear();
+            MealDecisions.Clear();
+        }
+
         internal static bool IsScheduledCafeteriaMealInProgress(Entity patient)
         {
             if (patient == null || patient.GetComponent<BehaviorPatient>() == null)

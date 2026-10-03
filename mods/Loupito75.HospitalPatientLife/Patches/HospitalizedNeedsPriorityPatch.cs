@@ -300,6 +300,12 @@ namespace HospitalPatientLife.Patches
                 NightBladderFailureLogged.Remove(patient);
             }
         }
+
+        internal static void ResetRuntimeState()
+        {
+            NightBladderFailureLogged.Clear();
+            UrgentFailureSignatures.Clear();
+        }
     }
 
     [HarmonyPatch(typeof(HospitalizationComponent), "SelectNextStep")]

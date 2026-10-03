@@ -139,6 +139,12 @@ namespace HospitalPatientLife.Patches
                 NightTripStarted.Remove(patient);
             }
         }
+
+        internal static void ResetRuntimeState()
+        {
+            EpisodeDecisions.Clear();
+            NightTripStarted.Clear();
+        }
     }
 
     [HarmonyPatch(typeof(HospitalizationComponent), "Update")]

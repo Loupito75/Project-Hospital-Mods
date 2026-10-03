@@ -35,6 +35,11 @@ namespace HospitalPatientLife.Patches
         {
             return PendingFloors.Remove(floorIndex);
         }
+
+        internal static void ResetRuntimeState()
+        {
+            PendingFloors.Clear();
+        }
     }
 
     internal static class CafeteriaRouteRefresh
@@ -469,6 +474,13 @@ namespace HospitalPatientLife.Patches
             if (changed)
             {
                 CafeteriaAccessChangeTracker.MarkChanged(__state.Floor.m_floorIndex);
+
+                // FillAccessRights() does not call Floor.UpdateStaticNavigationData()
+                // in vanilla. Synchronize cafeteria room access and refresh affected
+                // food routes now, while the final painted logistics rights are known.
+                CafeteriaRoomAccessPatch.SynchronizeFloor(
+                    __state.Floor,
+                    forceRecalculate: true);
             }
         }
     }
@@ -478,6 +490,13 @@ namespace HospitalPatientLife.Patches
     {
         [HarmonyPriority(Priority.First)]
         private static void Postfix(Floor __instance)
+        {
+            SynchronizeFloor(__instance, forceRecalculate: false);
+        }
+
+        internal static void SynchronizeFloor(
+            Floor __instance,
+            bool forceRecalculate)
         {
             if (__instance == null || __instance.m_roomTiles == null ||
                 __instance.m_roomAccessRights == null ||
@@ -524,14 +543,15 @@ namespace HospitalPatientLife.Patches
             }
 
             bool recalculated = false;
-            if (correctedTileCount > 0)
+            if (correctedTileCount > 0 || forceRecalculate)
             {
                 GridMap gridMap = GridMap.GetInstance();
                 if (gridMap != null)
                 {
-                    // Vanilla has already initialized GridMap and completed its first
-                    // rebuild before this Postfix runs. Recalculate once more only when
-                    // cafeteria room access actually differs from the native room type.
+                    // UpdateStaticNavigationData() has already initialized GridMap
+                    // when this runs as its Postfix. For a direct access-paint action,
+                    // force one native recalculation because FillAccessRights() itself
+                    // does not rebuild the navigation graph.
                     gridMap.Recalculate(
                         __instance.m_floorIndex,
                         __instance.m_mapPersistentData.m_tileWalls,

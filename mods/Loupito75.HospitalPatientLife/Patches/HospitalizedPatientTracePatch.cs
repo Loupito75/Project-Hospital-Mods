@@ -121,6 +121,11 @@ namespace HospitalPatientLife.Patches
             }
         }
 
+        internal static void ResetRuntimeState()
+        {
+            FailedNeedBuckets.Clear();
+        }
+
         internal static bool ShouldLogFailedNeedCheck(Entity patient, float hunger, float bladder)
         {
             if (!Enabled || patient == null)

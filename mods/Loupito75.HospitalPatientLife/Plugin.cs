@@ -12,7 +12,7 @@ namespace HospitalPatientLife
         public const string HarmonyId = "Loupito75:HospitalPatientLife";
         public const string PluginName = "Hospital Patient Life";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.0.1";
 
         internal static ManualLogSource Log { get; private set; }
 
