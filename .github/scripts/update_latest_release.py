@@ -33,9 +33,25 @@ def get_mod_name_from_cell(cell):
     match = re.search(r"\[([^\]]+)\]", cell)
 
     if match:
+        name = match.group(1)
+    else:
+        name = cell.strip()
+
+    # Acronyms such as "(HPO)" are presentation-only and are not part
+    # of the public mod name stored in mod-updates.json.
+    return re.sub(r"\s+\([A-Z0-9]+\)\s*$", "", name).strip()
+
+
+def get_technical_mod_name_from_cell(cell):
+    match = re.search(
+        r"\]\(mods/Loupito75\.([A-Za-z0-9]+)/?\)",
+        cell,
+    )
+
+    if match:
         return match.group(1)
 
-    return cell.strip()
+    return None
 
 
 def format_readme_date(published_at):
