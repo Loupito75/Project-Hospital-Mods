@@ -266,11 +266,16 @@ def update_readme(
         while len(cells) < len(headers):
             cells.append("")
 
-        mod_name = get_mod_name_from_cell(cells[mod_column])
-
-        if normalize_name(mod_name) != target_name:
+        mod_cell = cells[mod_column]
+        mod_name = get_mod_name_from_cell(mod_cell)
+        readme_technical_name = get_technical_mod_name_from_cell(mod_cell)
+        
+        if readme_technical_name is not None:
+            if normalize_name(readme_technical_name) != target_name:
+                continue
+        elif normalize_name(mod_name) != target_name:
             continue
-
+        
         display_name = mod_name
         cells[latest_column] = latest_release
         lines[index] = build_row(cells)
