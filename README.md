@@ -96,6 +96,18 @@ If you have customized an XML or configuration file, **do not automatically over
 
 For complete update instructions, see the [BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363).
 
+## 🗺️ Development Roadmap 🗺️
+
+Development of the Project Hospital mod collection is ongoing.
+
+Upcoming features, improvements, compatibility work and currently active development are tracked in the public roadmap:
+
+**[View the Project Hospital Mods Roadmap](https://github.com/users/Loupito75/projects/2)**
+
+> 🚧 **Status: Active development**
+
+The roadmap represents current development plans rather than guaranteed release commitments. Features may change, be merged, postponed or removed depending on technical feasibility, testing, game compatibility and save safety.
+
 ## Repository structure
 
 ```text
