@@ -607,7 +607,7 @@ namespace HospitalPorters
                 homeRoom != null &&
                 homeRoom.GetEquipmentOk() &&
                 homeRoom.m_roomPersistentData.m_roomType != null &&
-                PorterStationRegistry.IsPorterStationOrLegacyNursesStation(
+                PorterStationRegistry.IsPorterStation(
                     homeRoom.m_roomPersistentData.m_roomType.Entry);
         }
 
@@ -713,7 +713,7 @@ namespace HospitalPorters
                     station == null ||
                     !station.GetEquipmentOk() ||
                     station.m_roomPersistentData.m_roomType == null ||
-                    !PorterStationRegistry.IsPorterStationOrLegacyNursesStation(
+                    !PorterStationRegistry.IsPorterStation(
                         station.m_roomPersistentData.m_roomType.Entry))
                 {
                     continue;
@@ -1433,7 +1433,7 @@ namespace HospitalPorters
                 employee.ShouldGoToTraining() ||
                 employee.m_state.m_shift != DayTime.Instance.GetShift() ||
                 employee.m_state.m_homeRoom == null ||
-                !PorterStationRegistry.IsPorterStationOrLegacyNursesStation(
+                !PorterStationRegistry.IsPorterStation(
                     employee.GetHomeRoomType()) ||
                 !employee.HasRole(role))
             {

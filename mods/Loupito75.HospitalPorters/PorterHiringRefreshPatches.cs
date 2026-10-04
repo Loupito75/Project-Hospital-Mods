@@ -4,13 +4,13 @@ using Lopital;
 namespace HospitalPorters
 {
     [HarmonyPatch(typeof(PorterHiringUi), "SelectPorters")]
-    internal static class Porter0414ManualHiringRefreshPatch
+    internal static class PorterManualHiringRefreshPatch
     {
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Last)]
         private static void Postfix(HiringPanelController controller)
         {
-            if (controller == null || Porter048HiringOpenState.Depth > 0 ||
+            if (controller == null || PorterHiringOpenState.Depth > 0 ||
                 !PorterHiringState.Active)
             {
                 return;

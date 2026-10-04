@@ -10,7 +10,7 @@ namespace HospitalPorters
         {
             // Ignore intermediate Porter selections while OpenHiringCard is still running.
             // The final selection runs at Depth == 0 and performs the normal station guard.
-            if (Porter048HiringOpenState.Depth > 0)
+            if (PorterHiringOpenState.Depth > 0)
             {
                 return true;
             }
@@ -21,15 +21,14 @@ namespace HospitalPorters
             }
 
             Department department = Hospital.Instance.m_activeDepartment.GetEntity();
-            if (PorterStationRegistry.HasValidStation(department) &&
-                PorterStationRegistry.HasAvailableLocker(department, HiringManager.Instance.m_shift))
+            if (PorterStationRegistry.HasValidStation(department))
             {
                 return true;
             }
 
             PorterHiringState.Active = false;
             Plugin.Log?.LogWarning(
-                "Porter hiring blocked: the active hospitalization department needs a valid Porter station with a free locker for the selected shift.");
+                "Porter hiring blocked: the active hospitalization department has no valid Porter station.");
 
             if (UISoundManager.sm_instance != null)
             {

@@ -725,6 +725,7 @@ namespace HospitalPorters
                 return;
             }
 
+            PorterIdentity.RefreshPorterName(hired);
             __state = hired.GetComponent<EmployeeComponent>().m_state.m_hiredForDepartment.Entry;
             PorterCandidatePool.Remove(hired);
             PorterHiringState.HiringPorter = true;

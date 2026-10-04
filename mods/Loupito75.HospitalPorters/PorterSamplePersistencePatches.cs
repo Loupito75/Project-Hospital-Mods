@@ -432,5 +432,13 @@ namespace HospitalPorters
             __result = null;
             return false;
         }
+
+        private static void Postfix(Entity __result)
+        {
+            if (PorterIdentity.IsPorter(__result))
+            {
+                PorterIdentity.RefreshPorterName(__result);
+            }
+        }
     }
 }

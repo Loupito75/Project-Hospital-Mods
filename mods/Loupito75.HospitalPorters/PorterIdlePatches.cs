@@ -38,7 +38,7 @@ namespace HospitalPorters
                 employee != null &&
                 station != null &&
                 station.m_roomPersistentData.m_roomType != null &&
-                PorterStationRegistry.IsPorterStationOrLegacyNursesStation(
+                PorterStationRegistry.IsPorterStation(
                     station.m_roomPersistentData.m_roomType.Entry) &&
                 station.GetEquipmentOk();
         }

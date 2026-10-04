@@ -10,10 +10,10 @@
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1</AssemblyVersion>
-    <FileVersion>1.0.1</FileVersion>
-    <InformationalVersion>1.0.1</InformationalVersion>
+    <Version>1.0.2</Version>
+    <AssemblyVersion>1.0.2</AssemblyVersion>
+    <FileVersion>1.0.2</FileVersion>
+    <InformationalVersion>1.0.2</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Porters</Product>
@@ -50,9 +50,10 @@
     <Compile Include="PorterNativeEmployeeUiPatches.cs" />
     <Compile Include="PorterEmployeeCardPatches.cs" />
     <Compile Include="PorterHiringInitialSelectionPatch.cs" />
-    <Compile Include="Porter046Patches.cs" />
-    <Compile Include="Porter049Patches.cs" />
-    <Compile Include="Porter0412UiPatches.cs" />
+    <Compile Include="PorterCustomHiringPatches.cs" />
+    <Compile Include="PorterStationAndHiringPatches.cs" />
+    <Compile Include="PorterHospitalizationHiringPatches.cs" />
+    <Compile Include="PorterHiringRefreshPatches.cs" />
     <Compile Include="PorterNativeSelectionPatches.cs" />
     <Compile Include="HiringPatches.cs" />
     <Compile Include="HiringUiIconPatches.cs" />

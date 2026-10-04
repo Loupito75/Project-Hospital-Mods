@@ -125,7 +125,7 @@ namespace HospitalPorters
         private static readonly Translation English = new Translation(
             "Porter",
             "Porters",
-            "Dedicated internal logistics staff for patient and sample transport. A valid Porter station with a free locker for the selected shift is required before hiring a new porter.",
+            "Dedicated internal logistics staff for patient and sample transport. A valid Porter station is required before hiring a new porter.",
             "Dedicated internal logistics staff for patient and sample transport. Porters require the Porter qualification and an assigned Porter station.",
             "Employees - Porters",
             "Junior porter",
@@ -151,7 +151,7 @@ namespace HospitalPorters
                 { "cz", new Translation(
                     "Sanitář",
                     "Sanitáři",
-                    "Personál vnitřní logistiky určený k přepravě pacientů a vzorků. Před přijetím nového sanitáře je nutná platná stanice sanitářů s volnou skříňkou pro zvolenou směnu.",
+                    "Personál vnitřní logistiky určený k přepravě pacientů a vzorků. Před přijetím nového sanitáře je nutná platná stanice sanitářů.",
                     "Personál vnitřní logistiky určený k přepravě pacientů a vzorků. Sanitáři potřebují kvalifikaci sanitáře a přiřazenou stanici sanitářů.",
                     "Zaměstnanci - Sanitáři",
                     "Začínající sanitář",
@@ -172,7 +172,7 @@ namespace HospitalPorters
                 { "da", new Translation(
                     "Portør",
                     "Portører",
-                    "Internt logistikpersonale til transport af patienter og prøver. En gyldig portørstation med et ledigt skab til den valgte vagt er nødvendig, før en ny portør kan ansættes.",
+                    "Internt logistikpersonale til transport af patienter og prøver. En gyldig portørstation er nødvendig, før en ny portør kan ansættes.",
                     "Internt logistikpersonale til transport af patienter og prøver. Portører kræver portørkvalifikationen og en tildelt portørstation.",
                     "Medarbejdere - Portører",
                     "Juniorportør",
@@ -193,7 +193,7 @@ namespace HospitalPorters
                 { "de", new Translation(
                     "Transportmitarbeiter",
                     "Transportmitarbeiter",
-                    "Mitarbeiter der internen Logistik für Patienten- und Probentransporte. Vor der Einstellung eines neuen Transportmitarbeiters ist eine gültige Transportstation mit einem freien Spind für die ausgewählte Schicht erforderlich.",
+                    "Mitarbeiter der internen Logistik für Patienten- und Probentransporte. Vor der Einstellung eines neuen Transportmitarbeiters ist eine gültige Transportstation erforderlich.",
                     "Mitarbeiter der internen Logistik für Patienten- und Probentransporte. Transportmitarbeiter benötigen die Transportqualifikation und eine zugewiesene Transportstation.",
                     "Mitarbeiter - Transportdienst",
                     "Transportmitarbeiter in Ausbildung",
@@ -214,7 +214,7 @@ namespace HospitalPorters
                 { "es", new Translation(
                     "Camillero",
                     "Camilleros",
-                    "Personal de logística interna dedicado al traslado de pacientes y muestras. Se necesita una estación de camilleros válida con una taquilla libre para el turno seleccionado antes de contratar a un nuevo camillero.",
+                    "Personal de logística interna dedicado al traslado de pacientes y muestras. Se necesita una estación de camilleros válida antes de contratar a un nuevo camillero.",
                     "Personal de logística interna dedicado al traslado de pacientes y muestras. Los camilleros necesitan la cualificación de camillero y una estación de camilleros asignada.",
                     "Empleados - Camilleros",
                     "Camillero principiante",
@@ -235,7 +235,7 @@ namespace HospitalPorters
                 { "esla", new Translation(
                     "Camillero",
                     "Camilleros",
-                    "Personal de logística interna dedicado al traslado de pacientes y muestras. Se requiere una estación de camilleros válida con un casillero libre para el turno seleccionado antes de contratar a un nuevo camillero.",
+                    "Personal de logística interna dedicado al traslado de pacientes y muestras. Se requiere una estación de camilleros válida antes de contratar a un nuevo camillero.",
                     "Personal de logística interna dedicado al traslado de pacientes y muestras. Los camilleros requieren la calificación de camillero y una estación de camilleros asignada.",
                     "Empleados - Camilleros",
                     "Camillero junior",
@@ -256,7 +256,7 @@ namespace HospitalPorters
                 { "fr", new Translation(
                     "Brancardier",
                     "Brancardiers",
-                    "Personnel dédié à la logistique interne pour le transport des patients et des échantillons. Un poste des brancardiers valide avec un casier libre pour le quart sélectionné est requis avant toute nouvelle embauche.",
+                    "Personnel dédié à la logistique interne pour le transport des patients et des échantillons. Un poste des brancardiers valide est requis avant toute nouvelle embauche.",
                     "Personnel dédié à la logistique interne pour le transport des patients et des échantillons. Les brancardiers requièrent la qualification de brancardier et un poste des brancardiers assigné.",
                     "Employés - Brancardiers",
                     "Brancardier débutant",
@@ -277,7 +277,7 @@ namespace HospitalPorters
                 { "hu", new Translation(
                     "Betegszállító",
                     "Betegszállítók",
-                    "Belső logisztikai személyzet betegek és minták szállítására. Új betegszállító felvétele előtt érvényes betegszállító-állomás és a kiválasztott műszakhoz egy szabad szekrény szükséges.",
+                    "Belső logisztikai személyzet betegek és minták szállítására. Új betegszállító felvétele előtt érvényes betegszállító-állomás szükséges.",
                     "Belső logisztikai személyzet betegek és minták szállítására. A betegszállítóknak betegszállítói képesítésre és kijelölt betegszállító-állomásra van szükségük.",
                     "Alkalmazottak - Betegszállítók",
                     "Kezdő betegszállító",
@@ -298,7 +298,7 @@ namespace HospitalPorters
                 { "it", new Translation(
                     "Barelliere",
                     "Barellieri",
-                    "Personale di logistica interna dedicato al trasporto di pazienti e campioni. Prima di assumere un nuovo barelliere è necessaria una postazione barellieri valida con un armadietto libero per il turno selezionato.",
+                    "Personale di logistica interna dedicato al trasporto di pazienti e campioni. Prima di assumere un nuovo barelliere è necessaria una postazione barellieri valida.",
                     "Personale di logistica interna dedicato al trasporto di pazienti e campioni. I barellieri richiedono la qualifica da barelliere e una postazione barellieri assegnata.",
                     "Dipendenti - Barellieri",
                     "Barelliere junior",
@@ -319,7 +319,7 @@ namespace HospitalPorters
                 { "jp", new Translation(
                     "院内搬送員",
                     "院内搬送員",
-                    "患者と検体の搬送を担当する院内物流スタッフです。新しい搬送員を雇用するには、選択したシフト用の空きロッカーがある有効な搬送員ステーションが必要です。",
+                    "患者と検体の搬送を担当する院内物流スタッフです。新しい搬送員を雇用するには、有効な搬送員ステーションが必要です。",
                     "患者と検体の搬送を担当する院内物流スタッフです。搬送員には搬送員資格と割り当てられた搬送員ステーションが必要です。",
                     "従業員 - 院内搬送員",
                     "新人搬送員",
@@ -340,7 +340,7 @@ namespace HospitalPorters
                 { "kr", new Translation(
                     "원내 이송 요원",
                     "원내 이송 요원",
-                    "환자와 검체 이송을 담당하는 원내 물류 직원입니다. 새 이송 요원을 고용하려면 선택한 근무조에 빈 사물함이 있는 유효한 이송 요원 스테이션이 필요합니다.",
+                    "환자와 검체 이송을 담당하는 원내 물류 직원입니다. 새 이송 요원을 고용하려면 유효한 이송 요원 스테이션이 필요합니다.",
                     "환자와 검체 이송을 담당하는 원내 물류 직원입니다. 이송 요원은 이송 요원 자격과 배정된 이송 요원 스테이션이 필요합니다.",
                     "직원 - 원내 이송 요원",
                     "초급 이송 요원",
@@ -361,7 +361,7 @@ namespace HospitalPorters
                 { "nl", new Translation(
                     "Patiëntenvervoerder",
                     "Patiëntenvervoerders",
-                    "Intern logistiek personeel voor het vervoer van patiënten en monsters. Voordat een nieuwe patiëntenvervoerder kan worden aangenomen, is een geldig transportstation met een vrije locker voor de gekozen dienst vereist.",
+                    "Intern logistiek personeel voor het vervoer van patiënten en monsters. Voordat een nieuwe patiëntenvervoerder kan worden aangenomen, is een geldig transportstation vereist.",
                     "Intern logistiek personeel voor het vervoer van patiënten en monsters. Patiëntenvervoerders hebben de transportkwalificatie en een toegewezen transportstation nodig.",
                     "Medewerkers - Patiëntenvervoerders",
                     "Junior patiëntenvervoerder",
@@ -382,7 +382,7 @@ namespace HospitalPorters
                 { "pl", new Translation(
                     "Pracownik transportu",
                     "Pracownicy transportu",
-                    "Personel logistyki wewnętrznej przeznaczony do transportu pacjentów i próbek. Przed zatrudnieniem nowego pracownika transportu wymagane jest prawidłowe stanowisko transportowe z wolną szafką na wybraną zmianę.",
+                    "Personel logistyki wewnętrznej przeznaczony do transportu pacjentów i próbek. Przed zatrudnieniem nowego pracownika transportu wymagane jest prawidłowe stanowisko transportowe.",
                     "Personel logistyki wewnętrznej przeznaczony do transportu pacjentów i próbek. Pracownicy transportu wymagają kwalifikacji transportowej i przypisanego stanowiska transportowego.",
                     "Pracownicy - Transport",
                     "Początkujący pracownik transportu",
@@ -403,7 +403,7 @@ namespace HospitalPorters
                 { "ptbr", new Translation(
                     "Maqueiro",
                     "Maqueiros",
-                    "Equipe de logística interna dedicada ao transporte de pacientes e amostras. É necessária uma estação de maqueiros válida com um armário livre para o turno selecionado antes de contratar um novo maqueiro.",
+                    "Equipe de logística interna dedicada ao transporte de pacientes e amostras. É necessária uma estação de maqueiros válida antes de contratar um novo maqueiro.",
                     "Equipe de logística interna dedicada ao transporte de pacientes e amostras. Os maqueiros precisam da qualificação de maqueiro e de uma estação de maqueiros atribuída.",
                     "Funcionários - Maqueiros",
                     "Maqueiro júnior",
@@ -424,7 +424,7 @@ namespace HospitalPorters
                 { "ru", new Translation(
                     "Санитар-транспортировщик",
                     "Санитары-транспортировщики",
-                    "Сотрудники внутренней логистики для перевозки пациентов и образцов. Перед наймом нового санитара-транспортировщика требуется действующая станция транспортировщиков со свободным шкафчиком для выбранной смены.",
+                    "Сотрудники внутренней логистики для перевозки пациентов и образцов. Перед наймом нового санитара-транспортировщика требуется действующая станция транспортировщиков.",
                     "Сотрудники внутренней логистики для перевозки пациентов и образцов. Санитарам-транспортировщикам нужна квалификация транспортировщика и назначенная станция.",
                     "Сотрудники - Транспортировщики",
                     "Младший транспортировщик",
@@ -445,7 +445,7 @@ namespace HospitalPorters
                 { "swe", new Translation(
                     "Patienttransportör",
                     "Patienttransportörer",
-                    "Intern logistikpersonal för transport av patienter och prover. En giltig transportstation med ett ledigt skåp för valt skift krävs innan en ny patienttransportör kan anställas.",
+                    "Intern logistikpersonal för transport av patienter och prover. En giltig transportstation krävs innan en ny patienttransportör kan anställas.",
                     "Intern logistikpersonal för transport av patienter och prover. Patienttransportörer kräver transportkvalifikationen och en tilldelad transportstation.",
                     "Anställda - Patienttransportörer",
                     "Junior patienttransportör",
@@ -466,7 +466,7 @@ namespace HospitalPorters
                 { "tr", new Translation(
                     "Hasta taşıma görevlisi",
                     "Hasta taşıma görevlileri",
-                    "Hasta ve numune taşımaya ayrılmış dahili lojistik personeli. Yeni bir taşıma görevlisi işe alınmadan önce seçilen vardiya için boş dolabı bulunan geçerli bir taşıma istasyonu gerekir.",
+                    "Hasta ve numune taşımaya ayrılmış dahili lojistik personeli. Yeni bir taşıma görevlisi işe alınmadan önce geçerli bir taşıma istasyonu gerekir.",
                     "Hasta ve numune taşımaya ayrılmış dahili lojistik personeli. Taşıma görevlileri taşıma yeterliliğine ve atanmış bir taşıma istasyonuna ihtiyaç duyar.",
                     "Çalışanlar - Taşıma görevlileri",
                     "Yeni taşıma görevlisi",
@@ -487,7 +487,7 @@ namespace HospitalPorters
                 { "uk", new Translation(
                     "Санітар-транспортувальник",
                     "Санітари-транспортувальники",
-                    "Працівники внутрішньої логістики для перевезення пацієнтів і зразків. Перед наймом нового санітара-транспортувальника потрібна дійсна станція транспортувальників із вільною шафкою для вибраної зміни.",
+                    "Працівники внутрішньої логістики для перевезення пацієнтів і зразків. Перед наймом нового санітара-транспортувальника потрібна дійсна станція транспортувальників.",
                     "Працівники внутрішньої логістики для перевезення пацієнтів і зразків. Транспортувальникам потрібні відповідна кваліфікація та призначена станція.",
                     "Працівники - Транспортувальники",
                     "Молодший транспортувальник",
@@ -508,7 +508,7 @@ namespace HospitalPorters
                 { "zhcn", new Translation(
                     "院内运送员",
                     "院内运送员",
-                    "负责患者和样本运送的院内物流人员。雇用新的运送员之前，必须有一个有效的运送员工作站，并且所选班次有空闲储物柜。",
+                    "负责患者和样本运送的院内物流人员。雇用新的运送员之前，必须有一个有效的运送员工作站。",
                     "负责患者和样本运送的院内物流人员。运送员需要运送员资质以及已分配的运送员工作站。",
                     "员工 - 院内运送员",
                     "初级运送员",
@@ -529,7 +529,7 @@ namespace HospitalPorters
                 { "zhtw", new Translation(
                     "院內運送員",
                     "院內運送員",
-                    "負責病患與檢體運送的院內物流人員。雇用新的運送員前，必須有有效的運送員工作站，且所選班次需有空閒置物櫃。",
+                    "負責病患與檢體運送的院內物流人員。雇用新的運送員前，必須有有效的運送員工作站。",
                     "負責病患與檢體運送的院內物流人員。運送員需要運送員資格以及已指派的運送員工作站。",
                     "員工 - 院內運送員",
                     "初級運送員",

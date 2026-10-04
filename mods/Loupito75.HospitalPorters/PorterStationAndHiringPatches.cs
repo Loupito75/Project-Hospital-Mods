@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace HospitalPorters
 {
-    internal static class Porter046DepartmentRegistration
+    internal static class PorterDepartmentRegistration
     {
         private static readonly MethodInfo RequiredRoomsHospitalizationSetter =
             AccessTools.PropertySetter(typeof(GameDBDepartment), nameof(GameDBDepartment.RequiredRoomsHospitalization));
@@ -221,18 +221,18 @@ namespace HospitalPorters
         typeof(PorterStationRegistry),
         nameof(PorterStationRegistry.Register),
         new Type[] { typeof(Database) })]
-    internal static class Porter048NormalizeStationRegistrationPatch
+    internal static class PorterNormalizeStationRegistrationPatch
     {
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Last)]
         private static void Postfix(Database database)
         {
-            Porter046DepartmentRegistration.RegisterAll(database);
+            PorterDepartmentRegistration.RegisterAll(database);
         }
     }
 
     [HarmonyPatch(typeof(Database), nameof(Database.ReadFiles), new Type[] { typeof(string), typeof(bool) })]
-    internal static class Porter046DatabaseRegistrationPatch
+    internal static class PorterDatabaseRegistrationPatch
     {
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Last)]
@@ -241,17 +241,17 @@ namespace HospitalPorters
             if (!ModDatabase.IsLoading &&
                 __instance.GetEntry<GameDBRoomType>(PorterIds.PorterStationRoom) != null)
             {
-                Porter046DepartmentRegistration.RegisterAll(__instance);
+                PorterDepartmentRegistration.RegisterAll(__instance);
             }
         }
     }
 
-    internal static class Porter048HiringOpenState
+    internal static class PorterHiringOpenState
     {
         internal static int Depth;
     }
 
-    internal static class Porter0411HiringSelection
+    internal static class PorterHiringSelection
     {
         internal static void SelectCurrentPorters(Shift shift)
         {
@@ -318,13 +318,13 @@ namespace HospitalPorters
         typeof(LogisticsWorkspacePanelController),
         "OpenHiringCard",
         new Type[] { typeof(Shift) })]
-    internal static class Porter046HiringOpenResetPatch
+    internal static class PorterHiringOpenSelectionPatch
     {
         [HarmonyPrefix]
         [HarmonyPriority(Priority.First)]
         private static void Prefix()
         {
-            Porter048HiringOpenState.Depth++;
+            PorterHiringOpenState.Depth++;
             PorterHiringState.Active = false;
             PorterHiringState.SelectingPorter = false;
         }
@@ -333,29 +333,29 @@ namespace HospitalPorters
         [HarmonyPriority(Priority.Last)]
         private static void Postfix(Shift shift)
         {
-            Porter0411HiringSelection.SelectCurrentPorters(shift);
+            PorterHiringSelection.SelectCurrentPorters(shift);
         }
 
         [HarmonyFinalizer]
         [HarmonyPriority(Priority.Last)]
         private static Exception Finalizer(Exception __exception)
         {
-            if (Porter048HiringOpenState.Depth > 0)
+            if (PorterHiringOpenState.Depth > 0)
             {
-                Porter048HiringOpenState.Depth--;
+                PorterHiringOpenState.Depth--;
             }
             return __exception;
         }
     }
 
     [HarmonyPatch(typeof(PorterHiringUi), "SelectPorters")]
-    internal static class Porter048SuppressEarlyPorterSelectionPatch
+    internal static class PorterSuppressEarlyPorterSelectionPatch
     {
         [HarmonyPrefix]
         [HarmonyPriority(Priority.First)]
         private static bool Prefix()
         {
-            return Porter048HiringOpenState.Depth == 0;
+            return PorterHiringOpenState.Depth == 0;
         }
     }
 }

@@ -571,7 +571,7 @@ namespace HospitalPorters
                     homeRoom == null ||
                     !homeRoom.GetEquipmentOk() ||
                     homeRoom.m_roomPersistentData.m_roomType == null ||
-                    !PorterStationRegistry.IsPorterStationOrLegacyNursesStation(
+                    !PorterStationRegistry.IsPorterStation(
                         homeRoom.m_roomPersistentData.m_roomType.Entry))
                 {
                     continue;
@@ -612,7 +612,7 @@ namespace HospitalPorters
                 homeRoom == null ||
                 !homeRoom.GetEquipmentOk() ||
                 homeRoom.m_roomPersistentData.m_roomType == null ||
-                !PorterStationRegistry.IsPorterStationOrLegacyNursesStation(
+                !PorterStationRegistry.IsPorterStation(
                     homeRoom.m_roomPersistentData.m_roomType.Entry))
             {
                 return false;

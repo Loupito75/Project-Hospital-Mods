@@ -107,11 +107,6 @@ namespace HospitalPorters
             return false;
         }
 
-        internal static bool HasAvailableLocker(Department department, Shift shift)
-        {
-            return FindClosestFreeLocker(Vector2i.ZERO_VECTOR, 0, department, shift, null) != null;
-        }
-
         internal static TileObject FindClosestFreeLocker(
             Vector2i position,
             int floorIndex,
@@ -200,22 +195,6 @@ namespace HospitalPorters
             return owner == null || owner == porter;
         }
 
-        internal static bool IsPorterStationOrLegacyNursesStation(GameDBRoomType roomType)
-        {
-            if (roomType == null)
-            {
-                return false;
-            }
-
-            if (IsPorterStation(roomType))
-            {
-                return true;
-            }
-
-            // Compatibility for porters hired by 0.2.x and saved with a nurses-station home room.
-            GameDBRoomType nursesStation = Database.Instance.GetEntry<GameDBRoomType>("ROOM_TYPE_NURSES_STATION");
-            return nursesStation != null && roomType == nursesStation;
-        }
     }
 
     [HarmonyPatch(typeof(BehaviorNurse), nameof(BehaviorNurse.GetWorkspaceRoomTag))]
@@ -231,9 +210,6 @@ namespace HospitalPorters
                 return;
             }
 
-            // Migrate 0.2.x porter skill sets lazily when the native workplace system asks
-            // which room tag this employee uses. Existing role flags remain untouched.
-            PorterIdentity.EnsurePorterQualification(entity);
             __result = PorterIds.PorterWorkspaceTag;
         }
     }
@@ -296,7 +272,7 @@ namespace HospitalPorters
 
             Room homeRoom = __instance.m_state.m_homeRoom.GetEntity();
             __result = homeRoom != null &&
-                PorterStationRegistry.IsPorterStationOrLegacyNursesStation(
+                PorterStationRegistry.IsPorterStation(
                     homeRoom.m_roomPersistentData.m_roomType.Entry);
             return false;
         }

@@ -185,9 +185,37 @@ namespace HospitalPorters
                 return false;
             }
 
-            entity.Name = "Porter " + personalInfo.GetFullName();
+            RefreshPorterName(entity);
             entity.GetComponent<EmployeeComponent>()?.CacheRoleCount();
             return true;
+        }
+
+        internal static void RefreshPorterName(Entity entity)
+        {
+            if (!IsPorter(entity))
+            {
+                return;
+            }
+
+            CharacterPersonalInfoComponent personalInfoComponent =
+                entity.GetComponent<CharacterPersonalInfoComponent>();
+            CharacterPersonalInfo personalInfo =
+                personalInfoComponent == null
+                    ? null
+                    : personalInfoComponent.m_personalInfo;
+            if (personalInfo == null)
+            {
+                return;
+            }
+
+            string fullName = personalInfo.GetFullName();
+            fullName = fullName == null
+                ? string.Empty
+                : fullName.Trim();
+
+            entity.Name = string.IsNullOrEmpty(fullName)
+                ? "Porter"
+                : "Porter " + fullName;
         }
 
         internal static bool EnsurePorterQualification(Entity entity)
@@ -214,8 +242,8 @@ namespace HospitalPorters
             }
 
             // Match native DEBUG_CreateNurseSkillSet() exactly for qualification progress:
-            // Random.Range(Math.Max(1f, level - 1f), level + 1f). This runs only when creating
-            // or migrating the Porter skill set, so saved progress is never re-randomized later.
+            // Random.Range(Math.Max(1f, level - 1f), level + 1f). Existing valid Porter
+            // qualification progress is preserved by the early return above.
             float level = (float)employee.m_state.m_level;
             float qualificationLevel = UnityEngine.Random.Range(
                 Math.Max(1f, level - 1f),

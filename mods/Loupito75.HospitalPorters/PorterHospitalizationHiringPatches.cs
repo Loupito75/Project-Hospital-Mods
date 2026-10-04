@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace HospitalPorters
 {
-    internal static class Porter049HospitalizationHiringUi
+    internal static class PorterHospitalizationHiringUi
     {
         internal static void RefreshDisabledPorterFilter(HiringPanelController controller)
         {
@@ -113,7 +113,7 @@ namespace HospitalPorters
         typeof(LogisticsWorkspacePanelController),
         "OpenHiringCard",
         new Type[] { typeof(Shift) })]
-    internal static class Porter049HospitalizationHiringOpenPatch
+    internal static class PorterHospitalizationHiringOpenPatch
     {
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Last)]
@@ -122,7 +122,7 @@ namespace HospitalPorters
             GameObject hiringPanel = MapEditorUIController.Instance?.m_hiringPanel;
             HiringPanelController controller =
                 hiringPanel == null ? null : hiringPanel.GetComponent<HiringPanelController>();
-            Porter049HospitalizationHiringUi.RefreshDisabledPorterFilter(controller);
+            PorterHospitalizationHiringUi.RefreshDisabledPorterFilter(controller);
         }
     }
 
@@ -130,7 +130,7 @@ namespace HospitalPorters
         typeof(HiringPanelController),
         nameof(HiringPanelController.SortHiringSpecializationsButtons),
         new Type[] { typeof(bool) })]
-    internal static class Porter049HospitalizationHiringSortPatch
+    internal static class PorterHospitalizationHiringSortPatch
     {
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Last)]
@@ -138,7 +138,7 @@ namespace HospitalPorters
         {
             if (!clinic)
             {
-                Porter049HospitalizationHiringUi.RefreshDisabledPorterFilter(__instance);
+                PorterHospitalizationHiringUi.RefreshDisabledPorterFilter(__instance);
             }
         }
     }
