@@ -56,6 +56,83 @@ namespace HospitalTrafficControl
             return wasLegal && !isLegal;
         }
 
+        internal bool AffectsGraph(AccessRights grantedRights)
+        {
+            int granted = (int)grantedRights;
+
+            for (int i = 0; i < _beforeRoom.Length; i++)
+            {
+                int beforeRequired = (int)GetCombinedGraphAccess(
+                    _beforeRoom[i],
+                    _beforeLogistics[i]);
+                int afterRequired = (int)GetCombinedGraphAccess(
+                    _afterRoom[i],
+                    _afterLogistics[i]);
+
+                bool beforeAccessible = beforeRequired <= granted;
+                bool afterAccessible = afterRequired <= granted;
+
+                if (beforeAccessible != afterAccessible)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // Evaluate all graph passability thresholds in one snapshot scan.
+        internal int GetAffectedGraphMask(AccessRights[] graphRights)
+        {
+            if (graphRights == null)
+            {
+                return 0;
+            }
+
+            int affectedMask = 0;
+            for (int i = 0; i < _beforeRoom.Length; i++)
+            {
+                int before = (int)GetCombinedGraphAccess(
+                    _beforeRoom[i],
+                    _beforeLogistics[i]);
+                int after = (int)GetCombinedGraphAccess(
+                    _afterRoom[i],
+                    _afterLogistics[i]);
+
+                if (before == after)
+                {
+                    continue;
+                }
+
+                for (int graphIndex = 0; graphIndex < graphRights.Length; graphIndex++)
+                {
+                    int granted = (int)graphRights[graphIndex];
+                    if ((before <= granted) != (after <= granted))
+                    {
+                        affectedMask |= 1 << graphIndex;
+                    }
+                }
+            }
+
+            return affectedMask;
+        }
+
+        private static AccessRights GetCombinedGraphAccess(
+            AccessRights roomAccess,
+            AccessRights logisticsAccess)
+        {
+            int room = (int)roomAccess;
+            int logistics = (int)logisticsAccess;
+
+            if (logisticsAccess == AccessRights.BIOHAZARD)
+            {
+                int patient = (int)AccessRights.PATIENT;
+                return (AccessRights)(room > patient ? room : patient);
+            }
+
+            return (AccessRights)(room > logistics ? room : logistics);
+        }
+
         private static bool IsLegal(
             AccessRights roomAccess,
             AccessRights logisticsAccess,

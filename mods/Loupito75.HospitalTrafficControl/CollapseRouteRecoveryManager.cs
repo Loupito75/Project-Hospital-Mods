@@ -244,34 +244,10 @@ namespace HospitalTrafficControl
             Vector2i tile,
             AccessRights grantedRights)
         {
-            if (floor == null ||
-                floor.m_roomAccessRights == null ||
-                floor.m_mapPersistentData == null ||
-                floor.m_mapPersistentData.m_mapLogisticsLayer == null ||
-                floor.m_mapPersistentData.m_mapLogisticsLayer.m_accessRights == null ||
-                tile.m_x < 0 ||
-                tile.m_y < 0 ||
-                tile.m_x >= floor.Size.m_x ||
-                tile.m_y >= floor.Size.m_y)
-            {
-                return false;
-            }
-
-            int granted = (int)grantedRights;
-            AccessRights roomAccess =
-                floor.m_roomAccessRights[tile.m_x, tile.m_y];
-            if ((int)roomAccess > granted)
-            {
-                return false;
-            }
-
-            AccessRights logisticsAccess =
-                floor.m_mapPersistentData.m_mapLogisticsLayer.m_accessRights[
-                    tile.m_x,
-                    tile.m_y];
-
-            return (int)logisticsAccess <= granted ||
-                   logisticsAccess == AccessRights.BIOHAZARD;
+            return NavigationAccessPolicy.IsTileAccessible(
+                floor,
+                tile,
+                grantedRights);
         }
 
         private static void ReleaseOwned3x3(

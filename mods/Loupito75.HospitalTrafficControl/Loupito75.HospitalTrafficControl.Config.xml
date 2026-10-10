@@ -16,24 +16,42 @@
   </RoomTransit>
 
   <JanitorCleaning>
-    <!-- false = vanilla cleaning; true = avoid short-procedure rooms while the procedure patient is inside. Hospitalization rooms remain cleanable; operating rooms are protected when reserved or active. -->
+    <!-- false = vanilla cleaning; true = give patients priority in short clinical rooms: block native procedure ownership/reservations and keep outpatient/procedure rooms blocked while a patient is physically inside. Hospitalization rooms remain cleanable; operating rooms are protected when reserved or active. -->
     <AvoidCleaningActiveProcedureRooms>false</AvoidCleaningActiveProcedureRooms>
 
-    <!-- false = vanilla cleaning; true = janitors do not select or enter a WC room while a bladder-need user is physically inside; a distant WC reservation alone does not block cleaning. -->
+    <!-- false = vanilla cleaning; true = janitors do not select or enter an occupied WC compartment. Single-WC rooms are treated as one exclusive sanitary space while their bathroom flow is active. -->
     <AvoidCleaningOccupiedBathrooms>false</AvoidCleaningOccupiedBathrooms>
+
+    <!-- Chance 0-100 percent to wait outside a dirty clinical room occupied by a patient. Normal free-room work in the janitor's department remains prioritary. An admissible HTC wait in that department is considered before vanilla's floor-wide indoor-tile fallback. A room becoming occupied during a normal trip can also trigger a roll. Never take native room ownership while waiting. -->
+    <JanitorOccupiedRoomWaitChance>30</JanitorOccupiedRoomWaitChance>
+
+    <!-- Cooldown in in-game minutes AFTER a real exterior wait ENDS (including early resumption or timeout). A refused decision remains remembered for the same janitor, room and occupant; an approach that fails before any wait does not consume this cooldown. Range 0-240, default 30. Existing XML is never overwritten; missing tag uses the built-in value. -->
+    <JanitorOccupiedRoomWaitCooldownMinutes>30</JanitorOccupiedRoomWaitCooldownMinutes>
+
+    <!-- Maximum in-game minutes a janitor waits outside a protected clinical room before abandoning that attempt and putting the room back later in the cleaning flow. The room is rechecked continuously and cleaning resumes immediately if it becomes free. Accepted range: 0-240. Default: 15. Set to 0 to skip the stationary wait. -->
+    <JanitorOccupiedRoomWaitMinutes>15</JanitorOccupiedRoomWaitMinutes>
+
+    <!-- Random plus/minus variation chosen once when the wait starts. Accepted range: 0-60. Default: 3. With the defaults, the wait lasts 12-18 in-game minutes. -->
+    <JanitorOccupiedRoomWaitRandomnessMinutes>3</JanitorOccupiedRoomWaitRandomnessMinutes>
 
     <!-- false = vanilla hospitalization-room priority; true = at night, prefer other work before ordinary cleaning in occupied hospitalization rooms; blood remains urgent. -->
     <ReduceOccupiedHospitalizationCleaningAtNight>false</ReduceOccupiedHospitalizationCleaningAtNight>
   </JanitorCleaning>
 
   <BathroomFlow>
-    <!-- false = vanilla owner lifetime; true = release a toilet's ProcedureScript owner as soon as physical WC use ends. -->
+    <!-- false = vanilla owner lifetime; true = release a toilet's ProcedureScript owner after physical use in shared/multi-WC rooms. A room containing exactly one WC stays exclusive (WC + sink + dryer) until the bathroom flow ends; a collapsed/lying patient physically inside also keeps that single-WC room unavailable until leaving. -->
     <ReleaseToiletOwnerAfterUse>false</ReleaseToiletOwnerAfterUse>
   </BathroomFlow>
 
   <Debug>
     <!-- false = production logging; true = log final NoPath jobs and the inaccessible transitions tested by that final PathfinderJob. -->
     <PathfindingDebug>false</PathfindingDebug>
+
+    <!-- Focused janitor/cart route diagnostics. Logs only meaningful state, destination, room and cart changes; independent of verbose pathfinding logs. -->
+    <JanitorCartDebug>false</JanitorCartDebug>
+
+    <!-- Lightweight navigation timing every 20 seconds plus rebuild timing; independent of verbose pathfinding logs. -->
+    <GraphPerformanceDebug>false</GraphPerformanceDebug>
 
     <!-- false = production logging; true = log Shift+click door selection/group data and the exact OneWay arrow destination/render coordinates. -->
     <DoorDebug>false</DoorDebug>

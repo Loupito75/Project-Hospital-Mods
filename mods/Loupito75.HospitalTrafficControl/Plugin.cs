@@ -2,6 +2,8 @@ using System;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using HospitalTrafficControl.Patches;
+using Lopital;
 
 namespace HospitalTrafficControl
 {
@@ -12,9 +14,11 @@ namespace HospitalTrafficControl
         public const string HarmonyId = "Loupito75:HospitalTrafficControl";
         public const string PluginName = "Hospital Traffic Control";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.4.0";
+        public const string PluginVersion = "1.5.0";
 
         internal static ManualLogSource Log { get; private set; }
+
+        private static Harmony s_harmony;
 
         private Harmony _harmony;
         private ManualLogSource _formattedLog;
@@ -29,12 +33,49 @@ namespace HospitalTrafficControl
             TrafficControlConfig.Load();
 
             _harmony = new Harmony(HarmonyId);
+            s_harmony = _harmony;
             _harmony.PatchAll();
 
             Log.LogInfo($"{PluginName} {PluginVersion} by {PluginAuthor} loaded.");
+
+            bool debugEnabled =
+                TrafficControlConfig.PathfindingDebug ||
+                TrafficControlConfig.JanitorCartDebug ||
+                TrafficControlConfig.GraphPerformanceDebug ||
+                TrafficControlConfig.DoorDebug ||
+                TrafficControlConfig.BathroomFlowDebug;
+
+            if (debugEnabled)
+            {
+                Log.LogInfo("Navigation graph mode: EXACT (six access levels).");
+                Log.LogInfo(
+                    "Janitor cleaning settings: ActiveProcedureRooms=" +
+                    TrafficControlConfig.AvoidCleaningActiveProcedureRooms +
+                    ", OccupiedBathrooms=" +
+                    TrafficControlConfig.AvoidCleaningOccupiedBathrooms +
+                    ", ProtectedRoomWaitChance=" +
+                    TrafficControlConfig.JanitorOccupiedRoomWaitChance +
+                    ", ProtectedRoomWaitCooldownMinutes=" +
+                    TrafficControlConfig.JanitorOccupiedRoomWaitCooldownMinutes +
+                    ", ProtectedRoomWaitMinutes=" +
+                    TrafficControlConfig.JanitorOccupiedRoomWaitMinutes +
+                    ", ProtectedRoomWaitRandomnessMinutes=" +
+                    TrafficControlConfig.JanitorOccupiedRoomWaitRandomnessMinutes +
+                    ", ReduceOccupiedHospitalizationAtNight=" +
+                    TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight +
+                    ".");
+            }
             if (TrafficControlConfig.PathfindingDebug)
             {
                 Log.LogInfo("[PathDebug] Pathfinding diagnostics are ENABLED.");
+            }
+            if (TrafficControlConfig.JanitorCartDebug)
+            {
+                Log.LogInfo("[JanitorDebug] Focused janitor/cart diagnostics are ENABLED.");
+            }
+            if (TrafficControlConfig.GraphPerformanceDebug)
+            {
+                Log.LogInfo("[GraphPerf] Navigation profiling enabled (20s summaries).");
             }
             if (TrafficControlConfig.DoorDebug)
             {
@@ -46,8 +87,16 @@ namespace HospitalTrafficControl
             }
         }
 
+        internal static void EnsureDeferredGridMapPatches(Floor initializedFloor)
+        {
+            DeferredGridMapPatches.Apply(s_harmony, initializedFloor);
+        }
+
         private void Update()
         {
+            GraphPerformanceDiagnostics.UpdateFrame();
+            AccessZoneRecoveryManager.UpdatePendingPhysicalExits();
+
             try
             {
                 OneWayIndicatorRenderer.Update();
@@ -86,8 +135,11 @@ namespace HospitalTrafficControl
 
         private void OnDestroy()
         {
+            GraphPerformanceDiagnostics.Reset();
             RuntimeStateManager.Reset();
             _harmony?.UnpatchSelf();
+            DeferredGridMapPatches.Reset();
+            s_harmony = null;
 
             if (_formattedLog != null)
             {
