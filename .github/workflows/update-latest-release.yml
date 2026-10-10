@@ -12,7 +12,7 @@ on:
       - published
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: update-release-metadata
@@ -48,7 +48,7 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.RELEASE_METADATA_TOKEN }}
           script: |
             const fs = require('fs');
             const { execSync } = require('child_process');
