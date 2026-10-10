@@ -13,9 +13,15 @@ namespace HospitalTrafficControl
         private const float DefaultRoomTransitPenalty = 8f;
         private const bool DefaultAvoidCleaningActiveProcedureRooms = false;
         private const bool DefaultAvoidCleaningOccupiedBathrooms = false;
+        private const int DefaultJanitorOccupiedRoomWaitChance = 30;
+        private const int DefaultJanitorOccupiedRoomWaitCooldownMinutes = 30;
+        private const int DefaultJanitorOccupiedRoomWaitMinutes = 15;
+        private const int DefaultJanitorOccupiedRoomWaitRandomnessMinutes = 3;
         private const bool DefaultReduceOccupiedHospitalizationCleaningAtNight = false;
         private const bool DefaultReleaseToiletOwnerAfterUse = false;
         private const bool DefaultPathfindingDebug = false;
+        private const bool DefaultJanitorCartDebug = false;
+        private const bool DefaultGraphPerformanceDebug = false;
         private const bool DefaultDoorDebug = false;
         private const bool DefaultBathroomFlowDebug = false;
 
@@ -49,9 +55,15 @@ namespace HospitalTrafficControl
         internal static float RoomTransitPenalty { get; private set; }
         internal static bool AvoidCleaningActiveProcedureRooms { get; private set; }
         internal static bool AvoidCleaningOccupiedBathrooms { get; private set; }
+        internal static int JanitorOccupiedRoomWaitChance { get; private set; }
+        internal static int JanitorOccupiedRoomWaitCooldownMinutes { get; private set; }
+        internal static int JanitorOccupiedRoomWaitMinutes { get; private set; }
+        internal static int JanitorOccupiedRoomWaitRandomnessMinutes { get; private set; }
         internal static bool ReduceOccupiedHospitalizationCleaningAtNight { get; private set; }
         internal static bool ReleaseToiletOwnerAfterUse { get; private set; }
         internal static bool PathfindingDebug { get; private set; }
+        internal static bool JanitorCartDebug { get; private set; }
+        internal static bool GraphPerformanceDebug { get; private set; }
         internal static bool DoorDebug { get; private set; }
         internal static bool BathroomFlowDebug { get; private set; }
         internal static int TransitExceptionCount => _transitExceptionRoomTypeIds.Count;
@@ -158,6 +170,70 @@ namespace HospitalTrafficControl
                 AvoidCleaningOccupiedBathrooms = parsedOccupiedBathroomSetting;
             }
 
+            string janitorChanceText =
+                GetElementValue(xml, "JanitorOccupiedRoomWaitChance");
+            if (!string.IsNullOrEmpty(janitorChanceText))
+            {
+                int parsedJanitorChance;
+                if (!int.TryParse(janitorChanceText.Trim(), out parsedJanitorChance) ||
+                    parsedJanitorChance < 0 ||
+                    parsedJanitorChance > 100)
+                {
+                    throw new FormatException(
+                        "JanitorOccupiedRoomWaitChance must be an integer from 0 to 100.");
+                }
+
+                JanitorOccupiedRoomWaitChance = parsedJanitorChance;
+            }
+
+            string cooldownText = GetElementValue(
+                xml, "JanitorOccupiedRoomWaitCooldownMinutes");
+            if (!string.IsNullOrEmpty(cooldownText))
+            {
+                int cooldown;
+                if (!int.TryParse(cooldownText.Trim(), out cooldown) ||
+                    cooldown < 0 || cooldown > 240)
+                {
+                    throw new FormatException(
+                        "JanitorOccupiedRoomWaitCooldownMinutes must be an integer from 0 to 240.");
+                }
+                JanitorOccupiedRoomWaitCooldownMinutes = cooldown;
+            }
+
+            string janitorWaitText = GetElementValue(xml, "JanitorOccupiedRoomWaitMinutes");
+            if (!string.IsNullOrEmpty(janitorWaitText))
+            {
+                int parsedJanitorWait;
+                if (!int.TryParse(janitorWaitText.Trim(), out parsedJanitorWait) ||
+                    parsedJanitorWait < 0 ||
+                    parsedJanitorWait > 240)
+                {
+                    throw new FormatException(
+                        "JanitorOccupiedRoomWaitMinutes must be an integer from 0 to 240.");
+                }
+
+                JanitorOccupiedRoomWaitMinutes = parsedJanitorWait;
+            }
+
+            string janitorWaitRandomnessText =
+                GetElementValue(xml, "JanitorOccupiedRoomWaitRandomnessMinutes");
+            if (!string.IsNullOrEmpty(janitorWaitRandomnessText))
+            {
+                int parsedJanitorWaitRandomness;
+                if (!int.TryParse(
+                        janitorWaitRandomnessText.Trim(),
+                        out parsedJanitorWaitRandomness) ||
+                    parsedJanitorWaitRandomness < 0 ||
+                    parsedJanitorWaitRandomness > 60)
+                {
+                    throw new FormatException(
+                        "JanitorOccupiedRoomWaitRandomnessMinutes must be an integer from 0 to 60.");
+                }
+
+                JanitorOccupiedRoomWaitRandomnessMinutes =
+                    parsedJanitorWaitRandomness;
+            }
+
             string nightCleaningText = GetElementValue(xml, "ReduceOccupiedHospitalizationCleaningAtNight");
             if (!string.IsNullOrEmpty(nightCleaningText))
             {
@@ -193,6 +269,35 @@ namespace HospitalTrafficControl
                 }
 
                 PathfindingDebug = parsedPathfindingDebug;
+            }
+
+            string janitorCartDebugText =
+                GetElementValue(xml, "JanitorCartDebug");
+            if (!string.IsNullOrEmpty(janitorCartDebugText))
+            {
+                bool parsedJanitorCartDebug;
+                if (!bool.TryParse(
+                        janitorCartDebugText.Trim(),
+                        out parsedJanitorCartDebug))
+                {
+                    throw new FormatException(
+                        "JanitorCartDebug must be true or false.");
+                }
+
+                JanitorCartDebug = parsedJanitorCartDebug;
+            }
+
+            string graphPerformanceDebugText =
+                GetElementValue(xml, "GraphPerformanceDebug");
+            if (!string.IsNullOrEmpty(graphPerformanceDebugText))
+            {
+                bool enabled;
+                if (!bool.TryParse(graphPerformanceDebugText.Trim(), out enabled))
+                {
+                    throw new FormatException("GraphPerformanceDebug must be true or false.");
+                }
+
+                GraphPerformanceDebug = enabled;
             }
 
             string doorDebugText = GetElementValue(xml, "DoorDebug");
@@ -336,9 +441,16 @@ namespace HospitalTrafficControl
             RoomTransitPenalty = DefaultRoomTransitPenalty;
             AvoidCleaningActiveProcedureRooms = DefaultAvoidCleaningActiveProcedureRooms;
             AvoidCleaningOccupiedBathrooms = DefaultAvoidCleaningOccupiedBathrooms;
+            JanitorOccupiedRoomWaitChance = DefaultJanitorOccupiedRoomWaitChance;
+            JanitorOccupiedRoomWaitCooldownMinutes = DefaultJanitorOccupiedRoomWaitCooldownMinutes;
+            JanitorOccupiedRoomWaitMinutes = DefaultJanitorOccupiedRoomWaitMinutes;
+            JanitorOccupiedRoomWaitRandomnessMinutes =
+                DefaultJanitorOccupiedRoomWaitRandomnessMinutes;
             ReduceOccupiedHospitalizationCleaningAtNight = DefaultReduceOccupiedHospitalizationCleaningAtNight;
             ReleaseToiletOwnerAfterUse = DefaultReleaseToiletOwnerAfterUse;
             PathfindingDebug = DefaultPathfindingDebug;
+            JanitorCartDebug = DefaultJanitorCartDebug;
+            GraphPerformanceDebug = DefaultGraphPerformanceDebug;
             DoorDebug = DefaultDoorDebug;
             BathroomFlowDebug = DefaultBathroomFlowDebug;
             _transitExceptionRoomTypeIds = CreateDefaultExceptionSet();

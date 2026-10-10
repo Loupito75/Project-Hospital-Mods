@@ -8,10 +8,10 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 
-    <Version>1.4.0</Version>
-    <AssemblyVersion>1.4.0</AssemblyVersion>
-    <FileVersion>1.4.0</FileVersion>
-    <InformationalVersion>1.4.0</InformationalVersion>
+    <Version>1.5.0</Version>
+    <AssemblyVersion>1.5.0</AssemblyVersion>
+    <FileVersion>1.5.0</FileVersion>
+    <InformationalVersion>1.5.0</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Traffic Control</Product>
@@ -25,7 +25,9 @@
 
   <ItemGroup>
     <Compile Include="AccessZoneRecoveryManager.cs" />
+    <Compile Include="NavigationAccessPolicy.cs" />
     <Compile Include="BlockedRouteManager.cs" />
+    <Compile Include="BathroomCleaningTopology.cs" />
     <Compile Include="CharacterAccess.cs" />
     <Compile Include="CollapseRouteRecoveryManager.cs" />
     <Compile Include="CrossFloorBlockedManager.cs" />
@@ -33,7 +35,9 @@
     <Compile Include="JanitorCleaningManager.cs" />
     <Compile Include="LocalizationManager.cs" />
     <Compile Include="NavigationChangeTracker.cs" />
+    <Compile Include="GraphPerformanceDiagnostics.cs" />
     <Compile Include="HtcDatabase.cs" />
+    <Compile Include="HospitalTrafficControlApi.cs" />
     <Compile Include="NotificationPreferenceMigration.cs" />
     <Compile Include="NotificationService.cs" />
     <Compile Include="OneWayDirectionHelper.cs" />
@@ -49,10 +53,12 @@
     <Compile Include="PathfindingDebugMarkerRenderer.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="PrivateBathroomManager.cs" />
+    <Compile Include="RoomGeometry.cs" />
     <Compile Include="RoomTransitManager.cs" />
     <Compile Include="RuntimeStateManager.cs" />
     <Compile Include="TrafficControlConfig.cs" />
-    <Compile Include="Patches\AccessAwareElevatorPatch.cs" />
+    <Compile Include="WaitingRoomDiagnostics.cs" />
+    <Compile Include="Patches\NavigationGraphPatch.cs" />
     <Compile Include="Patches\AccessRightsChangedPatch.cs" />
     <Compile Include="Patches\BathroomAvailabilityDiagnosticsPatch.cs" />
     <Compile Include="Patches\BathroomFlowPatch.cs" />
@@ -70,8 +76,10 @@
     <Compile Include="Patches\PrivateBathroomPatch.cs" />
     <Compile Include="Patches\RoomMovementCostPatch.cs" />
     <Compile Include="Patches\StrictFallbackPatch.cs" />
+    <Compile Include="Patches\StatLabMeetingPatch.cs" />
     <Compile Include="Patches\StringTablePatch.cs" />
     <Compile Include="Patches\VisitorAccessSelectionPatch.cs" />
+    <Compile Include="Patches\WaitingRoomDiagnosticsPatch.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -51,7 +51,7 @@ namespace HospitalTrafficControl
 
             Floor floor = Hospital.Instance.m_floors[floorIndex];
             Vector2i objectTile = wc.m_state.m_position;
-            if (!IsInsideFloor(floor, objectTile))
+            if (!RoomGeometry.IsInsideFloor(floor, objectTile))
             {
                 return false;
             }
@@ -95,7 +95,7 @@ namespace HospitalTrafficControl
 
             Floor floor = Hospital.Instance.m_floors[floorIndex];
             Vector2i objectTile = wc.m_state.m_position;
-            if (!IsInsideFloor(floor, objectTile))
+            if (!RoomGeometry.IsInsideFloor(floor, objectTile))
             {
                 return false;
             }
@@ -148,6 +148,12 @@ namespace HospitalTrafficControl
 
             Floor floor = Hospital.Instance.m_floors[floorIndex];
             Vector2i origin = walk.GetCurrentTile();
+            Room patientRoom = GetHospitalizationRoom(character);
+            if (patientRoom == null)
+            {
+                return null;
+            }
+
             int bestDistance = int.MaxValue;
             TileObject best = null;
 
@@ -163,9 +169,9 @@ namespace HospitalTrafficControl
 
                     TryOwnPrivateCandidate(
                         objects.m_centerObject,
-                        character,
                         floor,
                         origin,
+                        patientRoom,
                         procedure,
                         accessRights,
                         ref best,
@@ -173,11 +179,78 @@ namespace HospitalTrafficControl
 
                     TryOwnPrivateCandidate(
                         objects.m_attachmentObject,
-                        character,
                         floor,
                         origin,
+                        patientRoom,
                         procedure,
                         accessRights,
+                        ref best,
+                        ref bestDistance);
+                }
+            }
+
+            return best;
+        }
+
+        internal static TileObject FindAllowedBathroomReplacement(
+            Entity character,
+            AccessRights accessRights)
+        {
+            if (character == null || Hospital.Instance == null)
+            {
+                return null;
+            }
+
+            WalkComponent walk = character.GetComponent<WalkComponent>();
+            if (walk == null)
+            {
+                return null;
+            }
+
+            int floorIndex = walk.GetFloorIndex();
+            if (floorIndex < 0 || floorIndex >= Hospital.Instance.m_floors.Count)
+            {
+                return null;
+            }
+
+            Floor floor = Hospital.Instance.m_floors[floorIndex];
+            Vector2i origin = walk.GetCurrentTile();
+            bool hospitalized = IsHospitalizedPatient(character);
+            Room patientRoom = hospitalized
+                ? GetHospitalizationRoom(character)
+                : null;
+            int bestDistance = int.MaxValue;
+            TileObject best = null;
+
+            for (int x = 0; x < floor.Size.m_x; x++)
+            {
+                for (int y = 0; y < floor.Size.m_y; y++)
+                {
+                    TileObjects objects = floor.m_tileObjects[x, y];
+                    if (objects == null)
+                    {
+                        continue;
+                    }
+
+                    TryCandidate(
+                        objects.m_centerObject,
+                        floor,
+                        origin,
+                        null,
+                        accessRights,
+                        hospitalized,
+                        patientRoom,
+                        ref best,
+                        ref bestDistance);
+
+                    TryCandidate(
+                        objects.m_attachmentObject,
+                        floor,
+                        origin,
+                        null,
+                        accessRights,
+                        hospitalized,
+                        patientRoom,
                         ref best,
                         ref bestDistance);
                 }
@@ -213,6 +286,9 @@ namespace HospitalTrafficControl
             Floor floor = Hospital.Instance.m_floors[floorIndex];
             Vector2i origin = walk.GetCurrentTile();
             bool hospitalized = IsHospitalizedPatient(character);
+            Room patientRoom = hospitalized
+                ? GetHospitalizationRoom(character)
+                : null;
             int bestDistance = int.MaxValue;
             TileObject best = null;
 
@@ -232,8 +308,8 @@ namespace HospitalTrafficControl
                         origin,
                         procedure,
                         accessRights,
-                        character,
                         hospitalized,
+                        patientRoom,
                         ref best,
                         ref bestDistance);
 
@@ -243,8 +319,8 @@ namespace HospitalTrafficControl
                         origin,
                         procedure,
                         accessRights,
-                        character,
                         hospitalized,
+                        patientRoom,
                         ref best,
                         ref bestDistance);
                 }
@@ -267,8 +343,8 @@ namespace HospitalTrafficControl
             Vector2i origin,
             GameDBProcedure procedure,
             AccessRights accessRights,
-            Entity character,
             bool hospitalized,
+            Room patientRoom,
             ref TileObject best,
             ref int bestDistance)
         {
@@ -284,20 +360,7 @@ namespace HospitalTrafficControl
             }
 
             Vector2i objectTile = candidate.m_state.m_position;
-            if (!IsInsideFloor(floor, objectTile))
-            {
-                return;
-            }
-
-            Room room = floor.m_roomTiles[objectTile.m_x, objectTile.m_y];
-            if (!IsAllowedRoom(room, procedure.RequiredRoomTags, accessRights))
-            {
-                return;
-            }
-
-            if (IsPrivateHospitalBathroom(candidate) &&
-                (!hospitalized ||
-                 !IsPrivateHospitalBathroomForPatient(candidate, character)))
+            if (!RoomGeometry.IsInsideFloor(floor, objectTile))
             {
                 return;
             }
@@ -307,8 +370,34 @@ namespace HospitalTrafficControl
                 (int)(usePosition.m_x + 0.5f),
                 (int)(usePosition.m_y + 0.5f));
 
-            if (!IsInsideFloor(floor, useTile) ||
-                !IsAccessAllowed(floor, objectTile, accessRights) ||
+            if (!RoomGeometry.IsInsideFloor(floor, useTile) ||
+                CannotBeatBestDistance(origin, useTile, bestDistance))
+            {
+                return;
+            }
+
+            Room room = floor.m_roomTiles[objectTile.m_x, objectTile.m_y];
+            if (!IsAllowedRoom(
+                    room,
+                    procedure == null ? null : procedure.RequiredRoomTags,
+                    accessRights))
+            {
+                return;
+            }
+
+            // Same native connection check as the public WC API, but only
+            // once per candidate instead of checking private status and
+            // then checking the connected patient room again.
+            Room connectedHospitalRoom;
+            if (TryGetConnectedHospitalizationRoom(
+                    room, floor, out connectedHospitalRoom) &&
+                (!hospitalized ||
+                 !object.ReferenceEquals(connectedHospitalRoom, patientRoom)))
+            {
+                return;
+            }
+
+            if (!IsAccessAllowed(floor, objectTile, accessRights) ||
                 !IsAccessAllowed(floor, useTile, accessRights))
             {
                 return;
@@ -332,9 +421,9 @@ namespace HospitalTrafficControl
 
         private static void TryOwnPrivateCandidate(
             TileObject candidate,
-            Entity character,
             Floor floor,
             Vector2i origin,
+            Room patientRoom,
             GameDBProcedure procedure,
             AccessRights accessRights,
             ref TileObject best,
@@ -346,14 +435,23 @@ namespace HospitalTrafficControl
                 candidate.IsBroken() ||
                 !candidate.IsValid() ||
                 candidate.User != null ||
-                candidate.Owner != null ||
-                !IsPrivateHospitalBathroomForPatient(candidate, character))
+                candidate.Owner != null)
             {
                 return;
             }
 
             Vector2i objectTile = candidate.m_state.m_position;
-            if (!IsInsideFloor(floor, objectTile))
+            if (!RoomGeometry.IsInsideFloor(floor, objectTile))
+            {
+                return;
+            }
+
+            Vector2f usePosition = candidate.GetDefaultUsePosition();
+            Vector2i useTile = new Vector2i(
+                (int)(usePosition.m_x + 0.5f),
+                (int)(usePosition.m_y + 0.5f));
+            if (!RoomGeometry.IsInsideFloor(floor, useTile) ||
+                CannotBeatBestDistance(origin, useTile, bestDistance))
             {
                 return;
             }
@@ -364,13 +462,15 @@ namespace HospitalTrafficControl
                 return;
             }
 
-            Vector2f usePosition = candidate.GetDefaultUsePosition();
-            Vector2i useTile = new Vector2i(
-                (int)(usePosition.m_x + 0.5f),
-                (int)(usePosition.m_y + 0.5f));
+            Room connectedHospitalRoom;
+            if (!TryGetConnectedHospitalizationRoom(
+                    room, floor, out connectedHospitalRoom) ||
+                !object.ReferenceEquals(connectedHospitalRoom, patientRoom))
+            {
+                return;
+            }
 
-            if (!IsInsideFloor(floor, useTile) ||
-                !IsAccessAllowed(floor, objectTile, accessRights) ||
+            if (!IsAccessAllowed(floor, objectTile, accessRights) ||
                 !IsAccessAllowed(floor, useTile, accessRights))
             {
                 return;
@@ -390,6 +490,26 @@ namespace HospitalTrafficControl
 
             bestDistance = distance;
             best = candidate;
+        }
+
+        // Native GridMap distances are compared after truncation to int.
+        // On the same floor, an exact route cannot beat the straight-line
+        // lower bound; this preserves the original >= tie rule. No maximum
+        // distance is introduced, and eligible winners still use GridMap.
+        private static bool CannotBeatBestDistance(
+            Vector2i origin,
+            Vector2i destination,
+            int bestDistance)
+        {
+            if (bestDistance == int.MaxValue)
+            {
+                return false;
+            }
+
+            long dx = (long)destination.m_x - origin.m_x;
+            long dy = (long)destination.m_y - origin.m_y;
+            return dx * dx + dy * dy >=
+                   (long)bestDistance * bestDistance;
         }
 
         private static Room GetHospitalizationRoom(Entity patient)
@@ -578,7 +698,7 @@ namespace HospitalTrafficControl
 
         private static bool IsProcedureControlledTile(Floor floor, Vector2i tile)
         {
-            if (!IsInsideFloor(floor, tile))
+            if (!RoomGeometry.IsInsideFloor(floor, tile))
             {
                 return false;
             }
@@ -595,7 +715,7 @@ namespace HospitalTrafficControl
             Vector2i tile,
             AccessRights accessRights)
         {
-            if (!IsInsideFloor(floor, tile))
+            if (!RoomGeometry.IsInsideFloor(floor, tile))
             {
                 return false;
             }
@@ -618,14 +738,14 @@ namespace HospitalTrafficControl
             HashSet<Room> connectedRooms,
             ref bool openToUnzonedSpace)
         {
-            if (!IsInsideFloor(floor, next))
+            if (!RoomGeometry.IsInsideFloor(floor, next))
             {
                 return;
             }
 
             Room nextRoom = floor.m_roomTiles[next.m_x, next.m_y];
             if (object.ReferenceEquals(nextRoom, bathroom) ||
-                !IsBoundaryTraversable(floor, current, next))
+                !RoomGeometry.IsBoundaryTraversable(floor, current, next))
             {
                 return;
             }
@@ -639,36 +759,5 @@ namespace HospitalTrafficControl
             connectedRooms.Add(nextRoom);
         }
 
-        private static bool IsBoundaryTraversable(
-            Floor floor,
-            Vector2i current,
-            Vector2i next)
-        {
-            return floor.IsAccessible(
-                       current,
-                       next,
-                       current,
-                       current,
-                       (int)AccessRights.STAFF_ONLY,
-                       true,
-                       true) ||
-                   floor.IsAccessible(
-                       next,
-                       current,
-                       next,
-                       next,
-                       (int)AccessRights.STAFF_ONLY,
-                       true,
-                       true);
-        }
-
-        private static bool IsInsideFloor(Floor floor, Vector2i tile)
-        {
-            return floor != null &&
-                   tile.m_x >= 0 &&
-                   tile.m_y >= 0 &&
-                   tile.m_x < floor.Size.m_x &&
-                   tile.m_y < floor.Size.m_y;
-        }
     }
 }

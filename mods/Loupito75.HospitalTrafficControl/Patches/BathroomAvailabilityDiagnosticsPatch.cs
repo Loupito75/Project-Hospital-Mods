@@ -281,6 +281,7 @@ namespace HospitalTrafficControl.Patches
                     ownerGhost = ownerUserMismatch || !ownerCurrentMatches;
                 }
                 else if (TrafficControlConfig.ReleaseToiletOwnerAfterUse &&
+                         !SingleToiletBathroomLockManager.IsSingleToiletRoom(toilet) &&
                          (ownerState == ProcedureScriptNeedBladder.STATE_GOING_TO_SINK ||
                           ownerState == ProcedureScriptNeedBladder.STATE_USING_SINK ||
                           ownerState == ProcedureScriptNeedBladder.STATE_USING_SINK_GERMAPHOBE ||
