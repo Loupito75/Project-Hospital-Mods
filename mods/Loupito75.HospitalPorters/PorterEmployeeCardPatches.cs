@@ -171,4 +171,79 @@ namespace HospitalPorters
             Plugin.Log?.LogWarning(message);
         }
     }
+    [HarmonyPatch(
+        typeof(Hospital),
+        nameof(Hospital.GetPatientsOfADoctor),
+        new Type[]
+        {
+            typeof(Entity),
+            typeof(bool),
+            typeof(bool),
+            typeof(bool)
+        })]
+    internal static class PorterCurrentPatientsPatch
+    {
+        [HarmonyPostfix]
+        [HarmonyPriority(Priority.Last)]
+        private static void Postfix(
+            Entity employee,
+            PatientsOfADoctor __result)
+        {
+            if (!PorterIdentity.IsPorter(employee) ||
+                __result == null ||
+                __result.m_currentPatients == null)
+            {
+                return;
+            }
+
+            AppendPatientTransport(
+                employee,
+                __result);
+
+            PorterSampleTransportRuntime.AppendCurrentPatients(
+                employee,
+                __result.m_currentPatients);
+        }
+
+        private static void AppendPatientTransport(
+            Entity porter,
+            PatientsOfADoctor patients)
+        {
+            if (Hospital.Instance == null ||
+                Hospital.Instance.m_characters == null)
+            {
+                return;
+            }
+
+            foreach (Entity character in
+                Hospital.Instance.m_characters)
+            {
+                if (character == null ||
+                    character.GetComponent<BehaviorPatient>() == null)
+                {
+                    continue;
+                }
+
+                StretcherComponent stretcher =
+                    character.GetComponent<StretcherComponent>();
+                Entity movingCharacter =
+                    stretcher == null ||
+                    stretcher.m_state == null ||
+                    stretcher.m_state.m_movingCharacter == null
+                        ? null
+                        : stretcher.m_state.m_movingCharacter.GetEntity();
+
+                if (movingCharacter != porter ||
+                    patients.m_currentPatients.Contains(character))
+                {
+                    continue;
+                }
+
+                patients.m_currentPatients.Insert(
+                    0,
+                    character);
+            }
+        }
+    }
+
 }

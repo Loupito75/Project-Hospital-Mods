@@ -25,6 +25,10 @@ namespace HospitalPorters
         internal const string SampleCartDescription = "L75_HPO_OBJECT_SAMPLE_CART_DESCRIPTION";
         internal const string SampleCartNotification = "L75_HPO_NOTIF_NOT_ENOUGH_SAMPLE_CARTS";
         internal const string SampleCartNotificationText = "L75_HPO_NOTIF_NOT_ENOUGH_SAMPLE_CARTS_TEXT";
+        internal const string SamplePorterCapacityNotification = "L75_HPO_NOTIF_SAMPLE_PORTER_CAPACITY";
+        internal const string SamplePorterCapacityNotificationText = "L75_HPO_NOTIF_SAMPLE_PORTER_CAPACITY_TEXT";
+        internal const string PatientPorterCapacityNotification = "L75_HPO_NOTIF_PATIENT_PORTER_CAPACITY";
+        internal const string PatientPorterCapacityNotificationText = "L75_HPO_NOTIF_PATIENT_PORTER_CAPACITY_TEXT";
 
         internal static string Normalize(string stringId)
         {
@@ -48,6 +52,10 @@ namespace HospitalPorters
             if (stringId == PorterIds.SampleCart + "_DESCRIPTION") return SampleCartDescription;
             if (stringId == PorterIds.SampleCartNotification) return SampleCartNotification;
             if (stringId == PorterIds.SampleCartNotificationText) return SampleCartNotificationText;
+            if (stringId == PorterIds.SamplePorterCapacityNotification) return SamplePorterCapacityNotification;
+            if (stringId == PorterIds.SamplePorterCapacityNotificationText) return SamplePorterCapacityNotificationText;
+            if (stringId == PorterIds.PatientPorterCapacityNotification) return PatientPorterCapacityNotification;
+            if (stringId == PorterIds.PatientPorterCapacityNotificationText) return PatientPorterCapacityNotificationText;
             return stringId;
         }
     }
@@ -122,6 +130,23 @@ namespace HospitalPorters
             }
         }
 
+        private sealed class CapacityNotificationTranslation
+        {
+            internal readonly string Title;
+            internal readonly string SampleText;
+            internal readonly string PatientText;
+
+            internal CapacityNotificationTranslation(
+                string title,
+                string sampleText,
+                string patientText)
+            {
+                Title = title;
+                SampleText = sampleText;
+                PatientText = patientText;
+            }
+        }
+
         private static readonly Translation English = new Translation(
             "Porter",
             "Porters",
@@ -141,8 +166,95 @@ namespace HospitalPorters
             "Carries collected samples to the laboratory.",
             "Sample cart",
             "Mobile cart for transporting collected laboratory samples.",
-            "Not enough sample carts!",
-            "Porters are waiting for a sample cart in {1} because all carts assigned to their Porter station are already in use. Add another sample cart to increase transport capacity.");
+            "More sample carts recommended!",
+            "Porters are complaining that they have to carry samples one by one at {1} because no sample cart is available.");
+
+        private static readonly Dictionary<string, CapacityNotificationTranslation>
+            CapacityNotifications =
+                new Dictionary<string, CapacityNotificationTranslation>(
+                    StringComparer.OrdinalIgnoreCase)
+                {
+                    { "en", new CapacityNotificationTranslation(
+                        "Not enough Porters!",
+                        "At {1}, lab specialists are complaining about a shortage of Porters and too often have to transport samples themselves. Assign more Porters to Sample transport.",
+                        "At {1}, nurses are complaining about a shortage of Porters and too often have to transport patients themselves. Assign more Porters to Patient transport.") },
+                    { "cz", new CapacityNotificationTranslation(
+                        "Nedostatek sanitářů!",
+                        "V {1} si laboratorní pracovníci stěžují na nedostatek sanitářů a příliš často musejí sami přepravovat vzorky. Přidělte více sanitářů k přepravě vzorků.",
+                        "V {1} si sestry stěžují na nedostatek sanitářů a příliš často musejí samy přepravovat pacienty. Přidělte více sanitářů k přepravě pacientů.") },
+                    { "da", new CapacityNotificationTranslation(
+                        "For få portører!",
+                        "På {1} klager laboratoriepersonalet over mangel på portører og må alt for ofte selv transportere prøver. Tildel flere portører til prøvetransport.",
+                        "På {1} klager sygeplejerskerne over mangel på portører og må alt for ofte selv transportere patienter. Tildel flere portører til patienttransport.") },
+                    { "de", new CapacityNotificationTranslation(
+                        "Zu wenige Transportmitarbeiter!",
+                        "In {1} beklagen sich die Laborspezialisten über zu wenige Transportmitarbeiter und müssen zu oft selbst Proben transportieren. Weisen Sie mehr Transportmitarbeiter dem Probentransport zu.",
+                        "In {1} beklagen sich die Pflegekräfte über zu wenige Transportmitarbeiter und müssen zu oft selbst Patienten transportieren. Weisen Sie mehr Transportmitarbeiter dem Patiententransport zu.") },
+                    { "es", new CapacityNotificationTranslation(
+                        "¡Faltan camilleros!",
+                        "En {1}, los especialistas de laboratorio se quejan de la falta de camilleros y con demasiada frecuencia tienen que transportar ellos mismos las muestras. Asigna más camilleros al transporte de muestras.",
+                        "En {1}, el personal de enfermería se queja de la falta de camilleros y con demasiada frecuencia tiene que transportar pacientes. Asigna más camilleros al transporte de pacientes.") },
+                    { "esla", new CapacityNotificationTranslation(
+                        "¡Faltan camilleros!",
+                        "En {1}, los especialistas de laboratorio se quejan de la falta de camilleros y con demasiada frecuencia tienen que transportar ellos mismos las muestras. Asigna más camilleros al transporte de muestras.",
+                        "En {1}, el personal de enfermería se queja de la falta de camilleros y con demasiada frecuencia tiene que transportar pacientes. Asigna más camilleros al transporte de pacientes.") },
+                    { "fr", new CapacityNotificationTranslation(
+                        "Manque de brancardiers !",
+                        "À {1}, les techniciens de laboratoire se plaignent du manque de brancardiers et doivent trop souvent transporter eux-mêmes les échantillons. Affectez davantage de brancardiers au transport d'échantillons.",
+                        "À {1}, les infirmières se plaignent du manque de brancardiers et doivent trop souvent transporter elles-mêmes les patients. Affectez davantage de brancardiers au transport des patients.") },
+                    { "hu", new CapacityNotificationTranslation(
+                        "Nincs elég betegszállító!",
+                        "A(z) {1} részlegen a laboratóriumi szakemberek arra panaszkodnak, hogy nincs elég betegszállító, ezért túl gyakran nekik kell szállítaniuk a mintákat. Rendelj több betegszállítót a mintaszállításhoz.",
+                        "A(z) {1} részlegen az ápolók arra panaszkodnak, hogy nincs elég betegszállító, ezért túl gyakran nekik kell szállítaniuk a betegeket. Rendelj több betegszállítót a betegszállításhoz.") },
+                    { "it", new CapacityNotificationTranslation(
+                        "Barellieri insufficienti!",
+                        "In {1}, gli specialisti di laboratorio lamentano la carenza di barellieri e troppo spesso devono trasportare personalmente i campioni. Assegna più barellieri al trasporto dei campioni.",
+                        "In {1}, gli infermieri lamentano la carenza di barellieri e troppo spesso devono trasportare personalmente i pazienti. Assegna più barellieri al trasporto dei pazienti.") },
+                    { "jp", new CapacityNotificationTranslation(
+                        "院内搬送員が不足しています！",
+                        "「{1}」では、臨床検査技師が院内搬送員の不足を訴えており、検体を自分たちで運ぶことが多すぎます。検体搬送に割り当てる院内搬送員を増やしてください。",
+                        "「{1}」では、看護師が院内搬送員の不足を訴えており、患者を自分たちで搬送することが多すぎます。患者搬送に割り当てる院内搬送員を増やしてください。") },
+                    { "kr", new CapacityNotificationTranslation(
+                        "원내 이송 요원이 부족합니다!",
+                        "{1}에서 검사실 직원들이 원내 이송 요원 부족을 호소하며 너무 자주 직접 검체를 운반하고 있습니다. 검체 이송 업무에 더 많은 원내 이송 요원을 배정하세요.",
+                        "{1}에서 간호사들이 원내 이송 요원 부족을 호소하며 너무 자주 직접 환자를 이송하고 있습니다. 환자 이송 업무에 더 많은 원내 이송 요원을 배정하세요.") },
+                    { "nl", new CapacityNotificationTranslation(
+                        "Te weinig patiëntenvervoerders!",
+                        "Bij {1} klaagt het laboratoriumpersoneel over een tekort aan patiëntenvervoerders en moet het te vaak zelf monsters vervoeren. Wijs meer patiëntenvervoerders toe aan monstertransport.",
+                        "Bij {1} klagen de verpleegkundigen over een tekort aan patiëntenvervoerders en moeten zij te vaak zelf patiënten vervoeren. Wijs meer patiëntenvervoerders toe aan patiëntentransport.") },
+                    { "pl", new CapacityNotificationTranslation(
+                        "Za mało pracowników transportu!",
+                        "W {1} pracownicy laboratorium skarżą się na brak pracowników transportu i zbyt często muszą samodzielnie przewozić próbki. Przydziel więcej pracowników transportu do transportu próbek.",
+                        "W {1} pielęgniarki skarżą się na brak pracowników transportu i zbyt często muszą samodzielnie przewozić pacjentów. Przydziel więcej pracowników transportu do transportu pacjentów.") },
+                    { "ptbr", new CapacityNotificationTranslation(
+                        "Maqueiros insuficientes!",
+                        "Em {1}, os especialistas de laboratório reclamam da falta de maqueiros e precisam transportar as amostras por conta própria com frequência demais. Designe mais maqueiros para o transporte de amostras.",
+                        "Em {1}, os enfermeiros reclamam da falta de maqueiros e precisam transportar os pacientes por conta própria com frequência demais. Designe mais maqueiros para o transporte de pacientes.") },
+                    { "ru", new CapacityNotificationTranslation(
+                        "Не хватает санитаров-транспортировщиков!",
+                        "В {1} сотрудники лаборатории жалуются на нехватку санитаров-транспортировщиков и слишком часто вынуждены сами перевозить образцы. Назначьте больше санитаров-транспортировщиков на перевозку образцов.",
+                        "В {1} медсёстры жалуются на нехватку санитаров-транспортировщиков и слишком часто вынуждены сами перевозить пациентов. Назначьте больше санитаров-транспортировщиков на перевозку пациентов.") },
+                    { "swe", new CapacityNotificationTranslation(
+                        "För få patienttransportörer!",
+                        "På {1} klagar laboratoriepersonalen på bristen på patienttransportörer och måste alltför ofta transportera prover själva. Tilldela fler patienttransportörer till provtransport.",
+                        "På {1} klagar sjuksköterskorna på bristen på patienttransportörer och måste alltför ofta transportera patienter själva. Tilldela fler patienttransportörer till patienttransport.") },
+                    { "tr", new CapacityNotificationTranslation(
+                        "Yeterli hasta taşıma görevlisi yok!",
+                        "{1} bölümünde laboratuvar uzmanları hasta taşıma görevlisi eksikliğinden şikâyet ediyor ve numuneleri çok sık kendileri taşımak zorunda kalıyor. Numune taşıma görevine daha fazla hasta taşıma görevlisi atayın.",
+                        "{1} bölümünde hemşireler hasta taşıma görevlisi eksikliğinden şikâyet ediyor ve hastaları çok sık kendileri taşımak zorunda kalıyor. Hasta taşıma görevine daha fazla hasta taşıma görevlisi atayın.") },
+                    { "uk", new CapacityNotificationTranslation(
+                        "Не вистачає санітарів-транспортувальників!",
+                        "У {1} працівники лабораторії скаржаться на нестачу санітарів-транспортувальників і надто часто змушені самі перевозити зразки. Призначте більше санітарів-транспортувальників на транспортування зразків.",
+                        "У {1} медсестри скаржаться на нестачу санітарів-транспортувальників і надто часто змушені самі перевозити пацієнтів. Призначте більше санітарів-транспортувальників на транспортування пацієнтів.") },
+                    { "zhcn", new CapacityNotificationTranslation(
+                        "院内运送员不足！",
+                        "在 {1}，检验科人员抱怨院内运送员不足，经常不得不亲自运送样本。请为样本运送分配更多院内运送员。",
+                        "在 {1}，护士抱怨院内运送员不足，经常不得不亲自运送患者。请为患者运送分配更多院内运送员。") },
+                    { "zhtw", new CapacityNotificationTranslation(
+                        "院內運送員不足！",
+                        "在 {1}，檢驗室人員抱怨院內運送員不足，經常不得不親自運送檢體。請為檢體運送分配更多院內運送員。",
+                        "在 {1}，護理人員抱怨院內運送員不足，經常不得不親自運送病患。請為病患運送分配更多院內運送員。") }
+                };
 
         private static readonly Dictionary<string, Translation> Translations =
             new Dictionary<string, Translation>(StringComparer.OrdinalIgnoreCase)
@@ -168,7 +280,7 @@ namespace HospitalPorters
                     "Vozík na vzorky",
                     "Pojízdný vozík pro přepravu odebraných laboratorních vzorků.",
                     "Nedostatek vozíků na vzorky!",
-                    "Sanitáři čekají na vozík na vzorky v {1}, protože všechny vozíky přiřazené k jejich stanici jsou právě používány. Přidejte další vozík na vzorky pro zvýšení přepravní kapacity.") },
+                    "Sanitáři si stěžují, že v {1} musí přenášet vzorky po jednom, protože není k dispozici žádný vozík na vzorky.") },
                 { "da", new Translation(
                     "Portør",
                     "Portører",
@@ -189,7 +301,7 @@ namespace HospitalPorters
                     "Prøvevogn",
                     "Mobil vogn til transport af indsamlede laboratorieprøver.",
                     "Ikke nok prøvevogne!",
-                    "Portører venter på en prøvevogn i {1}, fordi alle vogne tilknyttet deres portørstation allerede er i brug. Tilføj en ekstra prøvevogn for at øge transportkapaciteten.") },
+                    "Portørerne klager over, at de må transportere prøver én ad gangen i {1}, fordi der ikke er nogen prøvevogn ledig.") },
                 { "de", new Translation(
                     "Transportmitarbeiter",
                     "Transportmitarbeiter",
@@ -210,7 +322,7 @@ namespace HospitalPorters
                     "Probenwagen",
                     "Mobiler Wagen zum Transport entnommener Laborproben.",
                     "Nicht genügend Probenwagen!",
-                    "Transportmitarbeiter warten in {1} auf einen Probenwagen, weil alle ihrer Transportstation zugewiesenen Wagen bereits verwendet werden. Fügen Sie einen weiteren Probenwagen hinzu, um die Transportkapazität zu erhöhen.") },
+                    "Die Transportmitarbeiter beschweren sich, dass sie die Proben in {1} einzeln transportieren müssen, weil kein Probenwagen verfügbar ist.") },
                 { "es", new Translation(
                     "Camillero",
                     "Camilleros",
@@ -231,7 +343,7 @@ namespace HospitalPorters
                     "Carro de muestras",
                     "Carro móvil para transportar muestras de laboratorio recogidas.",
                     "¡No hay suficientes carros de muestras!",
-                    "Los camilleros esperan un carro de muestras en {1} porque todos los carros asignados a su estación ya están en uso. Añade otro carro de muestras para aumentar la capacidad de transporte.") },
+                    "Los camilleros se quejan de tener que transportar las muestras de una en una en {1} porque no hay ningún carro de muestras disponible.") },
                 { "esla", new Translation(
                     "Camillero",
                     "Camilleros",
@@ -252,7 +364,7 @@ namespace HospitalPorters
                     "Carro de muestras",
                     "Carro móvil para transportar muestras de laboratorio recolectadas.",
                     "¡No hay suficientes carros de muestras!",
-                    "Los camilleros esperan un carro de muestras en {1} porque todos los carros asignados a su estación ya están en uso. Agrega otro carro de muestras para aumentar la capacidad de transporte.") },
+                    "Los camilleros se quejan de tener que transportar las muestras una por una en {1} porque no hay ningún carro de muestras disponible.") },
                 { "fr", new Translation(
                     "Brancardier",
                     "Brancardiers",
@@ -272,8 +384,8 @@ namespace HospitalPorters
                     "Transporte les échantillons prélevés jusqu'au laboratoire.",
                     "Chariot à échantillons",
                     "Chariot mobile pour le transport des échantillons prélevés jusqu'au laboratoire.",
-                    "Nombre de chariots à échantillons insuffisant !",
-                    "Les brancardiers attendent un chariot à échantillons en {1} car tous les chariots de leur poste sont déjà utilisés. Ajoutez un chariot supplémentaire pour augmenter la capacité de transport.") },
+                    "Davantage de chariots à échantillons recommandés !",
+                    "Les brancardiers se plaignent de devoir transporter les échantillons un par un en {1}, faute de chariot à échantillons disponible.") },
                 { "hu", new Translation(
                     "Betegszállító",
                     "Betegszállítók",
@@ -294,7 +406,7 @@ namespace HospitalPorters
                     "Mintaszállító kocsi",
                     "Mozgatható kocsi a levett laboratóriumi minták szállításához.",
                     "Nincs elég mintaszállító kocsi!",
-                    "A betegszállítók mintaszállító kocsira várnak itt: {1}, mert az állomásukhoz rendelt összes kocsi használatban van. A szállítási kapacitás növeléséhez helyezzen el még egy mintaszállító kocsit.") },
+                    "A betegszállítók arra panaszkodnak, hogy {1} területén egyenként kell szállítaniuk a mintákat, mert nincs szabad mintaszállító kocsi.") },
                 { "it", new Translation(
                     "Barelliere",
                     "Barellieri",
@@ -315,7 +427,7 @@ namespace HospitalPorters
                     "Carrello campioni",
                     "Carrello mobile per il trasporto dei campioni di laboratorio raccolti.",
                     "Carrelli campioni insufficienti!",
-                    "I barellieri attendono un carrello campioni in {1} perché tutti i carrelli assegnati alla loro postazione sono già in uso. Aggiungi un altro carrello campioni per aumentare la capacità di trasporto.") },
+                    "I barellieri si lamentano di dover trasportare i campioni uno alla volta in {1} perché non è disponibile alcun carrello campioni.") },
                 { "jp", new Translation(
                     "院内搬送員",
                     "院内搬送員",
@@ -336,7 +448,7 @@ namespace HospitalPorters
                     "検体カート",
                     "採取済みの検査検体を運ぶための移動式カートです。",
                     "検体カートが不足しています！",
-                    "{1} で搬送員が検体カートを待っています。搬送員ステーションに割り当てられたすべてのカートが使用中です。搬送能力を増やすには検体カートを追加してください。") },
+                    "{1} では検体カートが空いていないため、搬送員が検体を1つずつ運ばなければならないと不満を訴えています。") },
                 { "kr", new Translation(
                     "원내 이송 요원",
                     "원내 이송 요원",
@@ -357,7 +469,7 @@ namespace HospitalPorters
                     "검체 카트",
                     "채취된 검사실 검체를 운반하는 이동식 카트입니다.",
                     "검체 카트가 부족합니다!",
-                    "{1}에서 이송 요원이 검체 카트를 기다리고 있습니다. 이송 요원 스테이션에 배정된 모든 카트가 이미 사용 중입니다. 이송 용량을 늘리려면 검체 카트를 추가하세요.") },
+                    "{1}에서 사용할 수 있는 검체 카트가 없어 이송 요원들이 검체를 하나씩 옮겨야 한다고 불평하고 있습니다.") },
                 { "nl", new Translation(
                     "Patiëntenvervoerder",
                     "Patiëntenvervoerders",
@@ -378,7 +490,7 @@ namespace HospitalPorters
                     "Monsterkar",
                     "Mobiele kar voor het vervoeren van verzamelde laboratoriummonsters.",
                     "Niet genoeg monsterkarren!",
-                    "Patiëntenvervoerders wachten in {1} op een monsterkar omdat alle karren van hun transportstation al in gebruik zijn. Plaats een extra monsterkar om de transportcapaciteit te vergroten.") },
+                    "Patiëntenvervoerders klagen dat ze in {1} monsters één voor één moeten vervoeren omdat er geen monsterkar beschikbaar is.") },
                 { "pl", new Translation(
                     "Pracownik transportu",
                     "Pracownicy transportu",
@@ -399,7 +511,7 @@ namespace HospitalPorters
                     "Wózek na próbki",
                     "Mobilny wózek do transportu pobranych próbek laboratoryjnych.",
                     "Za mało wózków na próbki!",
-                    "Pracownicy transportu czekają na wózek na próbki w {1}, ponieważ wszystkie wózki przypisane do ich stanowiska są już używane. Dodaj kolejny wózek na próbki, aby zwiększyć wydajność transportu.") },
+                    "Pracownicy transportu skarżą się, że w {1} muszą przenosić próbki pojedynczo, ponieważ żaden wózek na próbki nie jest dostępny.") },
                 { "ptbr", new Translation(
                     "Maqueiro",
                     "Maqueiros",
@@ -420,7 +532,7 @@ namespace HospitalPorters
                     "Carrinho de amostras",
                     "Carrinho móvel para transportar amostras laboratoriais coletadas.",
                     "Carrinhos de amostras insuficientes!",
-                    "Os maqueiros estão esperando um carrinho de amostras em {1}, pois todos os carrinhos atribuídos à estação já estão em uso. Adicione outro carrinho de amostras para aumentar a capacidade de transporte.") },
+                    "Os maqueiros reclamam que precisam transportar as amostras uma por uma em {1}, porque não há nenhum carrinho de amostras disponível.") },
                 { "ru", new Translation(
                     "Санитар-транспортировщик",
                     "Санитары-транспортировщики",
@@ -441,7 +553,7 @@ namespace HospitalPorters
                     "Тележка для образцов",
                     "Передвижная тележка для перевозки собранных лабораторных образцов.",
                     "Недостаточно тележек для образцов!",
-                    "Транспортировщики ждут тележку для образцов в {1}, потому что все тележки, закреплённые за их станцией, уже используются. Добавьте ещё одну тележку, чтобы увеличить пропускную способность.") },
+                    "Транспортировщики жалуются, что в {1} им приходится переносить образцы по одному, потому что нет свободной тележки для образцов.") },
                 { "swe", new Translation(
                     "Patienttransportör",
                     "Patienttransportörer",
@@ -462,7 +574,7 @@ namespace HospitalPorters
                     "Provvagn",
                     "Mobil vagn för transport av insamlade laboratorieprover.",
                     "Inte tillräckligt med provvagnar!",
-                    "Patienttransportörer väntar på en provvagn i {1} eftersom alla vagnar som tillhör deras transportstation redan används. Lägg till en extra provvagn för att öka transportkapaciteten.") },
+                    "Patienttransportörerna klagar på att de måste transportera prover ett i taget i {1} eftersom ingen provvagn är ledig.") },
                 { "tr", new Translation(
                     "Hasta taşıma görevlisi",
                     "Hasta taşıma görevlileri",
@@ -483,7 +595,7 @@ namespace HospitalPorters
                     "Numune arabası",
                     "Toplanan laboratuvar numunelerini taşımak için kullanılan hareketli araba.",
                     "Yeterli numune arabası yok!",
-                    "Taşıma görevlileri {1} konumunda numune arabası bekliyor; istasyonlarına atanmış tüm arabalar kullanımda. Taşıma kapasitesini artırmak için ek bir numune arabası ekleyin.") },
+                    "Taşıma görevlileri, kullanılabilir numune arabası olmadığı için {1} konumunda numuneleri tek tek taşımak zorunda kalmaktan şikâyet ediyor.") },
                 { "uk", new Translation(
                     "Санітар-транспортувальник",
                     "Санітари-транспортувальники",
@@ -504,7 +616,7 @@ namespace HospitalPorters
                     "Візок для зразків",
                     "Пересувний візок для транспортування зібраних лабораторних зразків.",
                     "Недостатньо візків для зразків!",
-                    "Транспортувальники чекають на візок для зразків у {1}, оскільки всі візки, призначені їхній станції, уже використовуються. Додайте ще один візок, щоб збільшити транспортну спроможність.") },
+                    "Транспортувальники скаржаться, що в {1} їм доводиться переносити зразки по одному, оскільки немає вільного візка для зразків.") },
                 { "zhcn", new Translation(
                     "院内运送员",
                     "院内运送员",
@@ -525,7 +637,7 @@ namespace HospitalPorters
                     "样本推车",
                     "用于运送已采集实验室样本的移动推车。",
                     "样本推车不足！",
-                    "运送员正在 {1} 等待样本推车，因为分配给其工作站的所有推车都已在使用。添加另一辆样本推车以提高运输能力。") },
+                    "运送员抱怨在 {1} 没有可用的样本推车，只能逐个运送样本。") },
                 { "zhtw", new Translation(
                     "院內運送員",
                     "院內運送員",
@@ -546,7 +658,7 @@ namespace HospitalPorters
                     "檢體推車",
                     "用於運送已採集實驗室檢體的移動推車。",
                     "檢體推車不足！",
-                    "運送員正在 {1} 等待檢體推車，因為分配給其工作站的所有推車都已在使用。新增另一台檢體推車以提高運送能力。") }
+                    "運送員抱怨在 {1} 沒有可用的檢體推車，只能逐一運送檢體。") }
             };
 
         internal static string Get(string stringId)
@@ -583,6 +695,40 @@ namespace HospitalPorters
                 !Translations.TryGetValue(normalizedLanguage, out translation))
             {
                 translation = English;
+            }
+
+            if (normalizedId == PorterLocalizationIds.SamplePorterCapacityNotification ||
+                normalizedId == PorterLocalizationIds.SamplePorterCapacityNotificationText ||
+                normalizedId == PorterLocalizationIds.PatientPorterCapacityNotification ||
+                normalizedId == PorterLocalizationIds.PatientPorterCapacityNotificationText)
+            {
+                CapacityNotificationTranslation capacity;
+                if (!CapacityNotifications.TryGetValue(
+                        normalizedLanguage ?? string.Empty,
+                        out capacity))
+                {
+                    capacity = CapacityNotifications["en"];
+                }
+
+                if (normalizedId == PorterLocalizationIds.SamplePorterCapacityNotification)
+                {
+                    result = capacity.Title;
+                }
+                else if (normalizedId == PorterLocalizationIds.SamplePorterCapacityNotificationText)
+                {
+                    result = capacity.SampleText;
+                }
+                else if (normalizedId == PorterLocalizationIds.PatientPorterCapacityNotification)
+                {
+                    result = capacity.Title;
+                }
+                else
+                {
+                    result = capacity.PatientText;
+                }
+
+                ApplyParameters(ref result, parameters);
+                return true;
             }
 
             if (normalizedId == PorterLocalizationIds.Occupation) result = translation.Occupation;

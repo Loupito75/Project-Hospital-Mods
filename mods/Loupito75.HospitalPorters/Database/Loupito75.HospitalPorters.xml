@@ -160,6 +160,24 @@
         <DefaultColorRef>NOTIF_COLOR_YELLOW</DefaultColorRef>
     </GameDBNotification>
 
+    <GameDBNotification ID="HPO_NOTIF_SAMPLE_PORTER_CAPACITY">
+        <TextLocID>L75_HPO_NOTIF_SAMPLE_PORTER_CAPACITY_TEXT</TextLocID>
+        <DefaultMessageLevel>POPUP</DefaultMessageLevel>
+        <PopupButtonActionA>POPUP_HIDDEN_BUTTON</PopupButtonActionA>
+        <PopupButtonActionB>POPUP_HIDDEN_BUTTON</PopupButtonActionB>
+        <PopupButtonActionC>POPUP_OK</PopupButtonActionC>
+        <DefaultColorRef>NOTIF_COLOR_YELLOW</DefaultColorRef>
+    </GameDBNotification>
+
+    <GameDBNotification ID="HPO_NOTIF_PATIENT_PORTER_CAPACITY">
+        <TextLocID>L75_HPO_NOTIF_PATIENT_PORTER_CAPACITY_TEXT</TextLocID>
+        <DefaultMessageLevel>POPUP</DefaultMessageLevel>
+        <PopupButtonActionA>POPUP_HIDDEN_BUTTON</PopupButtonActionA>
+        <PopupButtonActionB>POPUP_HIDDEN_BUTTON</PopupButtonActionB>
+        <PopupButtonActionC>POPUP_OK</PopupButtonActionC>
+        <DefaultColorRef>NOTIF_COLOR_YELLOW</DefaultColorRef>
+    </GameDBNotification>
+
     <GameDBClothingStyle ID="HPO_CLTHSTL_MALE_PORTER">
         <CompatibleGenders>
             <GameDBGenderRef>GENDER_MALE</GameDBGenderRef>
@@ -224,10 +242,10 @@
 
         <RequiredEquipment>
             <GameDBRequiredEquipment><Tag>ui_pc</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
-            <GameDBRequiredEquipment><Tag>ui_office_desk</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
-            <GameDBRequiredEquipment><Tag>ui_chair_office</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_office_desk</Tag><MinCount>0</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_chair_office</Tag><MinCount>0</MinCount></GameDBRequiredEquipment>
             <GameDBRequiredEquipment><Tag>ui_locker</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
-            <GameDBRequiredEquipment><Tag>ui_porter_sample_cart</Tag><MinCount>1</MinCount></GameDBRequiredEquipment>
+            <GameDBRequiredEquipment><Tag>ui_porter_sample_cart</Tag><MinCount>0</MinCount></GameDBRequiredEquipment>
             <GameDBRequiredEquipment><Tag>ui_stretcher</Tag><MinCount>0</MinCount></GameDBRequiredEquipment>
             <GameDBRequiredEquipment><Tag>ui_wheelchair</Tag><MinCount>0</MinCount></GameDBRequiredEquipment>
         </RequiredEquipment>

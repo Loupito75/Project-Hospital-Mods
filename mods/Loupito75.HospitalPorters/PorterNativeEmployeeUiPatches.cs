@@ -33,6 +33,8 @@ namespace HospitalPorters
 
         private static readonly FieldInfo AnimModelEntityField =
             AccessTools.Field(typeof(AnimModelComponent), "m_entity");
+        private static readonly FieldInfo EmployeeEntityField =
+            AccessTools.Field(typeof(EmployeeComponent), "m_entity");
         private static readonly FieldInfo EmployeesTableCharacterTypeField =
             AccessTools.Field(typeof(EmployeesTable), "m_characterType");
         private static readonly Dictionary<EmployeesTable, PorterEmployeeFilterState> FilterStates =
@@ -49,6 +51,16 @@ namespace HospitalPorters
             }
 
             return AnimModelEntityField.GetValue(component) as Entity;
+        }
+
+        internal static Entity GetEmployeeOwner(EmployeeComponent component)
+        {
+            if (component == null || object.ReferenceEquals(EmployeeEntityField, null))
+            {
+                return null;
+            }
+
+            return EmployeeEntityField.GetValue(component) as Entity;
         }
 
         internal static void EnsurePorterFilter(EmployeesTable table)
@@ -458,11 +470,53 @@ namespace HospitalPorters
         }
     }
 
-    internal sealed class PorterBiohazardColorState
+    internal static class PorterUniformDressCode
     {
-        internal Vector3 Coat;
-        internal Vector3 Top;
-        internal Vector3 Pants;
+        // Matches HPO's CLRRNGSTTNGS_PARAMEDIC from vanilla ColorRanges.xml.
+        // Colors in Clothes / GameDBColor are stored in HSV, not RGB.
+        private static readonly Vector3 BlackHSV =
+            new Vector3(0f, 0f, 0.2f);
+
+        internal static GameDBColor GetColor()
+        {
+            return new GameDBColor
+            {
+                R = BlackHSV.x,
+                G = BlackHSV.y,
+                B = BlackHSV.z
+            };
+        }
+
+        internal static void ApplyToClothes(Clothes clothes)
+        {
+            if (clothes == null)
+            {
+                return;
+            }
+
+            clothes.m_colorClothesCoat = BlackHSV;
+            clothes.m_colorClothesTop = BlackHSV;
+            clothes.m_colorClothesPants = BlackHSV;
+        }
+    }
+
+    [HarmonyPatch(
+        typeof(EmployeeComponent),
+        nameof(EmployeeComponent.GetDressCodeColor),
+        new Type[] { typeof(Department) })]
+    internal static class PorterNativeDressCodeColorPatch
+    {
+        private static void Postfix(
+            EmployeeComponent __instance,
+            ref GameDBColor __result)
+        {
+            Entity entity =
+                PorterNativeEmployeeUi.GetEmployeeOwner(__instance);
+            if (PorterIdentity.IsPorter(entity))
+            {
+                __result = PorterUniformDressCode.GetColor();
+            }
+        }
     }
 
     [HarmonyPatch(
@@ -476,50 +530,24 @@ namespace HospitalPorters
         })]
     internal static class PorterBiohazardClothesColorPatch
     {
-        private static void Prefix(
+        private static void Postfix(
             AnimModelComponent __instance,
-            string[] compatibleStyleIDs,
-            ref PorterBiohazardColorState __state)
+            string[] compatibleStyleIDs)
         {
-            __state = null;
-
             Entity entity =
                 PorterNativeEmployeeUi.GetAnimModelOwner(__instance);
             if (!PorterIdentity.IsPorter(entity) ||
                 __instance == null ||
                 __instance.m_state == null ||
-                __instance.m_state.m_clothes == null ||
                 !IsNativeBiohazardStyle(compatibleStyleIDs))
             {
                 return;
             }
 
-            __state = new PorterBiohazardColorState
-            {
-                Coat = __instance.m_state.m_clothes.m_colorClothesCoat,
-                Top = __instance.m_state.m_clothes.m_colorClothesTop,
-                Pants = __instance.m_state.m_clothes.m_colorClothesPants
-            };
-        }
-
-        private static void Postfix(
-            AnimModelComponent __instance,
-            PorterBiohazardColorState __state)
-        {
-            if (__state == null ||
-                __instance == null ||
-                __instance.m_state == null ||
-                __instance.m_state.m_clothes == null)
-            {
-                return;
-            }
-
-            __instance.m_state.m_clothes.m_colorClothesCoat =
-                __state.Coat;
-            __instance.m_state.m_clothes.m_colorClothesTop =
-                __state.Top;
-            __instance.m_state.m_clothes.m_colorClothesPants =
-                __state.Pants;
+            // Vanilla chooses the Nurse quarantine style, and we keep it
+            // (including the surgical mask). Only recolor it for HPO.
+            PorterUniformDressCode.ApplyToClothes(
+                __instance.m_state.m_clothes);
             __instance.m_colorsDirty = true;
         }
 

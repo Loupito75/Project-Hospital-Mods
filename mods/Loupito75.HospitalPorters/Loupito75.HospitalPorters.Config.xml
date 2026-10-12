@@ -3,8 +3,11 @@
   <!-- Number of retries before a waiting laboratory sample may fall back to the native Lab Specialist. Accepted range: 0-10. Default: 2. -->
   <SampleFallbackRetries>2</SampleFallbackRetries>
 
-  <!-- In-game minutes between laboratory-sample fallback retries. Accepted range: 1-60. Default: 5. -->
-  <SampleFallbackRetryMinutes>5</SampleFallbackRetryMinutes>
+  <!-- Base in-game minutes between laboratory-sample fallback retries. Accepted range: 1-60. Default: 10. -->
+  <SampleFallbackRetryMinutes>10</SampleFallbackRetryMinutes>
+
+  <!-- Stable plus/minus variation applied independently to each Sample fallback retry interval. Accepted range: 0-60. Default: 3. With the defaults, each retry occurs after 7-13 in-game minutes. -->
+  <SampleFallbackRetryRandomnessMinutes>3</SampleFallbackRetryRandomnessMinutes>
 
   <!-- Number of retries before a waiting patient transport may fall back to the native Nurse behavior. Accepted range: 0-10. Default: 1. -->
   <PatientFallbackRetries>1</PatientFallbackRetries>
@@ -12,11 +15,39 @@
   <!-- In-game minutes between patient-transport fallback retries. Accepted range: 1-60. Default: 2. -->
   <PatientFallbackRetryMinutes>2</PatientFallbackRetryMinutes>
 
-  <!-- Maximum number of compatible samples carried in one Porter tour. Accepted range: 1-10. Default: 5. Set to 1 for single-sample trips. -->
+  <!-- Maximum number of physical sample bundles carried in one Porter tour. Lab procedures from the same patient and the same source room count as one sample, even when stored on different furniture. Accepted range: 1-10. Default: 5. Set to 1 for single-sample trips. -->
   <SampleTourMaxSamples>5</SampleTourMaxSamples>
 
   <!-- Maximum staff-pathfinding distance used when searching for the next sample after the first pickup. Accepted range: 1-200. Default: 20. -->
   <SampleTourSearchDistance>20</SampleTourSearchDistance>
+
+  <!-- Base in-game minutes a Porter may keep a sample claimed while its short-procedure room remains occupied. HPO still rechecks continuously and resumes immediately when the room becomes free. Accepted range: 0-240. Default: 40. Set to 0 to release as soon as the Porter has evacuated the room. -->
+  <SampleOccupiedRoomTimeoutMinutes>40</SampleOccupiedRoomTimeoutMinutes>
+
+  <!-- Random plus/minus variation added once when the occupied-room wait actually starts. Accepted range: 0-60. Default: 5. With the defaults, each wait lasts 35-45 in-game minutes. -->
+  <SampleOccupiedRoomTimeoutRandomnessMinutes>5</SampleOccupiedRoomTimeoutRandomnessMinutes>
+
+  <!-- Chance in percent that an available Porter will wait outside an already-occupied sample source room, only after checking all free-room work. One choice per physical sample/blocked episode. Accepted range: 0-100. Default: 30. -->
+  <SampleOccupiedRoomPreAssignmentWaitChance>30</SampleOccupiedRoomPreAssignmentWaitChance>
+
+  <!-- In-game minutes of cooldown between the first occupied-room wait timeout and the second Porter attempt. Defaults: 15-30. Both endpoints are inclusive. Accepted range for each: 0-240; maximum must be >= minimum. -->
+  <SampleOccupiedRoomRetryCooldownMinMinutes>15</SampleOccupiedRoomRetryCooldownMinMinutes>
+  <SampleOccupiedRoomRetryCooldownMaxMinutes>30</SampleOccupiedRoomRetryCooldownMaxMinutes>
+
+  <!-- Enables opportunistic Sample help across departments. Local Sample work keeps priority. Accepted values: true/false. Default: true. -->
+  <SampleCrossDepartmentHelp>true</SampleCrossDepartmentHelp>
+
+  <!-- Base acceptance chance for the first foreign Sample pickup. The roll is stable for a Porter + physical sample bundle, so repeated scans do not reroll it. Accepted range: 0-100. Default: 30. -->
+  <SampleCrossDepartmentHelpBaseChance>30</SampleCrossDepartmentHelpBaseChance>
+
+  <!-- Bonus when the foreign sample is on the same floor as the Porter's assigned Porter Station. This is a preference, not a hard floor restriction. Accepted range: 0-50. Default: 20. -->
+  <SampleCrossDepartmentStationFloorBonus>20</SampleCrossDepartmentStationFloorBonus>
+
+  <!-- Bonus when the Porter is already physically on the sample's floor. Accepted range: 0-50. Default: 20. -->
+  <SampleCrossDepartmentCurrentFloorBonus>20</SampleCrossDepartmentCurrentFloorBonus>
+
+  <!-- Bonus after the physical sample has already progressed through an HPO fallback interval or is on its one permitted occupied-room retry. Accepted range: 0-50. Default: 15. -->
+  <SampleCrossDepartmentWaitingBonus>15</SampleCrossDepartmentWaitingBonus>
 
   <!-- Enables compact troubleshooting logs for transport assignment, fallback, completion and save/load recovery. Accepted values: true/false. Default: false. -->
   <EnableDiagnostics>false</EnableDiagnostics>

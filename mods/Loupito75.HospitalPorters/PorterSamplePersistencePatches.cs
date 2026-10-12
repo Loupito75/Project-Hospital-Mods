@@ -13,6 +13,26 @@ namespace HospitalPorters
         private const string ScriptName = "GlobalScript";
         private const string StateHeader =
             "HPO_PORTER_SAMPLE_TRANSPORT_V2";
+        private const string NativeLabStateHeader =
+            "HPO_NATIVE_LAB_SAMPLE_BUNDLES_V1";
+        private const string RoomWaitRetryStateHeader =
+            "HPO_SAMPLE_ROOM_WAIT_RETRY_V1";
+        private const string RoomWaitRetryCooldownStateHeader =
+            "HPO_SAMPLE_ROOM_WAIT_COOLDOWN_V1";
+        private const string PreBlockedRoomWaitChoiceHeader =
+            "HPO_SAMPLE_PREBLOCK_WAIT_CHOICE_V1";
+        private const string SampleFallbackStateHeader =
+            "HPO_SAMPLE_FALLBACK_STATE_V1";
+        private const string SamplePorterCapacityHistoryHeader =
+            "HPO_SAMPLE_PORTER_CAPACITY_HISTORY_V1";
+        private const string SamplePorterCapacityReportedHeader =
+            "HPO_SAMPLE_PORTER_CAPACITY_REPORTED_V1";
+        private const string PatientFallbackStateHeader =
+            "HPO_PATIENT_FALLBACK_STATE_V1";
+        private const string PatientPorterCapacityHistoryHeader =
+            "HPO_PATIENT_PORTER_CAPACITY_HISTORY_V1";
+        private const string PatientPorterCapacityReportedHeader =
+            "HPO_PATIENT_PORTER_CAPACITY_REPORTED_V1";
 
         internal static void AppendToSave(GameSave save)
         {
@@ -25,7 +45,92 @@ namespace HospitalPorters
                 jobs =
                     PorterSampleTransportRuntime
                         .GetActiveJobsSnapshot();
-            if (jobs == null || jobs.Count == 0)
+            List<KeyValuePair<Entity, LabProcedure>>
+                nativeLabBundles =
+                    PorterSampleTransportRuntime
+                        .GetNativeLabSampleBundlesSnapshot();
+            List<KeyValuePair<LabProcedure, int>>
+                roomWaitRetries =
+                    PorterSampleTransportRuntime
+                        .GetRoomWaitRetrySnapshot();
+            List<KeyValuePair<LabProcedure, int>>
+                roomWaitRetryCooldowns =
+                    PorterSampleTransportRuntime
+                        .GetRoomWaitRetryCooldownSnapshot();
+
+            List<KeyValuePair<LabProcedure, bool>>
+                preBlockedChoices =
+                    PorterSampleTransportRuntime
+                        .GetPreBlockedRoomWaitDecisionsSnapshot();
+            List<PorterSampleFallbackSnapshot>
+                fallbackStates =
+                    PorterSampleTransportRuntime
+                        .GetFallbackStateSnapshot();
+            List<KeyValuePair<Department, int>>
+                capacityFallbackHistory =
+                    PorterSampleTransportRuntime
+                        .GetSamplePorterCapacityFallbackHistorySnapshot();
+            List<Department>
+                capacityNotifications =
+                    PorterSampleTransportRuntime
+                        .GetSamplePorterCapacityNotificationsSnapshot();
+            List<PorterPatientFallbackSnapshot>
+                patientFallbackStates =
+                    StretcherDestinationPatch
+                        .GetPatientFallbackStateSnapshot();
+            List<KeyValuePair<Department, int>>
+                patientCapacityFallbackHistory =
+                    StretcherDestinationPatch
+                        .GetPatientPorterCapacityFallbackHistorySnapshot();
+            List<Department>
+                patientCapacityNotifications =
+                    StretcherDestinationPatch
+                        .GetPatientPorterCapacityNotificationsSnapshot();
+
+            bool hasPreBlockedChoices =
+                preBlockedChoices != null &&
+                preBlockedChoices.Count > 0;
+            bool hasFallbackStates =
+                fallbackStates != null &&
+                fallbackStates.Count > 0;
+            bool hasCapacityFallbackHistory =
+                capacityFallbackHistory != null &&
+                capacityFallbackHistory.Count > 0;
+            bool hasCapacityNotifications =
+                capacityNotifications != null &&
+                capacityNotifications.Count > 0;
+            bool hasPatientFallbackStates =
+                patientFallbackStates != null &&
+                patientFallbackStates.Count > 0;
+            bool hasPatientCapacityFallbackHistory =
+                patientCapacityFallbackHistory != null &&
+                patientCapacityFallbackHistory.Count > 0;
+            bool hasPatientCapacityNotifications =
+                patientCapacityNotifications != null &&
+                patientCapacityNotifications.Count > 0;
+            bool hasJobs =
+                jobs != null &&
+                jobs.Count > 0;
+            bool hasNativeLabBundles =
+                nativeLabBundles != null &&
+                nativeLabBundles.Count > 0;
+            bool hasRoomWaitRetries =
+                roomWaitRetries != null &&
+                roomWaitRetries.Count > 0;
+            bool hasRoomWaitRetryCooldowns =
+                roomWaitRetryCooldowns != null &&
+                roomWaitRetryCooldowns.Count > 0;
+            if (!hasJobs &&
+                !hasNativeLabBundles &&
+                !hasRoomWaitRetries &&
+                !hasRoomWaitRetryCooldowns &&
+                !hasPreBlockedChoices &&
+                !hasFallbackStates &&
+                !hasCapacityFallbackHistory &&
+                !hasCapacityNotifications &&
+                !hasPatientFallbackStates &&
+                !hasPatientCapacityFallbackHistory &&
+                !hasPatientCapacityNotifications)
             {
                 return;
             }
@@ -36,18 +141,164 @@ namespace HospitalPorters
                     new EntityListSave();
             }
 
-            GlobalScriptPersistentData data =
-                new GlobalScriptPersistentData();
-            data.m_scriptName = ScriptName;
-            data.m_state = Serialize(jobs);
+            if (hasJobs)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state = Serialize(jobs);
 
-            save.m_entityListEvents.m_entities.Add(
-                new EntitySave(data));
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
 
-            PorterDiagnostics.Log(
-                "save: activeSampleJobs=" +
-                jobs.Count +
-                ".");
+                PorterDiagnostics.Log(
+                    "save: activeSampleJobs=" +
+                    jobs.Count +
+                    ".");
+            }
+
+            if (hasNativeLabBundles)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializeNativeLabBundles(
+                        nativeLabBundles);
+
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+
+                PorterDiagnostics.Log(
+                    "save: nativeLabSampleBundles=" +
+                    nativeLabBundles.Count +
+                    ".");
+            }
+
+            if (hasRoomWaitRetries)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializeRoomWaitRetries(
+                        roomWaitRetries);
+
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+
+                PorterDiagnostics.Log(
+                    "save: sampleRoomWaitRetries=" +
+                    roomWaitRetries.Count +
+                    ".");
+            }
+
+            if (hasRoomWaitRetryCooldowns)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializeRoomWaitRetryCooldowns(
+                        roomWaitRetryCooldowns);
+
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+
+                PorterDiagnostics.Log(
+                    "save: sampleRoomWaitRetryCooldowns=" +
+                    roomWaitRetryCooldowns.Count +
+                    ".");
+            }
+            if (hasPreBlockedChoices)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializePreBlockedRoomWaitChoices(preBlockedChoices);
+                save.m_entityListEvents.m_entities.Add(new EntitySave(data));
+                PorterDiagnostics.Log("save: samplePreBlockedWaitChoices=" +
+                    preBlockedChoices.Count + ".");
+            }
+            if (hasFallbackStates)
+            {
+                GlobalScriptPersistentData data = new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state = SerializeSampleFallbackStates(fallbackStates);
+                save.m_entityListEvents.m_entities.Add(new EntitySave(data));
+                PorterDiagnostics.Log("save: sampleFallbackStates=" +
+                    fallbackStates.Count + ".");
+            }
+            if (hasCapacityFallbackHistory)
+            {
+                GlobalScriptPersistentData data = new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state = SerializeSamplePorterCapacityHistory(capacityFallbackHistory);
+                save.m_entityListEvents.m_entities.Add(new EntitySave(data));
+                PorterDiagnostics.Log("save: samplePorterCapacityHistory=" +
+                    capacityFallbackHistory.Count + ".");
+            }
+
+            if (hasCapacityNotifications)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializeSamplePorterCapacityNotifications(
+                        capacityNotifications);
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+                PorterDiagnostics.Log(
+                    "save: samplePorterCapacityReported=" +
+                    capacityNotifications.Count + ".");
+            }
+
+            if (hasPatientFallbackStates)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializePatientFallbackStates(
+                        patientFallbackStates);
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+                PorterDiagnostics.Log(
+                    "save: patientFallbackStates=" +
+                    patientFallbackStates.Count + ".");
+            }
+
+            if (hasPatientCapacityFallbackHistory)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializePatientPorterCapacityHistory(
+                        patientCapacityFallbackHistory);
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+                PorterDiagnostics.Log(
+                    "save: patientPorterCapacityHistory=" +
+                    patientCapacityFallbackHistory.Count + ".");
+            }
+
+            if (hasPatientCapacityNotifications)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializePatientPorterCapacityNotifications(
+                        patientCapacityNotifications);
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+                PorterDiagnostics.Log(
+                    "save: patientPorterCapacityReported=" +
+                    patientCapacityNotifications.Count + ".");
+            }
         }
 
         internal static bool TryRestoreMarker(
@@ -60,16 +311,703 @@ namespace HospitalPorters
                         as GlobalScriptPersistentData;
             if (data == null ||
                 data.m_scriptName != ScriptName ||
-                string.IsNullOrEmpty(data.m_state) ||
-                !data.m_state.StartsWith(
-                    StateHeader,
-                    StringComparison.Ordinal))
+                string.IsNullOrEmpty(data.m_state))
             {
                 return false;
             }
 
-            Restore(data.m_state);
-            return true;
+            if (data.m_state.StartsWith(
+                    StateHeader,
+                    StringComparison.Ordinal))
+            {
+                Restore(data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    NativeLabStateHeader,
+                    StringComparison.Ordinal))
+            {
+                RestoreNativeLabBundles(
+                    data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    RoomWaitRetryStateHeader,
+                    StringComparison.Ordinal))
+            {
+                RestoreRoomWaitRetries(
+                    data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    RoomWaitRetryCooldownStateHeader,
+                    StringComparison.Ordinal))
+            {
+                RestoreRoomWaitRetryCooldowns(
+                    data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    PreBlockedRoomWaitChoiceHeader,
+                    StringComparison.Ordinal))
+            {
+                RestorePreBlockedRoomWaitChoices(data.m_state);
+                return true;
+            }
+            if (data.m_state.StartsWith(
+                    SampleFallbackStateHeader,
+                    StringComparison.Ordinal))
+            {
+                RestoreSampleFallbackStates(data.m_state);
+                return true;
+            }
+            if (data.m_state.StartsWith(
+                    SamplePorterCapacityHistoryHeader,
+                    StringComparison.Ordinal))
+            {
+                RestoreSamplePorterCapacityHistory(data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    SamplePorterCapacityReportedHeader,
+                    StringComparison.Ordinal))
+            {
+                RestoreSamplePorterCapacityNotifications(
+                    data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    PatientFallbackStateHeader,
+                    StringComparison.Ordinal))
+            {
+                RestorePatientFallbackStates(
+                    data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    PatientPorterCapacityHistoryHeader,
+                    StringComparison.Ordinal))
+            {
+                RestorePatientPorterCapacityHistory(
+                    data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    PatientPorterCapacityReportedHeader,
+                    StringComparison.Ordinal))
+            {
+                RestorePatientPorterCapacityNotifications(
+                    data.m_state);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string SerializeSampleFallbackStates(
+            List<PorterSampleFallbackSnapshot> entries)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(SampleFallbackStateHeader);
+            builder.Append('\n');
+            for (int i = 0; i < entries.Count; i++)
+            {
+                PorterSampleFallbackSnapshot entry = entries[i];
+                if (entry == null || entry.Procedure == null) continue;
+                builder.Append(entry.Procedure.GetEntityID());
+                builder.Append('|');
+                builder.Append(entry.RetryCount);
+                builder.Append('|');
+                builder.Append(entry.NextRetryGameMinute);
+                builder.Append('|');
+                builder.Append(entry.Released ? 1 : 0);
+                builder.Append('\n');
+            }
+            return builder.ToString();
+        }
+
+        private static void RestoreSampleFallbackStates(string serialized)
+        {
+            string[] lines = serialized.Split(new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 || lines[0] != SampleFallbackStateHeader) return;
+            EntityManager manager = EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(new char[] { '|' }, StringSplitOptions.None);
+                uint procedureId; int retryCount; int nextRetryGameMinute; int released;
+                if (parts.Length != 4 ||
+                    !uint.TryParse(parts[0], out procedureId) ||
+                    !int.TryParse(parts[1], out retryCount) ||
+                    !int.TryParse(parts[2], out nextRetryGameMinute) ||
+                    !int.TryParse(parts[3], out released) ||
+                    (released != 0 && released != 1)) continue;
+                LabProcedure procedure = manager.GetEntity(procedureId) as LabProcedure;
+                if (PorterSampleTransportRuntime.RestoreFallbackState(
+                    procedure, retryCount, nextRetryGameMinute, released == 1)) restored++;
+            }
+            PorterDiagnostics.Log("load: restoredSampleFallbackStates=" + restored + ".");
+        }
+
+        private static string SerializeSamplePorterCapacityHistory(
+            List<KeyValuePair<Department, int>> entries)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(SamplePorterCapacityHistoryHeader);
+            builder.Append('\n');
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Department department = entries[i].Key;
+                if (department == null) continue;
+                builder.Append(department.GetEntityID());
+                builder.Append('|');
+                builder.Append(entries[i].Value);
+                builder.Append('\n');
+            }
+            return builder.ToString();
+        }
+
+        private static void RestoreSamplePorterCapacityHistory(string serialized)
+        {
+            string[] lines = serialized.Split(new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 || lines[0] != SamplePorterCapacityHistoryHeader) return;
+            EntityManager manager = EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(new char[] { '|' }, StringSplitOptions.None);
+                uint departmentId; int gameMinute;
+                if (parts.Length != 2 ||
+                    !uint.TryParse(parts[0], out departmentId) ||
+                    !int.TryParse(parts[1], out gameMinute)) continue;
+                Department department = manager.GetEntity(departmentId) as Department;
+                if (PorterSampleTransportRuntime.RestoreSamplePorterCapacityFallbackEvent(
+                    department, gameMinute)) restored++;
+            }
+            PorterDiagnostics.Log("load: restoredSamplePorterCapacityHistory=" + restored + ".");
+        }
+
+        private static string SerializeSamplePorterCapacityNotifications(
+            List<Department> departments)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(SamplePorterCapacityReportedHeader);
+            builder.Append('\n');
+
+            for (int i = 0; i < departments.Count; i++)
+            {
+                Department department = departments[i];
+                if (department == null)
+                {
+                    continue;
+                }
+
+                builder.Append(department.GetEntityID());
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestoreSamplePorterCapacityNotifications(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] !=
+                    SamplePorterCapacityReportedHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                uint departmentId;
+                if (!uint.TryParse(
+                        lines[i],
+                        out departmentId))
+                {
+                    continue;
+                }
+
+                Department department =
+                    manager.GetEntity(departmentId)
+                        as Department;
+                if (PorterSampleTransportRuntime
+                    .RestoreSamplePorterCapacityNotification(
+                        department))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredSamplePorterCapacityReported=" +
+                restored + ".");
+        }
+
+        private static string SerializePatientFallbackStates(
+            List<PorterPatientFallbackSnapshot> entries)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(PatientFallbackStateHeader);
+            builder.Append('\n');
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                PorterPatientFallbackSnapshot entry =
+                    entries[i];
+                if (entry == null ||
+                    entry.Patient == null ||
+                    entry.Destination == null)
+                {
+                    continue;
+                }
+
+                builder.Append(entry.Patient.GetEntityID());
+                builder.Append('|');
+                builder.Append(entry.Destination.GetEntityID());
+                builder.Append('|');
+                builder.Append(entry.RetryCount);
+                builder.Append('|');
+                builder.Append(entry.NextRetryGameMinute);
+                builder.Append('|');
+                builder.Append(entry.Released ? 1 : 0);
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestorePatientFallbackStates(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] != PatientFallbackStateHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(
+                    new char[] { '|' },
+                    StringSplitOptions.None);
+                uint patientId;
+                uint destinationId;
+                int retryCount;
+                int nextRetryGameMinute;
+                int released;
+                if (parts.Length != 5 ||
+                    !uint.TryParse(parts[0], out patientId) ||
+                    !uint.TryParse(parts[1], out destinationId) ||
+                    !int.TryParse(parts[2], out retryCount) ||
+                    !int.TryParse(parts[3], out nextRetryGameMinute) ||
+                    !int.TryParse(parts[4], out released) ||
+                    (released != 0 && released != 1))
+                {
+                    continue;
+                }
+
+                Entity patient =
+                    manager.GetEntity(patientId);
+                TileObject destination =
+                    manager.GetEntity(destinationId)
+                        as TileObject;
+                if (StretcherDestinationPatch
+                    .RestorePatientFallbackState(
+                        patient,
+                        destination,
+                        retryCount,
+                        nextRetryGameMinute,
+                        released == 1))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredPatientFallbackStates=" +
+                restored + ".");
+        }
+
+        private static string SerializePatientPorterCapacityHistory(
+            List<KeyValuePair<Department, int>> entries)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(
+                PatientPorterCapacityHistoryHeader);
+            builder.Append('\n');
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Department department = entries[i].Key;
+                if (department == null)
+                {
+                    continue;
+                }
+
+                builder.Append(department.GetEntityID());
+                builder.Append('|');
+                builder.Append(entries[i].Value);
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestorePatientPorterCapacityHistory(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] !=
+                    PatientPorterCapacityHistoryHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(
+                    new char[] { '|' },
+                    StringSplitOptions.None);
+                uint departmentId;
+                int gameMinute;
+                if (parts.Length != 2 ||
+                    !uint.TryParse(
+                        parts[0],
+                        out departmentId) ||
+                    !int.TryParse(
+                        parts[1],
+                        out gameMinute))
+                {
+                    continue;
+                }
+
+                Department department =
+                    manager.GetEntity(departmentId)
+                        as Department;
+                if (StretcherDestinationPatch
+                    .RestorePatientPorterCapacityFallbackEvent(
+                        department,
+                        gameMinute))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredPatientPorterCapacityHistory=" +
+                restored + ".");
+        }
+
+        private static string SerializePatientPorterCapacityNotifications(
+            List<Department> departments)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(
+                PatientPorterCapacityReportedHeader);
+            builder.Append('\n');
+
+            for (int i = 0; i < departments.Count; i++)
+            {
+                Department department = departments[i];
+                if (department == null)
+                {
+                    continue;
+                }
+
+                builder.Append(department.GetEntityID());
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestorePatientPorterCapacityNotifications(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] !=
+                    PatientPorterCapacityReportedHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                uint departmentId;
+                if (!uint.TryParse(
+                        lines[i],
+                        out departmentId))
+                {
+                    continue;
+                }
+
+                Department department =
+                    manager.GetEntity(departmentId)
+                        as Department;
+                if (StretcherDestinationPatch
+                    .RestorePatientPorterCapacityNotification(
+                        department))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredPatientPorterCapacityReported=" +
+                restored + ".");
+        }
+
+        private static string SerializePreBlockedRoomWaitChoices(
+            List<KeyValuePair<LabProcedure, bool>> entries)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(PreBlockedRoomWaitChoiceHeader);
+            builder.Append('\n');
+            for (int i = 0; i < entries.Count; i++)
+            {
+                LabProcedure procedure = entries[i].Key;
+                if (procedure == null)
+                {
+                    continue;
+                }
+                builder.Append(procedure.GetEntityID());
+                builder.Append('|');
+                builder.Append(entries[i].Value ? 1 : 0);
+                builder.Append('\n');
+            }
+            return builder.ToString();
+        }
+
+        private static void RestorePreBlockedRoomWaitChoices(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] != PreBlockedRoomWaitChoiceHeader)
+            {
+                return;
+            }
+            EntityManager manager = EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(
+                    new char[] { '|' }, StringSplitOptions.None);
+                if (parts.Length != 2 ||
+                    (parts[1] != "0" && parts[1] != "1"))
+                {
+                    continue;
+                }
+                uint procedureId;
+                if (!uint.TryParse(parts[0], out procedureId))
+                {
+                    continue;
+                }
+                LabProcedure procedure =
+                    manager.GetEntity(procedureId) as LabProcedure;
+                if (PorterSampleTransportRuntime
+                    .RestorePreBlockedRoomWaitDecision(
+                        procedure, parts[1] == "1"))
+                {
+                    restored++;
+                }
+            }
+            PorterDiagnostics.Log(
+                "load: restoredSamplePreBlockedWaitChoices=" +
+                restored + ".");
+        }
+
+        private static string SerializeRoomWaitRetryCooldowns(
+            List<KeyValuePair<LabProcedure, int>> entries)
+        {
+            StringBuilder builder =
+                new StringBuilder();
+            builder.Append(
+                RoomWaitRetryCooldownStateHeader);
+            builder.Append('\n');
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                LabProcedure procedure = entries[i].Key;
+                int availableMinute = entries[i].Value;
+                if (procedure == null ||
+                    availableMinute <= 0)
+                {
+                    continue;
+                }
+
+                builder.Append(procedure.GetEntityID());
+                builder.Append('|');
+                builder.Append(availableMinute);
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestoreRoomWaitRetryCooldowns(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] !=
+                    RoomWaitRetryCooldownStateHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(
+                    new char[] { '|' },
+                    StringSplitOptions.None);
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+
+                uint procedureId;
+                int availableMinute;
+                if (!uint.TryParse(parts[0], out procedureId) ||
+                    !int.TryParse(parts[1], out availableMinute))
+                {
+                    continue;
+                }
+
+                LabProcedure procedure =
+                    manager.GetEntity(procedureId)
+                        as LabProcedure;
+                if (PorterSampleTransportRuntime
+                    .RestoreRoomWaitRetryCooldown(
+                        procedure,
+                        availableMinute))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredSampleRoomWaitRetryCooldowns=" +
+                restored +
+                ".");
+        }
+
+        private static string SerializeRoomWaitRetries(
+            List<KeyValuePair<LabProcedure, int>> entries)
+        {
+            StringBuilder builder =
+                new StringBuilder();
+            builder.Append(RoomWaitRetryStateHeader);
+            builder.Append('\n');
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                LabProcedure procedure = entries[i].Key;
+                int stage = entries[i].Value;
+                if (procedure == null ||
+                    (stage != 1 && stage != 2))
+                {
+                    continue;
+                }
+
+                builder.Append(procedure.GetEntityID());
+                builder.Append('|');
+                builder.Append(stage);
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestoreRoomWaitRetries(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] != RoomWaitRetryStateHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(
+                    new char[] { '|' },
+                    StringSplitOptions.None);
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+
+                uint procedureId;
+                int stage;
+                if (!uint.TryParse(parts[0], out procedureId) ||
+                    !int.TryParse(parts[1], out stage))
+                {
+                    continue;
+                }
+
+                LabProcedure procedure =
+                    manager.GetEntity(procedureId) as LabProcedure;
+                if (PorterSampleTransportRuntime
+                    .RestoreRoomWaitRetry(procedure, stage))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredSampleRoomWaitRetries=" +
+                restored +
+                ".");
         }
 
         private static string Serialize(
@@ -88,9 +1026,7 @@ namespace HospitalPorters
                     jobs[i].Value;
                 if (porter == null ||
                     job == null ||
-                    job.Cart == null ||
-                    job.StatLab == null ||
-                    job.CartHomeRoom == null)
+                    job.StatLab == null)
                 {
                     continue;
                 }
@@ -99,7 +1035,9 @@ namespace HospitalPorters
                     porter.GetEntityID());
                 builder.Append('|');
                 builder.Append(
-                    job.Cart.GetEntityID());
+                    job.Cart == null
+                        ? 0u
+                        : job.Cart.GetEntityID());
                 builder.Append('|');
                 builder.Append(
                     job.Procedure == null
@@ -110,7 +1048,9 @@ namespace HospitalPorters
                     job.StatLab.GetEntityID());
                 builder.Append('|');
                 builder.Append(
-                    job.CartHomeRoom.GetEntityID());
+                    job.CartHomeRoom == null
+                        ? 0u
+                        : job.CartHomeRoom.GetEntityID());
                 builder.Append('|');
                 builder.Append((int)job.Phase);
                 builder.Append('|');
@@ -153,10 +1093,118 @@ namespace HospitalPorters
                     firstCollected = false;
                 }
 
+                builder.Append('|');
+                builder.Append(
+                    job.SampleRoomWaitDeadlineMinute);
+                builder.Append('|');
+                builder.Append(
+                    job.SampleRoomStagingDeadlineMinute);
+                builder.Append('|');
+                builder.Append(
+                    job.PostDeliveryReturn ? 1 : 0);
                 builder.Append('\n');
             }
 
             return builder.ToString();
+        }
+
+        private static string SerializeNativeLabBundles(
+            List<KeyValuePair<Entity, LabProcedure>>
+                bundles)
+        {
+            StringBuilder builder =
+                new StringBuilder();
+            builder.Append(
+                NativeLabStateHeader);
+            builder.Append('\n');
+
+            for (int i = 0;
+                i < bundles.Count;
+                i++)
+            {
+                Entity lab =
+                    bundles[i].Key;
+                LabProcedure procedure =
+                    bundles[i].Value;
+                if (lab == null ||
+                    procedure == null)
+                {
+                    continue;
+                }
+
+                builder.Append(
+                    lab.GetEntityID());
+                builder.Append('|');
+                builder.Append(
+                    procedure.GetEntityID());
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestoreNativeLabBundles(
+            string serialized)
+        {
+            string[] lines =
+                serialized.Split(
+                    new char[] { '\n' },
+                    StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] != NativeLabStateHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+
+            for (int i = 1;
+                i < lines.Length;
+                i++)
+            {
+                string[] parts =
+                    lines[i].Split(
+                        new char[] { '|' },
+                        StringSplitOptions.None);
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+
+                uint labId;
+                uint procedureId;
+                if (!uint.TryParse(
+                        parts[0],
+                        out labId) ||
+                    !uint.TryParse(
+                        parts[1],
+                        out procedureId))
+                {
+                    continue;
+                }
+
+                Entity lab =
+                    manager.GetEntity(
+                        labId);
+                LabProcedure procedure =
+                    manager.GetEntity(
+                        procedureId)
+                        as LabProcedure;
+                if (PorterSampleTransportRuntime
+                        .RestoreNativeLabSampleBundle(
+                            lab,
+                            procedure))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredNativeLabSampleBundles=" +
+                restored +
+                ".");
         }
 
         private static void Restore(string serialized)
@@ -203,8 +1251,12 @@ namespace HospitalPorters
                     continue;
                 }
 
-                homeFloors.Add(
-                    job.CartHomeFloorIndex);
+                if (job.Cart != null &&
+                    job.CartHomeFloorIndex >= 0)
+                {
+                    homeFloors.Add(
+                        job.CartHomeFloorIndex);
+                }
                 restored++;
             }
 
@@ -242,7 +1294,10 @@ namespace HospitalPorters
                 line.Split(
                     new char[] { '|' },
                     StringSplitOptions.None);
-            if (parts.Length != 12)
+            if (parts.Length != 12 &&
+                parts.Length != 13 &&
+                parts.Length != 14 &&
+                parts.Length != 15)
             {
                 return false;
             }
@@ -258,6 +1313,9 @@ namespace HospitalPorters
             int homeFloor;
             int homeOrientation;
             int nativeTimeout;
+            int sampleRoomWaitDeadlineMinute = 0;
+            int sampleRoomStagingDeadlineMinute = 0;
+            int postDeliveryReturn = 0;
 
             if (!uint.TryParse(parts[0], out porterId) ||
                 !uint.TryParse(parts[1], out cartId) ||
@@ -273,7 +1331,35 @@ namespace HospitalPorters
                 phaseValue <
                     (int)PorterSampleTransportPhase.GoingToCart ||
                 phaseValue >
-                    (int)PorterSampleTransportPhase.ReturningCart)
+                    (int)PorterSampleTransportPhase.ReturningToStation)
+            {
+                return false;
+            }
+
+            if (parts.Length >= 13 &&
+                (!int.TryParse(
+                    parts[12],
+                    out sampleRoomWaitDeadlineMinute) ||
+                 sampleRoomWaitDeadlineMinute < 0))
+            {
+                return false;
+            }
+
+            if (parts.Length >= 14 &&
+                (!int.TryParse(
+                    parts[13],
+                    out sampleRoomStagingDeadlineMinute) ||
+                 sampleRoomStagingDeadlineMinute < 0))
+            {
+                return false;
+            }
+
+            if (parts.Length == 15 &&
+                (!int.TryParse(
+                    parts[14],
+                    out postDeliveryReturn) ||
+                 (postDeliveryReturn != 0 &&
+                  postDeliveryReturn != 1)))
             {
                 return false;
             }
@@ -283,8 +1369,10 @@ namespace HospitalPorters
             porter =
                 manager.GetEntity(porterId);
             TileObject cart =
-                manager.GetEntity(cartId)
-                    as TileObject;
+                cartId == 0u
+                    ? null
+                    : manager.GetEntity(cartId)
+                        as TileObject;
             LabProcedure procedure =
                 procedureId == 0u
                     ? null
@@ -294,13 +1382,15 @@ namespace HospitalPorters
                 manager.GetEntity(statLabId)
                     as Room;
             Room homeRoom =
-                manager.GetEntity(homeRoomId)
-                    as Room;
+                homeRoomId == 0u
+                    ? null
+                    : manager.GetEntity(homeRoomId)
+                        as Room;
 
             if (porter == null ||
-                cart == null ||
                 statLab == null ||
-                homeRoom == null)
+                (cart != null && homeRoom == null) ||
+                (cart == null && homeRoom != null))
             {
                 return false;
             }
@@ -320,6 +1410,12 @@ namespace HospitalPorters
                         (Direction)homeOrientation,
                     NativeTimeout =
                         nativeTimeout != 0,
+                    SampleRoomWaitDeadlineMinute =
+                        sampleRoomWaitDeadlineMinute,
+                    SampleRoomStagingDeadlineMinute =
+                        sampleRoomStagingDeadlineMinute,
+                    PostDeliveryReturn =
+                        postDeliveryReturn != 0,
                     Phase =
                         (PorterSampleTransportPhase)
                             phaseValue

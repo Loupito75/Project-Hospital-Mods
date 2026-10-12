@@ -14,6 +14,82 @@ namespace HospitalPorters
             return FindFreeCart(porter, out Room _) != null;
         }
 
+        internal static TileObject GetFreeCart(Entity porter)
+        {
+            Room homeRoom;
+            return FindFreeCart(porter, out homeRoom);
+        }
+
+        private static void SetCartDepartment(
+            TileObject cart,
+            Department department)
+        {
+            if (cart == null || department == null)
+            {
+                return;
+            }
+
+            Department currentDepartment =
+                cart.m_state.m_department == null
+                    ? null
+                    : cart.m_state.m_department.GetEntity();
+            if (currentDepartment != department)
+            {
+                if (currentDepartment != null)
+                {
+                    currentDepartment.RemoveObject(cart);
+                }
+
+                cart.m_state.m_department =
+                    department;
+            }
+
+            if (!department.m_departmentPersistentData.m_objects.Contains(
+                    cart))
+            {
+                department.AddObject(cart);
+            }
+        }
+
+        internal static void SyncCartDepartmentForState(
+            TileObject cart,
+            Room homeRoom)
+        {
+            if (cart == null ||
+                MapScriptInterface.Instance == null)
+            {
+                return;
+            }
+
+            Department targetDepartment = null;
+            if (!cart.m_state.m_moving &&
+                !cart.IsAttachedToCharacter())
+            {
+                Room physicalRoom =
+                    MapScriptInterface.Instance.GetRoomAt(
+                        cart.m_state.m_position,
+                        cart.GetFloorIndex());
+                targetDepartment =
+                    physicalRoom == null ||
+                    physicalRoom.m_roomPersistentData.m_department == null
+                        ? null
+                        : physicalRoom.m_roomPersistentData.m_department.GetEntity();
+            }
+
+            if (targetDepartment == null)
+            {
+                targetDepartment =
+                    homeRoom == null ||
+                    homeRoom.m_roomPersistentData.m_department == null
+                        ? null
+                        : homeRoom.m_roomPersistentData.m_department.GetEntity();
+            }
+
+            SetCartDepartment(
+                cart,
+                targetDepartment);
+        }
+
         internal static bool TryReserveCart(
             Entity porter,
             out TileObject cart,
@@ -56,26 +132,100 @@ namespace HospitalPorters
 
         internal static bool TryAttachCart(
             Entity porter,
-            TileObject cart)
+            TileObject cart,
+            Room homeRoom)
         {
+            WalkComponent walk =
+                porter == null
+                    ? null
+                    : porter.GetComponent<WalkComponent>();
+            Vector2i expectedTile =
+                cart == null
+                    ? Vector2i.ZERO_VECTOR
+                    : new Vector2i(
+                        (int)(cart.GetDefaultUsePosition().m_x + 0.5f),
+                        (int)(cart.GetDefaultUsePosition().m_y + 0.5f));
+
             if (porter == null ||
                 cart == null ||
+                walk == null ||
                 cart.User != porter ||
                 cart.m_state.m_moving ||
-                MapScriptInterface.Instance == null)
+                MapScriptInterface.Instance == null ||
+                walk.GetFloorIndex() != cart.GetFloorIndex() ||
+                walk.GetCurrentTile() != expectedTile)
             {
+                PorterDiagnostics.Log(
+                    "cart attach rejected: porter=" +
+                    (porter == null
+                        ? "UNKNOWN"
+                        : (porter.Name ?? string.Empty).Trim()) +
+                    "; porterTile=" +
+                    (walk == null
+                        ? "NONE"
+                        : walk.GetCurrentTile().ToString()) +
+                    "; porterFloor=" +
+                    (walk == null
+                        ? -1
+                        : walk.GetFloorIndex()) +
+                    "; expectedTile=" +
+                    expectedTile +
+                    "; cartPosition=" +
+                    (cart == null
+                        ? "NONE"
+                        : cart.m_state.m_position.ToString()) +
+                    "; cartFloor=" +
+                    (cart == null
+                        ? -1
+                        : cart.GetFloorIndex()) +
+                    "; moving=" +
+                    (cart != null && cart.m_state.m_moving) +
+                    "; userMatches=" +
+                    (cart != null && cart.User == porter) +
+                    ".");
                 return false;
             }
 
             if (!MapScriptInterface.Instance.PickUpObject(cart))
             {
+                PorterDiagnostics.Log(
+                    "cart attach pickup failed: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; cartPosition=" +
+                    cart.m_state.m_position +
+                    "; cartFloor=" +
+                    cart.GetFloorIndex() +
+                    ".");
                 return false;
             }
 
+            Department homeDepartment =
+                homeRoom == null ||
+                homeRoom.m_roomPersistentData.m_department == null
+                    ? null
+                    : homeRoom.m_roomPersistentData.m_department.GetEntity();
+            SetCartDepartment(
+                cart,
+                homeDepartment);
+
             cart.SetAttachedToCharacter(attached: true);
-            return cart.m_state.m_moving &&
+
+            bool attached =
+                cart.m_state.m_moving &&
                 cart.IsAttachedToCharacter() &&
                 cart.User == porter;
+
+            PorterDiagnostics.Log(
+                "cart attach: porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; success=" +
+                attached +
+                "; cartPosition=" +
+                cart.m_state.m_position +
+                "; cartFloor=" +
+                cart.GetFloorIndex() +
+                ".");
+            return attached;
         }
 
         internal static bool TryGetInteractionParkingTile(
@@ -122,16 +272,37 @@ namespace HospitalPorters
                 return false;
             }
 
+            PorterSampleTransportRuntime.ClearCartParkingTarget(
+                job);
+
             parkingTile =
                 MapScriptInterface.Instance.FindClosest3x3Area(
                     interactionObject.m_state.m_position,
                     interactionRoom);
             if (parkingTile != Vector2i.ZERO_VECTOR)
             {
-                return true;
+                if (PorterSampleTransportRuntime.TryReserveCartParkingTarget(
+                        porter,
+                        job,
+                        parkingTile,
+                        floorIndex))
+                {
+                    return true;
+                }
+
+                PorterDiagnostics.Log(
+                    "cart parking target conflict: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; target=" +
+                    parkingTile +
+                    "; floor=" +
+                    floorIndex +
+                    "; action=select-fallback.");
             }
 
             return TryFindFallbackParkingTile(
+                porter,
+                job,
                 cart,
                 interactionObject,
                 interactionRoom,
@@ -158,28 +329,157 @@ namespace HospitalPorters
                 !cart.IsAttachedToCharacter() ||
                 MapScriptInterface.Instance == null)
             {
+                PorterDiagnostics.Log(
+                    "cart park rejected: porter=" +
+                    (porter == null
+                        ? "UNKNOWN"
+                        : (porter.Name ?? string.Empty).Trim()) +
+                    "; phase=" +
+                    (job == null
+                        ? "NONE"
+                        : job.Phase.ToString()) +
+                    "; moving=" +
+                    (cart != null && cart.m_state.m_moving) +
+                    "; attached=" +
+                    (cart != null && cart.IsAttachedToCharacter()) +
+                    "; userMatches=" +
+                    (cart != null && cart.User == porter) +
+                    ".");
                 return false;
             }
 
             Vector2i parkingTile =
                 walk.GetCurrentTile();
+            Vector2i destinationTile =
+                walk.GetDestinationTile();
+            if (parkingTile != destinationTile)
+            {
+                PorterDiagnostics.Log(
+                    "cart park rejected before destination: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; phase=" +
+                    job.Phase +
+                    "; current=" +
+                    parkingTile +
+                    "; destination=" +
+                    destinationTile +
+                    "; floor=" +
+                    walk.GetFloorIndex() +
+                    ".");
+                return false;
+            }
+
+            if (job.HasCartParkingTarget &&
+                (job.CartParkingFloorIndex != walk.GetFloorIndex() ||
+                 job.CartParkingTarget != parkingTile))
+            {
+                PorterDiagnostics.Log(
+                    "cart park target mismatch: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; phase=" +
+                    job.Phase +
+                    "; current=" +
+                    parkingTile +
+                    "; reserved=" +
+                    job.CartParkingTarget +
+                    "; currentFloor=" +
+                    walk.GetFloorIndex() +
+                    "; reservedFloor=" +
+                    job.CartParkingFloorIndex +
+                    ".");
+                return false;
+            }
+
+            if (PorterSampleTransportRuntime.IsCartParkingTargetClaimed(
+                    porter,
+                    parkingTile,
+                    walk.GetFloorIndex()) ||
+                !MapScriptInterface.Instance.CanMoveObject(
+                    cart,
+                    parkingTile))
+            {
+                PorterDiagnostics.Log(
+                    "cart park target invalidated: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; phase=" +
+                    job.Phase +
+                    "; tile=" +
+                    parkingTile +
+                    "; floor=" +
+                    walk.GetFloorIndex() +
+                    "; claimedByOther=" +
+                    PorterSampleTransportRuntime.IsCartParkingTargetClaimed(
+                        porter,
+                        parkingTile,
+                        walk.GetFloorIndex()) +
+                    ".");
+                return false;
+            }
 
             cart.StopSounds();
             if (!MapScriptInterface.Instance.MoveObject(
                     cart,
                     parkingTile))
             {
+                PorterDiagnostics.Log(
+                    "cart park MoveObject failed after validation: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; phase=" +
+                    job.Phase +
+                    "; tile=" +
+                    parkingTile +
+                    "; floor=" +
+                    walk.GetFloorIndex() +
+                    ".");
                 return false;
             }
+
+            PorterSampleTransportRuntime.ClearCartParkingTarget(
+                job);
 
             cart.SetAttachedToCharacter(attached: false);
             cart.m_state.m_originalFloorIndex =
                 job.CartHomeFloorIndex;
 
+            Room parkingRoom =
+                MapScriptInterface.Instance.GetRoomAt(
+                    parkingTile,
+                    cart.GetFloorIndex());
+            Department parkingDepartment =
+                parkingRoom == null ||
+                parkingRoom.m_roomPersistentData.m_department == null
+                    ? null
+                    : parkingRoom.m_roomPersistentData.m_department.GetEntity();
+            SetCartDepartment(
+                cart,
+                parkingDepartment);
 
-            return !cart.m_state.m_moving &&
+            bool parked =
+                !cart.m_state.m_moving &&
                 !cart.IsAttachedToCharacter() &&
                 cart.User == porter;
+
+            PorterDiagnostics.Log(
+                "cart parked: porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; phase=" +
+                job.Phase +
+                "; success=" +
+                parked +
+                "; tile=" +
+                cart.m_state.m_position +
+                "; floor=" +
+                cart.GetFloorIndex() +
+                "; roomType=" +
+                (parkingRoom == null ||
+                 parkingRoom.m_roomPersistentData == null ||
+                 parkingRoom.m_roomPersistentData.m_roomType == null ||
+                 parkingRoom.m_roomPersistentData.m_roomType.Entry == null
+                    ? "NONE"
+                    : parkingRoom.m_roomPersistentData
+                        .m_roomType.Entry.DatabaseID.ToString()) +
+                ".");
+            return parked;
         }
 
         internal static bool TryWalkToParkedCart(
@@ -210,6 +510,8 @@ namespace HospitalPorters
         }
 
         private static bool TryFindFallbackParkingTile(
+            Entity porter,
+            PorterSampleTransportJob job,
             TileObject cart,
             TileObject interactionObject,
             Room interactionRoom,
@@ -275,7 +577,11 @@ namespace HospitalPorters
                         floor.m_mapPersistentData.m_foundationsLayer.m_foundations[x, y] != 2 ||
                         floor.m_accessibility[x, y] == 2 ||
                         floor.m_tileObjects[x, y].m_centerObject != null ||
-                        floor.m_tileObjects[x, y].IsAnyObjectBlocking())
+                        floor.m_tileObjects[x, y].IsAnyObjectBlocking() ||
+                        PorterSampleTransportRuntime.IsCartParkingTargetClaimed(
+                            porter,
+                            candidate,
+                            floorIndex))
                     {
                         continue;
                     }
@@ -296,7 +602,16 @@ namespace HospitalPorters
                 }
             }
 
-            return parkingTile != Vector2i.ZERO_VECTOR;
+            if (parkingTile == Vector2i.ZERO_VECTOR)
+            {
+                return false;
+            }
+
+            return PorterSampleTransportRuntime.TryReserveCartParkingTarget(
+                porter,
+                job,
+                parkingTile,
+                floorIndex);
         }
 
         internal static bool RestoreCart(
@@ -309,6 +624,28 @@ namespace HospitalPorters
             }
 
             TileObject cart = job.Cart;
+
+            PorterDiagnostics.Log(
+                "cart restore requested: porter=" +
+                (porter == null
+                    ? "UNKNOWN"
+                    : (porter.Name ?? string.Empty).Trim()) +
+                "; phase=" +
+                job.Phase +
+                "; cartPosition=" +
+                cart.m_state.m_position +
+                "; cartFloor=" +
+                cart.GetFloorIndex() +
+                "; home=" +
+                job.CartHomeTile +
+                "; homeFloor=" +
+                job.CartHomeFloorIndex +
+                "; moving=" +
+                cart.m_state.m_moving +
+                "; attached=" +
+                cart.IsAttachedToCharacter() +
+                ".");
+
             if (!cart.m_state.m_moving)
             {
                 bool alreadyHome =
@@ -317,25 +654,71 @@ namespace HospitalPorters
                     cart.m_state.m_position ==
                         job.CartHomeTile;
 
-                if (alreadyHome)
+                if (alreadyHome &&
+                    Hospital.Instance != null &&
+                    Hospital.Instance.m_floors != null &&
+                    job.CartHomeFloorIndex >= 0 &&
+                    job.CartHomeFloorIndex <
+                        Hospital.Instance.m_floors.Count)
                 {
-                    cart.Orientation =
-                        job.CartHomeOrientation;
-                    if (cart.User == porter)
+                    Floor homeFloor =
+                        Hospital.Instance.m_floors[
+                            job.CartHomeFloorIndex];
+                    Direction safeOrientation;
+                    if (TryFindOriginalCartHomeOrientation(
+                            cart,
+                            homeFloor,
+                            job.CartHomeTile,
+                            job.CartHomeOrientation,
+                            porter,
+                            out safeOrientation))
                     {
-                        cart.User = null;
+                        cart.Orientation =
+                            safeOrientation;
+                        if (cart.User == porter)
+                        {
+                            cart.User = null;
+                        }
+                        cart.SetAttachedToCharacter(
+                            attached: false);
+                        cart.m_state.m_originalFloorIndex =
+                            -1;
+                        if (job.CartHomeRoom != null)
+                        {
+                            homeFloor.ValidateObjectsInARoom(
+                                job.CartHomeRoom);
+                        }
+
+                        PorterDiagnostics.Log(
+                            "cart restore completed in place: porter=" +
+                            (porter == null
+                                ? "UNKNOWN"
+                                : (porter.Name ?? string.Empty).Trim()) +
+                            "; tile=" +
+                            cart.m_state.m_position +
+                            "; orientation=" +
+                            safeOrientation +
+                            "; floor=" +
+                            cart.GetFloorIndex() +
+                            ".");
+                        return true;
                     }
-                    cart.SetAttachedToCharacter(
-                        attached: false);
-                    cart.m_state.m_originalFloorIndex =
-                        -1;
-                    return true;
                 }
 
                 if (MapScriptInterface.Instance == null ||
                     !MapScriptInterface.Instance.PickUpObject(
                         cart))
                 {
+                    PorterDiagnostics.Log(
+                        "cart restore pickup failed: porter=" +
+                        (porter == null
+                            ? "UNKNOWN"
+                            : (porter.Name ?? string.Empty).Trim()) +
+                        "; tile=" +
+                        cart.m_state.m_position +
+                        "; floor=" +
+                        cart.GetFloorIndex() +
+                        ".");
                     return false;
                 }
 
@@ -345,12 +728,30 @@ namespace HospitalPorters
                     job.CartHomeFloorIndex;
             }
 
-            return RestoreMovingCart(
-                cart,
-                job.CartHomeRoom,
-                job.CartHomeTile,
-                job.CartHomeFloorIndex,
-                job.CartHomeOrientation);
+            bool restored =
+                RestoreMovingCart(
+                    cart,
+                    job.CartHomeRoom,
+                    job.CartHomeTile,
+                    job.CartHomeFloorIndex,
+                    job.CartHomeOrientation,
+                    porter);
+
+            PorterDiagnostics.Log(
+                "cart restore result: porter=" +
+                (porter == null
+                    ? "UNKNOWN"
+                    : (porter.Name ?? string.Empty).Trim()) +
+                "; success=" +
+                restored +
+                "; cartPosition=" +
+                cart.m_state.m_position +
+                "; cartFloor=" +
+                cart.GetFloorIndex() +
+                "; moving=" +
+                cart.m_state.m_moving +
+                ".");
+            return restored;
         }
 
         internal static void RecoverOrphanedCartForPorter(
@@ -387,6 +788,19 @@ namespace HospitalPorters
                 {
                     continue;
                 }
+
+                PorterDiagnostics.Log(
+                    "porter orphan cart recovery candidate: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; cartPosition=" +
+                    cart.m_state.m_position +
+                    "; cartFloor=" +
+                    cart.GetFloorIndex() +
+                    "; moving=" +
+                    cart.m_state.m_moving +
+                    "; attached=" +
+                    cart.IsAttachedToCharacter() +
+                    ".");
 
                 if (cart.m_state.m_moving)
                 {
@@ -429,7 +843,8 @@ namespace HospitalPorters
                                 homeRoom.m_roomPersistentData
                                     .m_positionBottom,
                                 homeRoom.GetFloorIndex(),
-                                cart.Orientation);
+                                cart.Orientation,
+                                porter);
 
                         PorterDiagnostics.Log(
                             "cart recovery: porter=" +
@@ -472,74 +887,25 @@ namespace HospitalPorters
                     continue;
                 }
 
+                PorterDiagnostics.Log(
+                    "orphan cart recovery triggered: floor=" +
+                    floor.m_floorIndex +
+                    "; cartPosition=" +
+                    cart.m_state.m_position +
+                    "; cartFloor=" +
+                    cart.GetFloorIndex() +
+                    "; originalFloor=" +
+                    cart.m_state.m_originalFloorIndex +
+                    "; attached=" +
+                    cart.IsAttachedToCharacter() +
+                    "; user=" +
+                    (cart.User == null
+                        ? "NONE"
+                        : (cart.User.Name ?? string.Empty).Trim()) +
+                    ".");
+
                 RecoverOrphanedMovingCart(cart);
             }
-        }
-
-        internal static int CountTotalCartsForStation(
-            Room station)
-        {
-            if (station == null ||
-                Hospital.Instance == null ||
-                Hospital.Instance.m_floors == null)
-            {
-                return 0;
-            }
-
-            int floorIndex = station.GetFloorIndex();
-            if (floorIndex < 0 ||
-                floorIndex >= Hospital.Instance.m_floors.Count)
-            {
-                return 0;
-            }
-
-            int fixedCarts =
-                station.GetObjectCountWithTag(
-                    PorterIds.SampleCartTag,
-                    Hospital.Instance.m_floors[floorIndex]);
-            return fixedCarts +
-                PorterSampleTransportRuntime.CountActiveCartsAwayFromStation(
-                    station) +
-                CountMovingCartsForStation(station);
-        }
-
-        internal static int CountMovingCartsForStation(
-            Room station)
-        {
-            if (station == null ||
-                Hospital.Instance == null ||
-                Hospital.Instance.m_floors == null)
-            {
-                return 0;
-            }
-
-            int count = 0;
-            int stationFloor = station.GetFloorIndex();
-
-            foreach (Floor floor in Hospital.Instance.m_floors)
-            {
-                if (floor == null || floor.m_movingObjects == null)
-                {
-                    continue;
-                }
-
-                for (int i = 0; i < floor.m_movingObjects.Count; i++)
-                {
-                    TileObject cart = floor.m_movingObjects[i];
-                    if (!IsSampleCart(cart) ||
-                        PorterSampleTransportRuntime.IsCartInActiveJob(
-                            cart) ||
-                        cart.m_state.m_originalFloorIndex != stationFloor ||
-                        !station.IsPositionInRoom(cart.m_state.m_position))
-                    {
-                        continue;
-                    }
-
-                    count++;
-                }
-            }
-
-            return count;
         }
 
         internal static bool HasAttachedCart(
@@ -574,13 +940,64 @@ namespace HospitalPorters
             return false;
         }
 
+        internal static void CollectFreeCarts(
+            Entity porter,
+            HashSet<TileObject> carts)
+        {
+            if (carts == null)
+            {
+                return;
+            }
+
+            Room homeRoom;
+            FindFreeCart(porter, out homeRoom, carts);
+        }
+
+        internal static int CountSampleCartsInDepartment(
+            Department department)
+        {
+            if (department == null ||
+                department.m_departmentPersistentData == null ||
+                department.m_departmentPersistentData.m_objects == null)
+            {
+                return 0;
+            }
+
+            HashSet<TileObject> carts = new HashSet<TileObject>();
+            foreach (EntityIDPointer<TileObject> pointer in
+                department.m_departmentPersistentData.m_objects)
+            {
+                TileObject cart = pointer.GetEntity();
+                if (IsSampleCart(cart))
+                {
+                    carts.Add(cart);
+                }
+            }
+
+            return carts.Count;
+        }
+
         private static TileObject FindFreeCart(
             Entity porter,
             out Room homeRoom)
         {
+            return FindFreeCart(
+                porter,
+                out homeRoom,
+                null);
+        }
+
+        private static TileObject FindFreeCart(
+            Entity porter,
+            out Room homeRoom,
+            HashSet<TileObject> allFreeCarts)
+        {
             homeRoom = null;
             if (porter == null ||
-                MapScriptInterface.Instance == null)
+                MapScriptInterface.Instance == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null ||
+                GridMap.GetInstance() == null)
             {
                 return null;
             }
@@ -604,25 +1021,115 @@ namespace HospitalPorters
                 return null;
             }
 
-            TileObject cart =
-                MapScriptInterface.Instance.FindClosestFreeObjectWithTag(
-                    porter,
-                    null,
-                    walk.GetCurrentTile(),
-                    homeRoom,
-                    PorterIds.SampleCartTag,
-                    AccessRights.STAFF);
-
-            if (cart == null ||
-                cart.User != null ||
-                cart.Owner != null ||
-                cart.m_state.m_moving ||
-                !cart.IsValid())
+            int floorIndex =
+                homeRoom.GetFloorIndex();
+            if (floorIndex < 0 ||
+                floorIndex >= Hospital.Instance.m_floors.Count)
             {
                 return null;
             }
 
-            return cart;
+            Floor floor =
+                Hospital.Instance.m_floors[floorIndex];
+            TileObject best = null;
+            float bestDistance = float.MaxValue;
+
+            for (int x =
+                    homeRoom.m_roomPersistentData.m_positionBottom.m_x;
+                x <=
+                    homeRoom.m_roomPersistentData.m_positionTop.m_x;
+                x++)
+            {
+                for (int y =
+                        homeRoom.m_roomPersistentData.m_positionBottom.m_y;
+                    y <=
+                        homeRoom.m_roomPersistentData.m_positionTop.m_y;
+                    y++)
+                {
+                    Vector2i position =
+                        new Vector2i(x, y);
+                    if (!homeRoom.IsPositionInRoom(position) ||
+                        (int)floor.m_mapPersistentData
+                            .m_mapLogisticsLayer
+                            .m_accessRights[x, y] >
+                            (int)AccessRights.STAFF)
+                    {
+                        continue;
+                    }
+
+                    List<TileObject> objects =
+                        floor.m_tileObjects[x, y]
+                            .GetAllObjects();
+                    for (int i = 0; i < objects.Count; i++)
+                    {
+                        TileObject candidate =
+                            objects[i];
+                        if (!IsSampleCart(candidate) ||
+                            candidate.User != null ||
+                            candidate.Owner != null ||
+                            candidate.m_state.m_moving ||
+                            candidate.IsBroken() ||
+                            !candidate.IsValid())
+                        {
+                            continue;
+                        }
+
+                        if (!IsParkedCartPickupReachable(
+                                candidate,
+                                floor,
+                                homeRoom,
+                                porter))
+                        {
+                            PorterDiagnostics.Log(
+                                "sample cart skipped as inaccessible: porter=" +
+                                (porter.Name ?? string.Empty).Trim() +
+                                "; cartPosition=" +
+                                candidate.m_state.m_position +
+                                "; cartFloor=" +
+                                candidate.GetFloorIndex() +
+                                "; orientation=" +
+                                candidate.Orientation +
+                                "; " +
+                                GetCartAccessDiagnostic(
+                                    candidate,
+                                    floor,
+                                    homeRoom,
+                                    candidate.m_state.m_position,
+                                    candidate.Orientation,
+                                    porter) +
+                                ".");
+                            continue;
+                        }
+
+                        float distance =
+                            GridMap.GetInstance().GetDistance(
+                                walk.GetFloorIndex(),
+                                walk.GetCurrentTile(),
+                                floorIndex,
+                                candidate.m_state.m_position,
+                                AccessRights.STAFF);
+                        if (distance < 0f)
+                        {
+                            continue;
+                        }
+
+                        if (allFreeCarts != null)
+                        {
+                            allFreeCarts.Add(candidate);
+                        }
+
+                        if (distance >= bestDistance)
+                        {
+                            continue;
+                        }
+
+                        best = candidate;
+                        bestDistance = distance;
+                    }
+                }
+            }
+
+            return best;
         }
 
         internal static bool IsSampleCart(
@@ -641,31 +1148,55 @@ namespace HospitalPorters
         {
             if (!IsSampleCart(cart) ||
                 !cart.m_state.m_moving ||
-                MapScriptInterface.Instance == null)
+                MapScriptInterface.Instance == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null)
             {
+                return;
+            }
+
+            Room homeRoom =
+                TryGetOrphanCartHomeRoom(cart);
+            if (homeRoom == null)
+            {
+                Plugin.Log?.LogWarning(
+                    "Could not recover orphaned Porter sample cart because no Porter Station could be resolved.");
                 return;
             }
 
             int homeFloorIndex =
-                cart.m_state.m_originalFloorIndex;
+                homeRoom.GetFloorIndex();
             if (homeFloorIndex < 0 ||
-                Hospital.Instance == null ||
-                Hospital.Instance.m_floors == null ||
                 homeFloorIndex >= Hospital.Instance.m_floors.Count)
             {
                 Plugin.Log?.LogWarning(
-                    "Could not recover orphaned Porter sample cart because its original floor is unavailable.");
+                    "Could not recover orphaned Porter sample cart because its Porter Station floor is unavailable.");
                 return;
             }
 
-            Vector2i homeTile =
-                cart.m_state.m_position;
-            Room homeRoom =
-                MapScriptInterface.Instance.GetRoomAt(
-                    homeTile,
-                    homeFloorIndex);
+            Vector2i homeTile;
+            if (homeRoom.IsPositionInRoom(
+                    cart.m_state.m_position))
+            {
+                homeTile =
+                    cart.m_state.m_position;
+            }
+            else
+            {
+                homeTile =
+                    new Vector2i(
+                        (homeRoom.m_roomPersistentData.m_positionBottom.m_x +
+                         homeRoom.m_roomPersistentData.m_positionTop.m_x) / 2,
+                        (homeRoom.m_roomPersistentData.m_positionBottom.m_y +
+                         homeRoom.m_roomPersistentData.m_positionTop.m_y) / 2);
+            }
+
             Direction homeOrientation =
                 cart.Orientation;
+            bool resolvedFromUser =
+                IsCartUserHomeRoom(
+                    cart,
+                    homeRoom);
 
             bool restored =
                 RestoreMovingCart(
@@ -673,14 +1204,996 @@ namespace HospitalPorters
                     homeRoom,
                     homeTile,
                     homeFloorIndex,
-                    homeOrientation);
+                    homeOrientation,
+                    null);
 
             PorterDiagnostics.Log(
                 "cart recovery: movingCartRestored=" +
                 restored +
-                "; homeFloor=" +
+                "; stationFloor=" +
                 homeFloorIndex +
+                "; preferredTile=" +
+                homeTile +
+                "; resolvedFromUser=" +
+                resolvedFromUser +
                 ".");
+        }
+
+        private static bool IsCartUserHomeRoom(
+            TileObject cart,
+            Room room)
+        {
+            Entity user =
+                cart == null
+                    ? null
+                    : cart.User;
+            EmployeeComponent employee =
+                user == null ||
+                !PorterIdentity.IsPorter(user)
+                    ? null
+                    : user.GetComponent<EmployeeComponent>();
+            Room userHome =
+                employee == null ||
+                employee.m_state.m_homeRoom == null
+                    ? null
+                    : employee.m_state.m_homeRoom.GetEntity();
+            return userHome != null &&
+                userHome == room;
+        }
+
+        private static Room TryGetOrphanCartHomeRoom(
+            TileObject cart)
+        {
+            if (cart == null)
+            {
+                return null;
+            }
+
+            Entity user =
+                cart.User;
+            EmployeeComponent userEmployee =
+                user == null ||
+                !PorterIdentity.IsPorter(user)
+                    ? null
+                    : user.GetComponent<EmployeeComponent>();
+            Room userHome =
+                userEmployee == null ||
+                userEmployee.m_state.m_homeRoom == null
+                    ? null
+                    : userEmployee.m_state.m_homeRoom.GetEntity();
+            if (userHome != null &&
+                userHome.m_roomPersistentData.m_roomType != null &&
+                PorterStationRegistry.IsPorterStation(
+                    userHome.m_roomPersistentData.m_roomType.Entry))
+            {
+                return userHome;
+            }
+
+            Department department =
+                userEmployee == null ||
+                userEmployee.m_state.m_department == null
+                    ? null
+                    : userEmployee.m_state.m_department.GetEntity();
+            if (department == null &&
+                cart.m_state.m_department != null)
+            {
+                department =
+                    cart.m_state.m_department.GetEntity();
+            }
+            if (department == null ||
+                department.m_departmentPersistentData.m_rooms == null)
+            {
+                return null;
+            }
+
+            int preferredFloor =
+                cart.m_state.m_originalFloorIndex;
+            Room best = null;
+            int bestDistance = int.MaxValue;
+
+            foreach (EntityIDPointer<Room> pointer in
+                department.m_departmentPersistentData.m_rooms)
+            {
+                Room candidate =
+                    pointer.GetEntity();
+                if (candidate == null ||
+                    candidate.m_roomPersistentData.m_roomType == null ||
+                    !PorterStationRegistry.IsPorterStation(
+                        candidate.m_roomPersistentData.m_roomType.Entry) ||
+                    (preferredFloor >= 0 &&
+                     candidate.GetFloorIndex() != preferredFloor))
+                {
+                    continue;
+                }
+
+                if (candidate.IsPositionInRoom(
+                        cart.m_state.m_position))
+                {
+                    return candidate;
+                }
+
+                int centerX =
+                    (candidate.m_roomPersistentData.m_positionBottom.m_x +
+                     candidate.m_roomPersistentData.m_positionTop.m_x) / 2;
+                int centerY =
+                    (candidate.m_roomPersistentData.m_positionBottom.m_y +
+                     candidate.m_roomPersistentData.m_positionTop.m_y) / 2;
+                int dx =
+                    centerX - cart.m_state.m_position.m_x;
+                int dy =
+                    centerY - cart.m_state.m_position.m_y;
+                int distance =
+                    dx * dx + dy * dy;
+                if (distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = distance;
+                best = candidate;
+            }
+
+            if (best != null ||
+                preferredFloor < 0)
+            {
+                return best;
+            }
+
+            foreach (EntityIDPointer<Room> pointer in
+                department.m_departmentPersistentData.m_rooms)
+            {
+                Room candidate =
+                    pointer.GetEntity();
+                if (candidate != null &&
+                    candidate.m_roomPersistentData.m_roomType != null &&
+                    PorterStationRegistry.IsPorterStation(
+                        candidate.m_roomPersistentData.m_roomType.Entry))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        internal static bool IsCartPlacementCompletelyFree(
+            TileObject cart,
+            Floor floor,
+            Vector2i position)
+        {
+            if (cart == null ||
+                floor == null ||
+                position.m_x < 0 ||
+                position.m_y < 0 ||
+                position.m_x >= floor.Size.m_x ||
+                position.m_y >= floor.Size.m_y ||
+                MapScriptInterface.Instance == null)
+            {
+                return false;
+            }
+
+            TileObjects tileObjects =
+                floor.m_tileObjects[
+                    position.m_x,
+                    position.m_y];
+            if (tileObjects == null ||
+                tileObjects.HasAnyObject())
+            {
+                return false;
+            }
+
+            if (cart.GetFloorIndex() != floor.m_floorIndex)
+            {
+                return true;
+            }
+
+            return MapScriptInterface.Instance.CanMoveObject(
+                cart,
+                position);
+        }
+
+        private static bool IsTileUsedByOtherInteractableObject(
+            TileObject cart,
+            Floor floor,
+            Room room,
+            Vector2i position)
+        {
+            if (floor == null || room == null)
+            {
+                return false;
+            }
+
+            for (int x =
+                    room.m_roomPersistentData.m_positionBottom.m_x;
+                x <=
+                    room.m_roomPersistentData.m_positionTop.m_x;
+                x++)
+            {
+                for (int y =
+                        room.m_roomPersistentData.m_positionBottom.m_y;
+                    y <=
+                        room.m_roomPersistentData.m_positionTop.m_y;
+                    y++)
+                {
+                    Vector2i tile =
+                        new Vector2i(x, y);
+                    if (!room.IsPositionInRoom(tile))
+                    {
+                        continue;
+                    }
+
+                    List<TileObject> objects =
+                        floor.m_tileObjects[
+                            x,
+                            y].GetAllAccessibleObjects();
+                    for (int i = 0; i < objects.Count; i++)
+                    {
+                        TileObject other =
+                            objects[i];
+                        if (other == null ||
+                            other == cart ||
+                            other.m_state == null ||
+                            other.m_state.m_gameDBObject == null ||
+                            other.m_state.m_gameDBObject.Entry == null ||
+                            other.m_state.m_gameDBObject.Entry.NotInteractable)
+                        {
+                            continue;
+                        }
+
+                        if (other.CanBeAccessedFrom(
+                                position,
+                                floor))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsParkedCartPickupReachable(
+            TileObject cart,
+            Floor floor,
+            Room homeRoom,
+            Entity porter)
+        {
+            if (cart == null ||
+                floor == null ||
+                homeRoom == null ||
+                porter == null ||
+                cart.m_state == null ||
+                cart.m_state.m_gameDBObject == null ||
+                cart.m_state.m_gameDBObject.Entry == null ||
+                GridMap.GetInstance() == null)
+            {
+                return false;
+            }
+
+            Vector2i[] accessPositions =
+                cart.m_state.m_gameDBObject.Entry.AccessPositions;
+            if (accessPositions == null ||
+                accessPositions.Length == 0)
+            {
+                accessPositions =
+                    new Vector2i[]
+                    {
+                        new Vector2i(-1, 0)
+                    };
+            }
+
+            WalkComponent walk =
+                porter.GetComponent<WalkComponent>();
+            if (walk == null)
+            {
+                return false;
+            }
+
+            if (walk.IsSitting() &&
+                cart.m_state.m_position == walk.GetCurrentTile())
+            {
+                PorterDiagnostics.Log(
+                    "sample cart skipped for seated Porter: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; cartPosition=" +
+                    cart.m_state.m_position +
+                    "; porterTile=" +
+                    walk.GetCurrentTile() +
+                    "; reason=cart-overlaps-seated-porter.");
+                return false;
+            }
+
+            for (int i = 0; i < accessPositions.Length; i++)
+            {
+                Vector2i accessTile =
+                    cart.m_state.m_position +
+                    TileObject.TransformUsePositionForDirection(
+                        accessPositions[i],
+                        cart.Orientation);
+
+                if (accessTile.m_x < 0 ||
+                    accessTile.m_y < 0 ||
+                    accessTile.m_x >= floor.Size.m_x ||
+                    accessTile.m_y >= floor.Size.m_y ||
+                    !cart.CanBeAccessedFrom(
+                        accessTile,
+                        floor) ||
+                    !GridMap.GetInstance().IsInGrid(
+                        accessTile,
+                        floor.m_floorIndex))
+                {
+                    continue;
+                }
+
+                Entity tileUser =
+                    floor.m_mapPersistentData
+                        .m_tiles[
+                            accessTile.m_x,
+                            accessTile.m_y]
+                        .m_user == null
+                            ? null
+                            : floor.m_mapPersistentData
+                                .m_tiles[
+                                    accessTile.m_x,
+                                    accessTile.m_y]
+                                .m_user.GetEntity();
+                if (tileUser != null &&
+                    tileUser != porter)
+                {
+                    continue;
+                }
+
+                if (GridMap.GetInstance().GetDistance(
+                        walk.GetFloorIndex(),
+                        walk.GetCurrentTile(),
+                        floor.m_floorIndex,
+                        accessTile,
+                        AccessRights.STAFF) >= 0f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string GetCartAccessDiagnostic(
+            TileObject cart,
+            Floor floor,
+            Room homeRoom,
+            Vector2i placement,
+            Direction orientation,
+            Entity accessCharacter)
+        {
+            if (cart == null)
+            {
+                return "reason=cart-null";
+            }
+            if (floor == null)
+            {
+                return "reason=floor-null";
+            }
+            if (homeRoom == null)
+            {
+                return "reason=room-null";
+            }
+            if (cart.m_state == null ||
+                cart.m_state.m_gameDBObject == null ||
+                cart.m_state.m_gameDBObject.Entry == null)
+            {
+                return "reason=cart-db-invalid";
+            }
+
+            Vector2i[] accessPositions =
+                cart.m_state.m_gameDBObject.Entry.AccessPositions;
+            if (accessPositions == null ||
+                accessPositions.Length == 0)
+            {
+                accessPositions =
+                    new Vector2i[]
+                    {
+                        new Vector2i(-1, 0)
+                    };
+            }
+
+            WalkComponent walk =
+                accessCharacter == null
+                    ? null
+                    : accessCharacter.GetComponent<WalkComponent>();
+            GridMap grid =
+                GridMap.GetInstance();
+
+            string result = string.Empty;
+            for (int i = 0; i < accessPositions.Length; i++)
+            {
+                Vector2i accessTile =
+                    placement +
+                    TileObject.TransformUsePositionForDirection(
+                        accessPositions[i],
+                        orientation);
+
+                string reason = "unknown";
+                if (accessTile.m_x < 0 ||
+                    accessTile.m_y < 0 ||
+                    accessTile.m_x >= floor.Size.m_x ||
+                    accessTile.m_y >= floor.Size.m_y)
+                {
+                    reason = "out-of-map";
+                }
+                else if (!cart.CanBeAccessedFrom(
+                            accessTile,
+                            floor))
+                {
+                    reason = "vanilla-access-rejected";
+                }
+                else if (grid == null)
+                {
+                    reason = "grid-null";
+                }
+                else if (!grid.IsInGrid(
+                            accessTile,
+                            floor.m_floorIndex))
+                {
+                    reason = "not-in-grid";
+                }
+                else
+                {
+                    Entity accessTileUser =
+                        floor.m_mapPersistentData
+                            .m_tiles[
+                                accessTile.m_x,
+                                accessTile.m_y]
+                            .m_user == null
+                                ? null
+                                : floor.m_mapPersistentData
+                                    .m_tiles[
+                                        accessTile.m_x,
+                                        accessTile.m_y]
+                                    .m_user.GetEntity();
+                    if (accessTileUser != null &&
+                        accessTileUser != accessCharacter)
+                    {
+                        reason =
+                            "tile-user:" +
+                            (accessTileUser.Name ?? string.Empty).Trim();
+                    }
+                    else if (walk != null)
+                    {
+                        float distance =
+                            grid.GetDistance(
+                                walk.GetFloorIndex(),
+                                walk.GetCurrentTile(),
+                                floor.m_floorIndex,
+                                accessTile,
+                                AccessRights.STAFF);
+                        reason =
+                            distance < 0f
+                                ? "no-staff-path"
+                                : "reachable-distance=" + distance;
+                    }
+                    else
+                    {
+                        reason = "reachable-no-character-check";
+                    }
+                }
+
+                if (result.Length > 0)
+                {
+                    result += "; ";
+                }
+                result +=
+                    "access[" +
+                    i +
+                    "]=" +
+                    accessTile +
+                    ":" +
+                    reason;
+            }
+
+            return result;
+        }
+
+        private static bool IsOriginalCartHomeAccessReachable(
+            TileObject cart,
+            Floor floor,
+            Vector2i placement,
+            Direction orientation,
+            Entity accessCharacter)
+        {
+            if (cart == null ||
+                floor == null ||
+                cart.m_state == null ||
+                cart.m_state.m_gameDBObject == null ||
+                cart.m_state.m_gameDBObject.Entry == null)
+            {
+                return false;
+            }
+
+            Vector2i[] accessPositions =
+                cart.m_state.m_gameDBObject.Entry.AccessPositions;
+            if (accessPositions == null ||
+                accessPositions.Length == 0)
+            {
+                accessPositions =
+                    new Vector2i[]
+                    {
+                        new Vector2i(-1, 0)
+                    };
+            }
+
+            WalkComponent walk =
+                accessCharacter == null
+                    ? null
+                    : accessCharacter.GetComponent<WalkComponent>();
+            GridMap grid =
+                GridMap.GetInstance();
+            if (grid == null)
+            {
+                return false;
+            }
+
+            foreach (Vector2i localAccess in accessPositions)
+            {
+                Vector2i accessTile =
+                    placement +
+                    TileObject.TransformUsePositionForDirection(
+                        localAccess,
+                        orientation);
+                if (accessTile.m_x < 0 ||
+                    accessTile.m_y < 0 ||
+                    accessTile.m_x >= floor.Size.m_x ||
+                    accessTile.m_y >= floor.Size.m_y ||
+                    floor.IsAnyBlockingObjectAt(accessTile) ||
+                    !floor.IsAccessibleIgnoreDoors(
+                        accessTile,
+                        placement) ||
+                    !grid.IsInGrid(
+                        accessTile,
+                        floor.m_floorIndex))
+                {
+                    continue;
+                }
+
+                Entity accessTileUser =
+                    floor.m_mapPersistentData
+                        .m_tiles[
+                            accessTile.m_x,
+                            accessTile.m_y]
+                        .m_user == null
+                            ? null
+                            : floor.m_mapPersistentData
+                                .m_tiles[
+                                    accessTile.m_x,
+                                    accessTile.m_y]
+                                .m_user.GetEntity();
+                if (accessTileUser != null &&
+                    accessTileUser != accessCharacter)
+                {
+                    continue;
+                }
+
+                if (walk != null &&
+                    grid.GetDistance(
+                        walk.GetFloorIndex(),
+                        walk.GetCurrentTile(),
+                        floor.m_floorIndex,
+                        accessTile,
+                        AccessRights.STAFF) < 0f)
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryFindOriginalCartHomeOrientation(
+            TileObject cart,
+            Floor floor,
+            Vector2i placement,
+            Direction preferredOrientation,
+            Entity accessCharacter,
+            out Direction orientation)
+        {
+            orientation = Direction.None;
+
+            if (preferredOrientation != Direction.None &&
+                IsOriginalCartHomeAccessReachable(
+                    cart,
+                    floor,
+                    placement,
+                    preferredOrientation,
+                    accessCharacter))
+            {
+                orientation = preferredOrientation;
+                return true;
+            }
+
+            Direction[] orientations =
+                new Direction[]
+                {
+                    Direction.NW,
+                    Direction.NE,
+                    Direction.SE,
+                    Direction.SW
+                };
+
+            foreach (Direction candidate in orientations)
+            {
+                if (candidate == preferredOrientation)
+                {
+                    continue;
+                }
+
+                if (IsOriginalCartHomeAccessReachable(
+                        cart,
+                        floor,
+                        placement,
+                        candidate,
+                        accessCharacter))
+                {
+                    orientation = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsCartAccessReachable(
+            TileObject cart,
+            Floor floor,
+            Room homeRoom,
+            Vector2i placement,
+            Direction orientation,
+            Entity accessCharacter,
+            bool rejectFunctionalOverlap)
+        {
+            if (cart == null ||
+                floor == null ||
+                homeRoom == null ||
+                cart.m_state == null ||
+                cart.m_state.m_gameDBObject == null ||
+                cart.m_state.m_gameDBObject.Entry == null ||
+                !homeRoom.IsPositionInRoom(placement))
+            {
+                return false;
+            }
+
+            if (rejectFunctionalOverlap &&
+                IsTileUsedByOtherInteractableObject(
+                    cart,
+                    floor,
+                    homeRoom,
+                    placement))
+            {
+                return false;
+            }
+
+            GridMap grid =
+                GridMap.GetInstance();
+            WalkComponent walk =
+                accessCharacter == null
+                    ? null
+                    : accessCharacter.GetComponent<WalkComponent>();
+
+            if (walk != null &&
+                (grid == null ||
+                 !grid.IsInGrid(
+                     placement,
+                     floor.m_floorIndex) ||
+                 grid.GetDistance(
+                     walk.GetFloorIndex(),
+                     walk.GetCurrentTile(),
+                     floor.m_floorIndex,
+                     placement,
+                     AccessRights.STAFF) < 0f))
+            {
+                return false;
+            }
+
+            Vector2i[] accessPositions =
+                cart.m_state.m_gameDBObject.Entry.AccessPositions;
+            if (accessPositions == null ||
+                accessPositions.Length == 0)
+            {
+                accessPositions =
+                    new Vector2i[]
+                    {
+                        new Vector2i(-1, 0)
+                    };
+            }
+
+            foreach (Vector2i localAccess in accessPositions)
+            {
+                Vector2i accessTile =
+                    placement +
+                    TileObject.TransformUsePositionForDirection(
+                        localAccess,
+                        orientation);
+
+                if (accessTile.m_x < 0 ||
+                    accessTile.m_y < 0 ||
+                    accessTile.m_x >= floor.Size.m_x ||
+                    accessTile.m_y >= floor.Size.m_y ||
+                    floor.IsAnyBlockingObjectAt(accessTile) ||
+                    !floor.IsAccessibleIgnoreDoors(
+                        accessTile,
+                        placement))
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryFindAccessibleCartOrientation(
+            TileObject cart,
+            Floor floor,
+            Room homeRoom,
+            Vector2i placement,
+            Direction preferredOrientation,
+            Entity accessCharacter,
+            bool rejectFunctionalOverlap,
+            out Direction orientation)
+        {
+            orientation = Direction.None;
+
+            if (preferredOrientation != Direction.None &&
+                IsCartAccessReachable(
+                    cart,
+                    floor,
+                    homeRoom,
+                    placement,
+                    preferredOrientation,
+                    accessCharacter,
+                    rejectFunctionalOverlap))
+            {
+                orientation = preferredOrientation;
+                return true;
+            }
+
+            Direction[] orientations =
+                new Direction[]
+                {
+                    Direction.NW,
+                    Direction.NE,
+                    Direction.SE,
+                    Direction.SW
+                };
+
+            foreach (Direction candidate in orientations)
+            {
+                if (candidate == preferredOrientation)
+                {
+                    continue;
+                }
+
+                if (IsCartAccessReachable(
+                        cart,
+                        floor,
+                        homeRoom,
+                        placement,
+                        candidate,
+                        accessCharacter,
+                        rejectFunctionalOverlap))
+                {
+                    orientation = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool TryGetSafeReturnPlacement(
+            PorterSampleTransportJob job,
+            Entity accessCharacter,
+            out Vector2i placement,
+            out Direction orientation)
+        {
+            placement = Vector2i.ZERO_VECTOR;
+            orientation = Direction.None;
+
+            if (job == null ||
+                !IsSampleCart(job.Cart) ||
+                job.CartHomeRoom == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null ||
+                job.CartHomeFloorIndex < 0 ||
+                job.CartHomeFloorIndex >=
+                    Hospital.Instance.m_floors.Count ||
+                job.CartHomeRoom.GetFloorIndex() !=
+                    job.CartHomeFloorIndex)
+            {
+                return false;
+            }
+
+            Floor floor =
+                Hospital.Instance.m_floors[
+                    job.CartHomeFloorIndex];
+            if (job.CartHomeRoom.IsPositionInRoom(
+                    job.CartHomeTile) &&
+                IsCartPlacementCompletelyFree(
+                    job.Cart,
+                    floor,
+                    job.CartHomeTile) &&
+                TryFindOriginalCartHomeOrientation(
+                    job.Cart,
+                    floor,
+                    job.CartHomeTile,
+                    job.CartHomeOrientation,
+                    accessCharacter,
+                    out orientation))
+            {
+                placement = job.CartHomeTile;
+                return true;
+            }
+
+            return TryFindFallbackPlacement(
+                job.Cart,
+                job.CartHomeRoom,
+                job.CartHomeTile,
+                job.CartHomeOrientation,
+                accessCharacter,
+                out placement,
+                out orientation);
+        }
+
+        internal static bool HasSafeReturnPlacement(
+            PorterSampleTransportJob job,
+            Entity accessCharacter)
+        {
+            Vector2i placement;
+            Direction orientation;
+            return TryGetSafeReturnPlacement(
+                job,
+                accessCharacter,
+                out placement,
+                out orientation);
+        }
+
+        internal static string GetSafeReturnPlacementDiagnostic(
+            PorterSampleTransportJob job)
+        {
+            if (job == null)
+            {
+                return "returnReason=job-null";
+            }
+            if (!IsSampleCart(job.Cart))
+            {
+                return "returnReason=cart-invalid";
+            }
+            if (job.CartHomeRoom == null)
+            {
+                return "returnReason=home-room-null";
+            }
+            if (Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null ||
+                job.CartHomeFloorIndex < 0 ||
+                job.CartHomeFloorIndex >=
+                    Hospital.Instance.m_floors.Count)
+            {
+                return "returnReason=home-floor-invalid";
+            }
+            if (job.CartHomeRoom.GetFloorIndex() !=
+                job.CartHomeFloorIndex)
+            {
+                return "returnReason=home-room-floor-mismatch";
+            }
+
+            Floor floor =
+                Hospital.Instance.m_floors[
+                    job.CartHomeFloorIndex];
+            bool homeInRoom =
+                job.CartHomeRoom.IsPositionInRoom(
+                    job.CartHomeTile);
+            bool homeFree =
+                homeInRoom &&
+                IsCartPlacementCompletelyFree(
+                    job.Cart,
+                    floor,
+                    job.CartHomeTile);
+            Direction homeOrientation;
+            bool homeAccessible =
+                homeFree &&
+                TryFindOriginalCartHomeOrientation(
+                    job.Cart,
+                    floor,
+                    job.CartHomeTile,
+                    job.CartHomeOrientation,
+                    null,
+                    out homeOrientation);
+
+            int roomTiles = 0;
+            int fallbackFreeTiles = 0;
+            int fallbackPreferredSafeTiles = 0;
+            int fallbackNativeSafeTiles = 0;
+
+            for (int x =
+                    job.CartHomeRoom.m_roomPersistentData.m_positionBottom.m_x;
+                x <=
+                    job.CartHomeRoom.m_roomPersistentData.m_positionTop.m_x;
+                x++)
+            {
+                for (int y =
+                        job.CartHomeRoom.m_roomPersistentData.m_positionBottom.m_y;
+                    y <=
+                        job.CartHomeRoom.m_roomPersistentData.m_positionTop.m_y;
+                    y++)
+                {
+                    Vector2i candidate =
+                        new Vector2i(x, y);
+                    if (!job.CartHomeRoom.IsPositionInRoom(
+                            candidate))
+                    {
+                        continue;
+                    }
+
+                    roomTiles++;
+                    if (!IsCartPlacementCompletelyFree(
+                            job.Cart,
+                            floor,
+                            candidate))
+                    {
+                        continue;
+                    }
+
+                    fallbackFreeTiles++;
+                    Direction fallbackOrientation;
+                    if (TryFindAccessibleCartOrientation(
+                            job.Cart,
+                            floor,
+                            job.CartHomeRoom,
+                            candidate,
+                            job.CartHomeOrientation,
+                            null,
+                            true,
+                            out fallbackOrientation))
+                    {
+                        fallbackPreferredSafeTiles++;
+                    }
+
+                    if (TryFindAccessibleCartOrientation(
+                            job.Cart,
+                            floor,
+                            job.CartHomeRoom,
+                            candidate,
+                            job.CartHomeOrientation,
+                            null,
+                            false,
+                            out fallbackOrientation))
+                    {
+                        fallbackNativeSafeTiles++;
+                    }
+                }
+            }
+
+            return
+                "home=" +
+                job.CartHomeTile +
+                "; homeOrientation=" +
+                job.CartHomeOrientation +
+                "; homeInRoom=" +
+                homeInRoom +
+                "; homeFree=" +
+                homeFree +
+                "; homeAccessible=" +
+                homeAccessible +
+                "; roomTiles=" +
+                roomTiles +
+                "; fallbackFreeTiles=" +
+                fallbackFreeTiles +
+                "; fallbackPreferredSafeTiles=" +
+                fallbackPreferredSafeTiles +
+                "; fallbackNativeSafeTiles=" +
+                fallbackNativeSafeTiles;
         }
 
         private static bool RestoreMovingCart(
@@ -688,8 +2201,18 @@ namespace HospitalPorters
             Room homeRoom,
             Vector2i homeTile,
             int homeFloorIndex,
-            Direction homeOrientation)
+            Direction homeOrientation,
+            Entity accessCharacter)
         {
+            Department homeDepartment =
+                homeRoom == null ||
+                homeRoom.m_roomPersistentData.m_department == null
+                    ? null
+                    : homeRoom.m_roomPersistentData.m_department.GetEntity();
+            SetCartDepartment(
+                cart,
+                homeDepartment);
+
             if (!IsSampleCart(cart) ||
                 Hospital.Instance == null ||
                 Hospital.Instance.m_floors == null ||
@@ -700,20 +2223,31 @@ namespace HospitalPorters
                 return false;
             }
 
-            cart.User = null;
-            cart.SetAttachedToCharacter(attached: false);
             cart.StopSounds();
 
             MoveCartToFloor(cart, homeFloorIndex);
 
+            Floor homeFloor =
+                Hospital.Instance.m_floors[
+                    homeFloorIndex];
             Vector2i placement = homeTile;
+            Direction placementOrientation =
+                homeOrientation;
             bool canPlace =
                 homeRoom != null &&
                 homeRoom.GetFloorIndex() == homeFloorIndex &&
                 homeRoom.IsPositionInRoom(homeTile) &&
-                MapScriptInterface.Instance.CanMoveObject(
+                IsCartPlacementCompletelyFree(
                     cart,
-                    homeTile);
+                    homeFloor,
+                    homeTile) &&
+                TryFindOriginalCartHomeOrientation(
+                    cart,
+                    homeFloor,
+                    homeTile,
+                    homeOrientation,
+                    accessCharacter,
+                    out placementOrientation);
 
             if (!canPlace &&
                 homeRoom != null &&
@@ -723,7 +2257,11 @@ namespace HospitalPorters
                     TryFindFallbackPlacement(
                         cart,
                         homeRoom,
-                        out placement);
+                        homeTile,
+                        homeOrientation,
+                        accessCharacter,
+                        out placement,
+                        out placementOrientation);
             }
 
             if (!canPlace ||
@@ -731,14 +2269,59 @@ namespace HospitalPorters
                     cart,
                     placement))
             {
-                Plugin.Log?.LogWarning(
-                    "Porter sample cart could not be placed back in its station; it remains a recoverable moving object.");
+                PorterDiagnostics.Log(
+                    "cart restore placement deferred: requestedHome=" +
+                    homeTile +
+                    "; selectedPlacement=" +
+                    placement +
+                    "; homeFloor=" +
+                    homeFloorIndex +
+                    "; canPlace=" +
+                    canPlace +
+                    "; cartPosition=" +
+                    cart.m_state.m_position +
+                    "; cartFloor=" +
+                    cart.GetFloorIndex() +
+                    "; attached=" +
+                    cart.IsAttachedToCharacter() +
+                    "; user=" +
+                    (cart.User == null
+                        ? "NONE"
+                        : (cart.User.Name ?? string.Empty).Trim()) +
+                    ".");
                 return false;
             }
 
-            cart.Orientation = homeOrientation;
+            Vector2i accessTile =
+                TileObject.GetDefaultUsePositionForDirection(
+                    placement,
+                    placementOrientation);
+
+            PorterDiagnostics.Log(
+                "cart restore placement: requestedHome=" +
+                homeTile +
+                "; selectedPlacement=" +
+                placement +
+                "; selectedOrientation=" +
+                placementOrientation +
+                "; accessTile=" +
+                accessTile +
+                "; homeFloor=" +
+                homeFloorIndex +
+                "; usedFallback=" +
+                (placement != homeTile ||
+                    placementOrientation != homeOrientation) +
+                ".");
+
+            cart.Orientation = placementOrientation;
+            cart.User = null;
+            cart.SetAttachedToCharacter(attached: false);
             cart.m_state.m_originalFloorIndex = -1;
             cart.StopSounds();
+            if (homeRoom != null)
+            {
+                homeFloor.ValidateObjectsInARoom(homeRoom);
+            }
             return true;
         }
 
@@ -773,13 +2356,63 @@ namespace HospitalPorters
         private static bool TryFindFallbackPlacement(
             TileObject cart,
             Room homeRoom,
-            out Vector2i placement)
+            Vector2i homeTile,
+            Direction homeOrientation,
+            Entity accessCharacter,
+            out Vector2i placement,
+            out Direction orientation)
+        {
+            if (TryFindFallbackPlacementPass(
+                    cart,
+                    homeRoom,
+                    homeTile,
+                    homeOrientation,
+                    accessCharacter,
+                    true,
+                    out placement,
+                    out orientation))
+            {
+                return true;
+            }
+
+            return TryFindFallbackPlacementPass(
+                cart,
+                homeRoom,
+                homeTile,
+                homeOrientation,
+                accessCharacter,
+                false,
+                out placement,
+                out orientation);
+        }
+
+        private static bool TryFindFallbackPlacementPass(
+            TileObject cart,
+            Room homeRoom,
+            Vector2i homeTile,
+            Direction homeOrientation,
+            Entity accessCharacter,
+            bool rejectFunctionalOverlap,
+            out Vector2i placement,
+            out Direction orientation)
         {
             placement = Vector2i.ZERO_VECTOR;
-            if (cart == null || homeRoom == null)
+            orientation = Direction.None;
+            if (cart == null ||
+                homeRoom == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null)
             {
                 return false;
             }
+
+            Floor floor =
+                Hospital.Instance.m_floors[
+                    homeRoom.GetFloorIndex()];
+            int bestDistance =
+                int.MaxValue;
+            bool found =
+                false;
 
             for (int x =
                     homeRoom.m_roomPersistentData.m_positionBottom.m_x;
@@ -796,51 +2429,47 @@ namespace HospitalPorters
                     Vector2i candidate =
                         new Vector2i(x, y);
                     if (!homeRoom.IsPositionInRoom(candidate) ||
-                        !MapScriptInterface.Instance.CanMoveObject(
+                        !IsCartPlacementCompletelyFree(
                             cart,
+                            floor,
                             candidate))
                     {
                         continue;
                     }
 
+                    Direction candidateOrientation;
+                    if (!TryFindAccessibleCartOrientation(
+                            cart,
+                            floor,
+                            homeRoom,
+                            candidate,
+                            homeOrientation,
+                            accessCharacter,
+                            rejectFunctionalOverlap,
+                            out candidateOrientation))
+                    {
+                        continue;
+                    }
+
+                    int dx =
+                        candidate.m_x - homeTile.m_x;
+                    int dy =
+                        candidate.m_y - homeTile.m_y;
+                    int distance =
+                        dx * dx + dy * dy;
+                    if (distance >= bestDistance)
+                    {
+                        continue;
+                    }
+
+                    bestDistance = distance;
                     placement = candidate;
-                    return true;
+                    orientation = candidateOrientation;
+                    found = true;
                 }
             }
 
-            return false;
-        }
-    }
-
-    [HarmonyPatch(
-        typeof(Room),
-        nameof(Room.GetObjectCountWithTag),
-        new Type[]
-        {
-            typeof(string),
-            typeof(Floor),
-            typeof(bool)
-        })]
-    internal static class PorterSampleCartRoomCountPatch
-    {
-        private static void Postfix(
-            Room __instance,
-            string tag,
-            ref int __result)
-        {
-            if (tag != PorterIds.SampleCartUiTag ||
-                __instance == null ||
-                !PorterStationRegistry.IsPorterStation(
-                    __instance.m_roomPersistentData.m_roomType.Entry))
-            {
-                return;
-            }
-
-            __result +=
-                PorterSampleTransportRuntime.CountActiveCartsAwayFromStation(
-                    __instance) +
-                PorterSampleCartRuntime.CountMovingCartsForStation(
-                    __instance);
+            return found;
         }
     }
 
@@ -957,102 +2586,6 @@ namespace HospitalPorters
                 __result = 2;
             }
         }
-    }
-    [HarmonyPatch(
-        typeof(ObjectRenderer),
-        nameof(ObjectRenderer.RenderObjects),
-        new Type[]
-        {
-            typeof(bool), typeof(float), typeof(Floor),
-            typeof(LightMap2DUnity), typeof(FloorRenderData)
-        })]
-    internal static class PorterSampleCartBuildingGhostPatch
-    {
-        private static readonly MethodInfo RenderSingleObjectMethod =
-            AccessTools.Method(
-                typeof(ObjectRenderer),
-                "RenderSingleObject",
-                new Type[]
-                {
-                    typeof(TileObject), typeof(float), typeof(float),
-                    typeof(Floor), typeof(LightMap2DUnity),
-                    typeof(bool), typeof(bool)
-                });
-
-        private static bool s_loggedRenderFailure;
-
-        private static void Postfix(
-            ObjectRenderer __instance,
-            float zoomScale,
-            Floor floor,
-            LightMap2DUnity lightMap)
-        {
-            if (__instance == null ||
-                floor == null ||
-                ViewModeController.Instance == null)
-            {
-                return;
-            }
-
-            if ((ViewModeController.Instance.m_currentMode !=
-                    ViewModes.BUILDING &&
-                 ViewModeController.Instance.m_currentMode !=
-                    ViewModes.BUILDING_FLOORS) ||
-                RenderSingleObjectMethod == null ||
-                Hospital.Instance == null ||
-                Hospital.Instance.m_floors == null)
-            {
-                return;
-            }
-
-            foreach (Floor sourceFloor in Hospital.Instance.m_floors)
-            {
-                if (sourceFloor == null ||
-                    sourceFloor.m_movingObjects == null)
-                {
-                    continue;
-                }
-
-                foreach (TileObject cart in sourceFloor.m_movingObjects)
-                {
-                    if (!PorterSampleCartRuntime.IsSampleCart(cart) ||
-                        !cart.m_state.m_moving ||
-                        cart.m_state.m_originalFloorIndex !=
-                            floor.m_floorIndex)
-                    {
-                        continue;
-                    }
-
-                    try
-                    {
-                        RenderSingleObjectMethod.Invoke(
-                            __instance,
-                            new object[]
-                            {
-                                cart,
-                                -0.25f,
-                                zoomScale,
-                                floor,
-                                lightMap,
-                                false,
-                                true
-                            });
-                    }
-                    catch (Exception exception)
-                    {
-                        if (!s_loggedRenderFailure)
-                        {
-                            s_loggedRenderFailure = true;
-                            Plugin.Log?.LogError(
-                                "Could not render the native-style sample-cart building ghost: " +
-                                exception);
-                        }
-                        return;
-                    }
-                }
-            }
-        }
-
     }
 
 }
