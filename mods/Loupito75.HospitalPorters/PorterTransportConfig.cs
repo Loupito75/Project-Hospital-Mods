@@ -12,19 +12,41 @@ namespace HospitalPorters
             "Loupito75.HospitalPorters.Config.xml";
 
         private const int DefaultSampleFallbackRetries = 2;
-        private const int DefaultSampleFallbackRetryMinutes = 5;
+        private const int DefaultSampleFallbackRetryMinutes = 10;
+        private const int DefaultSampleFallbackRetryRandomnessMinutes = 3;
         private const int DefaultPatientFallbackRetries = 1;
         private const int DefaultPatientFallbackRetryMinutes = 2;
         private const int DefaultSampleTourMaxSamples = 5;
         private const int DefaultSampleTourSearchDistance = 20;
+        private const int DefaultSampleOccupiedRoomTimeoutMinutes = 40;
+        private const int DefaultSampleOccupiedRoomTimeoutRandomnessMinutes = 5;
+        private const int DefaultSampleOccupiedRoomPreAssignmentWaitChance = 30;
+        private const int DefaultSampleOccupiedRoomRetryCooldownMinMinutes = 15;
+        private const int DefaultSampleOccupiedRoomRetryCooldownMaxMinutes = 30;
+        private const bool DefaultSampleCrossDepartmentHelp = true;
+        private const int DefaultSampleCrossDepartmentHelpBaseChance = 30;
+        private const int DefaultSampleCrossDepartmentStationFloorBonus = 20;
+        private const int DefaultSampleCrossDepartmentCurrentFloorBonus = 20;
+        private const int DefaultSampleCrossDepartmentWaitingBonus = 15;
         private const bool DefaultEnableDiagnostics = false;
 
         internal static int SampleFallbackRetries { get; private set; }
         internal static int SampleFallbackRetryMinutes { get; private set; }
+        internal static int SampleFallbackRetryRandomnessMinutes { get; private set; }
         internal static int PatientFallbackRetries { get; private set; }
         internal static int PatientFallbackRetryMinutes { get; private set; }
         internal static int SampleTourMaxSamples { get; private set; }
         internal static int SampleTourSearchDistance { get; private set; }
+        internal static int SampleOccupiedRoomTimeoutMinutes { get; private set; }
+        internal static int SampleOccupiedRoomTimeoutRandomnessMinutes { get; private set; }
+        internal static int SampleOccupiedRoomPreAssignmentWaitChance { get; private set; }
+        internal static int SampleOccupiedRoomRetryCooldownMinMinutes { get; private set; }
+        internal static int SampleOccupiedRoomRetryCooldownMaxMinutes { get; private set; }
+        internal static bool SampleCrossDepartmentHelp { get; private set; }
+        internal static int SampleCrossDepartmentHelpBaseChance { get; private set; }
+        internal static int SampleCrossDepartmentStationFloorBonus { get; private set; }
+        internal static int SampleCrossDepartmentCurrentFloorBonus { get; private set; }
+        internal static int SampleCrossDepartmentWaitingBonus { get; private set; }
         internal static bool EnableDiagnostics { get; private set; }
 
         internal static void Load()
@@ -103,6 +125,12 @@ namespace HospitalPorters
                     "SampleFallbackRetryMinutes",
                     1,
                     60);
+                SampleFallbackRetryRandomnessMinutes = ReadOptionalInt(
+                    settings,
+                    "SampleFallbackRetryRandomnessMinutes",
+                    DefaultSampleFallbackRetryRandomnessMinutes,
+                    0,
+                    60);
                 PatientFallbackRetries = ReadInt(
                     settings,
                     "PatientFallbackRetries",
@@ -125,6 +153,64 @@ namespace HospitalPorters
                     DefaultSampleTourSearchDistance,
                     1,
                     200);
+                SampleOccupiedRoomTimeoutMinutes = ReadOptionalInt(
+                    settings,
+                    "SampleOccupiedRoomTimeoutMinutes",
+                    DefaultSampleOccupiedRoomTimeoutMinutes,
+                    0,
+                    240);
+                SampleOccupiedRoomTimeoutRandomnessMinutes = ReadOptionalInt(
+                    settings,
+                    "SampleOccupiedRoomTimeoutRandomnessMinutes",
+                    DefaultSampleOccupiedRoomTimeoutRandomnessMinutes,
+                    0,
+                    60);
+                SampleOccupiedRoomPreAssignmentWaitChance = ReadOptionalInt(
+                    settings,
+                    "SampleOccupiedRoomPreAssignmentWaitChance",
+                    DefaultSampleOccupiedRoomPreAssignmentWaitChance, 0, 100);
+                SampleOccupiedRoomRetryCooldownMinMinutes = ReadOptionalInt(
+                    settings,
+                    "SampleOccupiedRoomRetryCooldownMinMinutes",
+                    DefaultSampleOccupiedRoomRetryCooldownMinMinutes, 0, 240);
+                SampleOccupiedRoomRetryCooldownMaxMinutes = ReadOptionalInt(
+                    settings,
+                    "SampleOccupiedRoomRetryCooldownMaxMinutes",
+                    DefaultSampleOccupiedRoomRetryCooldownMaxMinutes, 0, 240);
+                if (SampleOccupiedRoomRetryCooldownMaxMinutes <
+                    SampleOccupiedRoomRetryCooldownMinMinutes)
+                {
+                    throw new FormatException(
+                        "The occupied-room retry cooldown maximum must be >= its minimum.");
+                }
+                SampleCrossDepartmentHelp = ReadOptionalBool(
+                    settings,
+                    "SampleCrossDepartmentHelp",
+                    DefaultSampleCrossDepartmentHelp);
+                SampleCrossDepartmentHelpBaseChance = ReadOptionalInt(
+                    settings,
+                    "SampleCrossDepartmentHelpBaseChance",
+                    DefaultSampleCrossDepartmentHelpBaseChance,
+                    0,
+                    100);
+                SampleCrossDepartmentStationFloorBonus = ReadOptionalInt(
+                    settings,
+                    "SampleCrossDepartmentStationFloorBonus",
+                    DefaultSampleCrossDepartmentStationFloorBonus,
+                    0,
+                    50);
+                SampleCrossDepartmentCurrentFloorBonus = ReadOptionalInt(
+                    settings,
+                    "SampleCrossDepartmentCurrentFloorBonus",
+                    DefaultSampleCrossDepartmentCurrentFloorBonus,
+                    0,
+                    50);
+                SampleCrossDepartmentWaitingBonus = ReadOptionalInt(
+                    settings,
+                    "SampleCrossDepartmentWaitingBonus",
+                    DefaultSampleCrossDepartmentWaitingBonus,
+                    0,
+                    50);
                 EnableDiagnostics = ReadOptionalBool(
                     settings,
                     "EnableDiagnostics",
@@ -152,12 +238,34 @@ namespace HospitalPorters
                 DefaultSampleFallbackRetries;
             SampleFallbackRetryMinutes =
                 DefaultSampleFallbackRetryMinutes;
+            SampleFallbackRetryRandomnessMinutes =
+                DefaultSampleFallbackRetryRandomnessMinutes;
             PatientFallbackRetries =
                 DefaultPatientFallbackRetries;
             PatientFallbackRetryMinutes =
                 DefaultPatientFallbackRetryMinutes;
             SampleTourMaxSamples = DefaultSampleTourMaxSamples;
             SampleTourSearchDistance = DefaultSampleTourSearchDistance;
+            SampleOccupiedRoomTimeoutMinutes =
+                DefaultSampleOccupiedRoomTimeoutMinutes;
+            SampleOccupiedRoomTimeoutRandomnessMinutes =
+                DefaultSampleOccupiedRoomTimeoutRandomnessMinutes;
+            SampleOccupiedRoomPreAssignmentWaitChance =
+                DefaultSampleOccupiedRoomPreAssignmentWaitChance;
+            SampleOccupiedRoomRetryCooldownMinMinutes =
+                DefaultSampleOccupiedRoomRetryCooldownMinMinutes;
+            SampleOccupiedRoomRetryCooldownMaxMinutes =
+                DefaultSampleOccupiedRoomRetryCooldownMaxMinutes;
+            SampleCrossDepartmentHelp =
+                DefaultSampleCrossDepartmentHelp;
+            SampleCrossDepartmentHelpBaseChance =
+                DefaultSampleCrossDepartmentHelpBaseChance;
+            SampleCrossDepartmentStationFloorBonus =
+                DefaultSampleCrossDepartmentStationFloorBonus;
+            SampleCrossDepartmentCurrentFloorBonus =
+                DefaultSampleCrossDepartmentCurrentFloorBonus;
+            SampleCrossDepartmentWaitingBonus =
+                DefaultSampleCrossDepartmentWaitingBonus;
             EnableDiagnostics = DefaultEnableDiagnostics;
         }
 
@@ -167,10 +275,21 @@ namespace HospitalPorters
             return
                 name == "SampleFallbackRetries" ||
                 name == "SampleFallbackRetryMinutes" ||
+                name == "SampleFallbackRetryRandomnessMinutes" ||
                 name == "PatientFallbackRetries" ||
                 name == "PatientFallbackRetryMinutes" ||
                 name == "SampleTourMaxSamples" ||
                 name == "SampleTourSearchDistance" ||
+                name == "SampleOccupiedRoomTimeoutMinutes" ||
+                name == "SampleOccupiedRoomTimeoutRandomnessMinutes" ||
+                name == "SampleOccupiedRoomPreAssignmentWaitChance" ||
+                name == "SampleOccupiedRoomRetryCooldownMinMinutes" ||
+                name == "SampleOccupiedRoomRetryCooldownMaxMinutes" ||
+                name == "SampleCrossDepartmentHelp" ||
+                name == "SampleCrossDepartmentHelpBaseChance" ||
+                name == "SampleCrossDepartmentStationFloorBonus" ||
+                name == "SampleCrossDepartmentCurrentFloorBonus" ||
+                name == "SampleCrossDepartmentWaitingBonus" ||
                 name == "EnableDiagnostics";
         }
 
@@ -297,6 +416,8 @@ namespace HospitalPorters
                 SampleFallbackRetries +
                 "; sampleRetryMinutes=" +
                 SampleFallbackRetryMinutes +
+                "; sampleRetryRandomnessMinutes=" +
+                SampleFallbackRetryRandomnessMinutes +
                 "; patientRetries=" +
                 PatientFallbackRetries +
                 "; patientRetryMinutes=" +
@@ -305,6 +426,25 @@ namespace HospitalPorters
                 SampleTourMaxSamples +
                 "; sampleTourSearchDistance=" +
                 SampleTourSearchDistance +
+                "; sampleOccupiedRoomTimeoutMinutes=" +
+                SampleOccupiedRoomTimeoutMinutes +
+                "; sampleOccupiedRoomTimeoutRandomnessMinutes=" +
+                SampleOccupiedRoomTimeoutRandomnessMinutes +
+                "; samplePreBlockedWaitChance=" +
+                SampleOccupiedRoomPreAssignmentWaitChance +
+                "; sampleRoomRetryCooldownMinutes=" +
+                SampleOccupiedRoomRetryCooldownMinMinutes + "-" +
+                SampleOccupiedRoomRetryCooldownMaxMinutes +
+                "; sampleCrossDepartmentHelp=" +
+                SampleCrossDepartmentHelp +
+                "; sampleCrossDepartmentBaseChance=" +
+                SampleCrossDepartmentHelpBaseChance +
+                "; sampleCrossDepartmentStationFloorBonus=" +
+                SampleCrossDepartmentStationFloorBonus +
+                "; sampleCrossDepartmentCurrentFloorBonus=" +
+                SampleCrossDepartmentCurrentFloorBonus +
+                "; sampleCrossDepartmentWaitingBonus=" +
+                SampleCrossDepartmentWaitingBonus +
                 "; diagnostics=" +
                 EnableDiagnostics +
                 ".");

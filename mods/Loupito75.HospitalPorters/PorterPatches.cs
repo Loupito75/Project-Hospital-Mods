@@ -138,6 +138,15 @@ namespace HospitalPorters
         }
     }
 
+    internal sealed class PorterPatientFallbackSnapshot
+    {
+        internal Entity Patient;
+        internal TileObject Destination;
+        internal int RetryCount;
+        internal int NextRetryGameMinute;
+        internal bool Released;
+    }
+
     [HarmonyPatch(
         typeof(StretcherComponent),
         nameof(StretcherComponent.SetDestination),
@@ -153,12 +162,45 @@ namespace HospitalPorters
         })]
     internal static class StretcherDestinationPatch
     {
+        private sealed class PatientFallbackRequestContext
+        {
+            internal HospitalizationState HospitalizationState;
+            internal LyingState LyingState;
+            internal StretcherUse StretcherUse;
+            internal BedReservation BedReservation;
+            internal MovementType MovementType;
+            internal Vehicle Vehicle;
+        }
+
         private sealed class PatientFallbackWait
         {
             internal TileObject Destination;
+            internal PatientFallbackRequestContext Context;
             internal int RetryCount;
-            internal float NextRetryAt;
+            internal int NextRetryGameMinute;
+            internal int SuppressedSetDestinationCalls;
         }
+
+        private sealed class PatientFallbackRelease
+        {
+            internal TileObject Destination;
+            internal PatientFallbackRequestContext Context;
+        }
+
+        private sealed class PatientFallbackPatchState
+        {
+            internal Entity Patient;
+            internal Department Department;
+            internal Entity SelectedPorter;
+            internal NurseState SelectedPorterStateBeforeAssignment;
+            internal bool HasSelectedPorterStateBeforeAssignment;
+            internal bool ReleasedToNative;
+        }
+
+        private const int PatientPorterCapacityWindowMinutes =
+            24 * 60;
+        private const int PatientPorterCapacityFallbackThreshold =
+            3;
 
         private static readonly FieldInfo EntityField =
             AccessTools.Field(typeof(StretcherComponent), "m_entity");
@@ -167,22 +209,39 @@ namespace HospitalPorters
             FallbackWaits =
                 new Dictionary<Entity, PatientFallbackWait>();
 
-        private static readonly HashSet<Entity> ReleasedFallbacks =
-            new HashSet<Entity>();
+        private static readonly Dictionary<Entity, PatientFallbackRelease>
+            ReleasedFallbacks =
+                new Dictionary<Entity, PatientFallbackRelease>();
+
+        private static readonly Dictionary<Department, List<int>>
+            PatientPorterCapacityFallbackEvents =
+                new Dictionary<Department, List<int>>();
+
+        private static readonly HashSet<Department>
+            PatientPorterCapacityNotifications =
+                new HashSet<Department>();
 
         internal static void ResetFallbackTracking()
         {
             FallbackWaits.Clear();
             ReleasedFallbacks.Clear();
+            PatientPorterCapacityFallbackEvents.Clear();
+            PatientPorterCapacityNotifications.Clear();
         }
 
         private static bool Prefix(
             StretcherComponent __instance,
             TileObject bed,
-            Vehicle vehicle,
+            LyingState lyingState,
+            StretcherUse stretcherUse,
+            BedReservation freeBed,
             ref Entity movingCharacter,
-            ref bool __result)
+            MovementType movementType,
+            Vehicle vehicle,
+            ref bool __result,
+            out PatientFallbackPatchState __state)
         {
+            __state = new PatientFallbackPatchState();
             if (__instance == null ||
                 __instance.m_state == null)
             {
@@ -194,6 +253,17 @@ namespace HospitalPorters
                 patient == null
                     ? null
                     : patient.GetComponent<BehaviorPatient>()?.GetDepartment();
+            __state.Patient = patient;
+            __state.Department = department;
+
+            PatientFallbackRequestContext requestContext =
+                BuildPatientFallbackRequestContext(
+                    patient,
+                    lyingState,
+                    stretcherUse,
+                    freeBed,
+                    movementType,
+                    vehicle);
 
             if (movingCharacter != null ||
                 __instance.m_state.m_movingCharacter != null)
@@ -219,10 +289,127 @@ namespace HospitalPorters
                 return true;
             }
 
+            PatientFallbackWait wait;
+            if (FallbackWaits.TryGetValue(patient, out wait))
+            {
+                if (wait.Context == null)
+                {
+                    wait.Context = requestContext;
+                }
+                else if (!IsSamePatientFallbackRequest(
+                             wait.Context,
+                             requestContext))
+                {
+                    PorterDiagnostics.Log(
+                        "patient fallback request changed: patient=" +
+                        (patient.Name ?? string.Empty).Trim() +
+                        "; state=waiting" +
+                        "; oldContext={" +
+                        DescribePatientFallbackRequestContext(
+                            wait.Context) +
+                        "}; newContext={" +
+                        DescribePatientFallbackRequestContext(
+                            requestContext) +
+                        "}; action=reset-cooldown.");
+
+                    ClearFallbackTracking(patient);
+                    wait = null;
+                }
+                else if (!object.ReferenceEquals(
+                             wait.Destination,
+                             bed))
+                {
+                    PorterDiagnostics.Log(
+                        "patient fallback destination retargeted: patient=" +
+                        (patient.Name ?? string.Empty).Trim() +
+                        "; state=waiting" +
+                        "; oldDestination={" +
+                        DescribePatientFallbackDestination(
+                            wait.Destination) +
+                        "}; newDestination={" +
+                        DescribePatientFallbackDestination(bed) +
+                        "}; action=preserve-cooldown.");
+
+                    wait.Destination = bed;
+                }
+            }
+
+            PatientFallbackRelease release;
+            if (ReleasedFallbacks.TryGetValue(
+                    patient,
+                    out release) &&
+                release != null)
+            {
+                if (release.Context == null)
+                {
+                    release.Context = requestContext;
+                }
+                else if (!IsSamePatientFallbackRequest(
+                             release.Context,
+                             requestContext))
+                {
+                    PorterDiagnostics.Log(
+                        "patient fallback request changed: patient=" +
+                        (patient.Name ?? string.Empty).Trim() +
+                        "; state=released" +
+                        "; oldContext={" +
+                        DescribePatientFallbackRequestContext(
+                            release.Context) +
+                        "}; newContext={" +
+                        DescribePatientFallbackRequestContext(
+                            requestContext) +
+                        "}; action=reset-release.");
+
+                    ClearFallbackTracking(patient);
+                    release = null;
+                }
+                else if (!object.ReferenceEquals(
+                             release.Destination,
+                             bed))
+                {
+                    PorterDiagnostics.Log(
+                        "patient fallback destination retargeted: patient=" +
+                        (patient.Name ?? string.Empty).Trim() +
+                        "; state=released" +
+                        "; oldDestination={" +
+                        DescribePatientFallbackDestination(
+                            release.Destination) +
+                        "}; newDestination={" +
+                        DescribePatientFallbackDestination(bed) +
+                        "}; action=preserve-release.");
+
+                    release.Destination = bed;
+                }
+            }
+
+            if (release != null)
+            {
+                __state.ReleasedToNative = true;
+                return true;
+            }
+
+            int nowMinute = GetPatientFallbackClockMinute();
+            if (wait != null &&
+                nowMinute < wait.NextRetryGameMinute)
+            {
+                wait.SuppressedSetDestinationCalls++;
+                __result = false;
+                return false;
+            }
+
+            int maxFallbackRetries =
+                PorterTransportConfig.PatientFallbackRetries;
+            bool isRetryAttempt = wait != null;
+            int scheduledRetryMinute =
+                isRetryAttempt
+                    ? wait.NextRetryGameMinute
+                    : 0;
+
+            // HPO owns patient-transport assignment: only the initial
+            // opportunity and due retry instants search for a Porter.
             Entity porter = FindAvailablePorter(
                 department,
                 porterRole);
-            bool crossDepartment = false;
             if (porter == null)
             {
                 porter = FindAvailableHelperPorter(
@@ -230,43 +417,49 @@ namespace HospitalPorters
                     porterRole,
                     patient,
                     vehicle);
-                crossDepartment = porter != null;
+            }
+
+            if (isRetryAttempt)
+            {
+                PorterDiagnostics.Log(
+                    "patient fallback retry attempt: patient=" +
+                    patient.Name +
+                    "; retry=" +
+                    (wait.RetryCount + 1) +
+                    "/" +
+                    maxFallbackRetries +
+                    "; scheduledMinute=" +
+                    scheduledRetryMinute +
+                    "; nowMinute=" +
+                    nowMinute +
+                    "; suppressedSetDestinationCalls=" +
+                    wait.SuppressedSetDestinationCalls +
+                    "; result=" +
+                    (porter == null
+                        ? "no-porter"
+                        : "porter-found") +
+                    ".");
             }
 
             if (porter != null)
             {
+                BehaviorNurse porterBehavior =
+                    porter.GetComponent<BehaviorNurse>();
+                if (porterBehavior != null &&
+                    porterBehavior.m_state != null)
+                {
+                    __state.SelectedPorterStateBeforeAssignment =
+                        porterBehavior.m_state.m_nurseState;
+                    __state.HasSelectedPorterStateBeforeAssignment =
+                        true;
+                }
+
                 ClearFallbackTracking(patient);
                 movingCharacter = porter;
-
-                WalkComponent patientWalk =
-                    patient.GetComponent<WalkComponent>();
-                PorterDiagnostics.Log(
-                    "patient assigned: porter=" +
-                    porter.Name +
-                    "; patient=" +
-                    patient.Name +
-                    "; vehicle=" +
-                    vehicle +
-                    "; floors=" +
-                    (patientWalk == null
-                        ? -1
-                        : patientWalk.GetFloorIndex()) +
-                    "->" +
-                    (bed == null ? -1 : bed.GetFloorIndex()) +
-                    "; crossDepartment=" +
-                    crossDepartment +
-                    ".");
-
+                __state.SelectedPorter = porter;
                 return true;
             }
 
-            if (ReleasedFallbacks.Contains(patient))
-            {
-                return true;
-            }
-
-            int maxFallbackRetries =
-                PorterTransportConfig.PatientFallbackRetries;
             if (bed == null ||
                 maxFallbackRetries <= 0 ||
                 !HasConfiguredPatientTransportPorter(
@@ -277,37 +470,36 @@ namespace HospitalPorters
                 return true;
             }
 
-            PatientFallbackWait wait;
-            if (FallbackWaits.TryGetValue(patient, out wait) &&
-                !object.ReferenceEquals(wait.Destination, bed))
-            {
-                ClearFallbackTracking(patient);
-                wait = null;
-            }
-
-            float now = __instance.m_state.m_timeInState;
             int retryMinutes =
                 PorterTransportConfig.PatientFallbackRetryMinutes;
-            float retryDelay =
-                DayTime.Instance.IngameTimeHoursToRealTimeSeconds(
-                    retryMinutes / 60f);
 
-            if (!FallbackWaits.TryGetValue(patient, out wait))
+            if (wait == null)
             {
                 wait = new PatientFallbackWait
                 {
                     Destination = bed,
+                    Context = requestContext,
                     RetryCount = 0,
-                    NextRetryAt = now + retryDelay
+                    NextRetryGameMinute =
+                        nowMinute + retryMinutes
                 };
                 FallbackWaits[patient] = wait;
 
-                __result = false;
-                return false;
-            }
+                PorterDiagnostics.Log(
+                    "patient fallback initial attempt failed: patient=" +
+                    patient.Name +
+                    "; nowMinute=" +
+                    nowMinute +
+                    "; retry=1/" +
+                    maxFallbackRetries +
+                    "; delayMinutes=" +
+                    retryMinutes +
+                    "; deadlineMinute=" +
+                    wait.NextRetryGameMinute +
+                    "; destination={" +
+                    DescribePatientFallbackDestination(bed) +
+                    "}; note=no Porter search before deadline.");
 
-            if (now < wait.NextRetryAt)
-            {
                 __result = false;
                 return false;
             }
@@ -316,7 +508,13 @@ namespace HospitalPorters
             if (wait.RetryCount >= maxFallbackRetries)
             {
                 FallbackWaits.Remove(patient);
-                ReleasedFallbacks.Add(patient);
+                ReleasedFallbacks[patient] =
+                    new PatientFallbackRelease
+                    {
+                        Destination = bed,
+                        Context = requestContext
+                    };
+                __state.ReleasedToNative = true;
 
                 PorterDiagnostics.Log(
                     "patient fallback: patient=" +
@@ -328,19 +526,157 @@ namespace HospitalPorters
                 return true;
             }
 
-            wait.NextRetryAt = now + retryDelay;
+            wait.NextRetryGameMinute =
+                nowMinute + retryMinutes;
+            wait.SuppressedSetDestinationCalls = 0;
+            PorterDiagnostics.Log(
+                "patient fallback next retry scheduled: patient=" +
+                patient.Name +
+                "; retry=" +
+                (wait.RetryCount + 1) +
+                "/" +
+                maxFallbackRetries +
+                "; nowMinute=" +
+                nowMinute +
+                "; delayMinutes=" +
+                retryMinutes +
+                "; deadlineMinute=" +
+                wait.NextRetryGameMinute +
+                "; note=no Porter search before deadline.");
+
             __result = false;
             return false;
         }
 
         private static void Postfix(
             StretcherComponent __instance,
-            bool __result)
+            TileObject bed,
+            Vehicle vehicle,
+            bool __result,
+            PatientFallbackPatchState __state)
         {
+            Entity patient =
+                __state == null || __state.Patient == null
+                    ? GetPatient(__instance)
+                    : __state.Patient;
+
+            if (__result &&
+                __state != null &&
+                __state.ReleasedToNative &&
+                __instance != null &&
+                __instance.m_state != null &&
+                __instance.m_state.m_movingCharacter != null)
+            {
+                Entity actualMover =
+                    __instance.m_state.m_movingCharacter.GetEntity();
+                if (actualMover != null &&
+                    !PorterIdentity.IsPorter(actualMover) &&
+                    actualMover.GetComponent<BehaviorNurse>() != null)
+                {
+                    RecordPatientPorterCapacityFallback(
+                        __state.Department);
+                }
+            }
+
             if (__result)
             {
-                ClearFallbackTracking(GetPatient(__instance));
+                ClearFallbackTracking(patient);
             }
+
+            Entity selectedPorter =
+                __state == null
+                    ? null
+                    : __state.SelectedPorter;
+
+            if (selectedPorter == null ||
+                !PorterTransportConfig.EnableDiagnostics)
+            {
+                return;
+            }
+
+            Department patientDepartment =
+                patient == null
+                    ? null
+                    : patient.GetComponent<BehaviorPatient>()?.GetDepartment();
+            EmployeeComponent employee =
+                selectedPorter.GetComponent<EmployeeComponent>();
+            Department porterDepartment =
+                employee == null ||
+                employee.m_state == null ||
+                employee.m_state.m_department == null
+                    ? null
+                    : employee.m_state.m_department.GetEntity();
+            WalkComponent walk =
+                patient == null
+                    ? null
+                    : patient.GetComponent<WalkComponent>();
+            bool porterStored =
+                __instance != null &&
+                __instance.m_state != null &&
+                __instance.m_state.m_movingCharacter != null &&
+                __instance.m_state.m_movingCharacter.GetEntity() ==
+                    selectedPorter;
+            bool equipmentSelected =
+                __instance != null &&
+                __instance.m_state != null &&
+                __instance.m_state.m_stretcherPatientSide != null &&
+                __instance.m_state.m_stretcherPatientSide.GetEntity() != null;
+
+            bool destinationOccupied = false;
+            bool destinationReserved = false;
+            if (!__result && bed != null &&
+                MapScriptInterface.Instance != null)
+            {
+                destinationOccupied =
+                    MapScriptInterface.Instance.GetCenterObjectAt(
+                        bed.GetDefaultStretcherTile(),
+                        bed.GetFloorIndex()) != null;
+                destinationReserved =
+                    MapScriptInterface.Instance.GetTileReservedBy(
+                        bed.GetDefaultStretcherTile(),
+                        bed.GetFloorIndex()) != null;
+            }
+
+            PorterDiagnostics.Log(
+                (__result
+                    ? "patient assignment accepted: porter="
+                    : "patient assignment rejected: porter=") +
+                (selectedPorter.Name ?? string.Empty).Trim() +
+                "; patient=" +
+                (patient == null
+                    ? "UNKNOWN"
+                    : (patient.Name ?? string.Empty).Trim()) +
+                "; patientDepartment=" +
+                GetDepartmentDiagnosticId(patientDepartment) +
+                "; porterDepartment=" +
+                GetDepartmentDiagnosticId(porterDepartment) +
+                "; porterStateBeforeAssignment=" +
+                (__state != null &&
+                 __state.HasSelectedPorterStateBeforeAssignment
+                    ? __state.SelectedPorterStateBeforeAssignment.ToString()
+                    : "UNKNOWN") +
+                "; requestedVehicle=" + vehicle +
+                "; effectiveVehicle=" +
+                (__instance == null || __instance.m_state == null
+                    ? "UNKNOWN"
+                    : __instance.m_state.m_vehicle.ToString()) +
+                "; floors=" +
+                (walk == null ? -1 : walk.GetFloorIndex()) +
+                "->" + (bed == null ? -1 : bed.GetFloorIndex()) +
+                "; crossDepartment=" +
+                (patientDepartment != null &&
+                 porterDepartment != null &&
+                 patientDepartment != porterDepartment) +
+                "; result=" + __result +
+                "; stretcherState=" +
+                (__instance == null || __instance.m_state == null
+                    ? "UNKNOWN"
+                    : __instance.m_state.m_stretcherState.ToString()) +
+                "; porterStored=" + porterStored +
+                "; equipmentSelected=" + equipmentSelected +
+                "; destinationOccupied=" + destinationOccupied +
+                "; destinationReserved=" + destinationReserved +
+                ".");
         }
 
         private static Entity GetPatient(
@@ -627,6 +963,438 @@ namespace HospitalPorters
                 state == NurseState.FinishedProcedure;
         }
 
+        private static string GetDepartmentDiagnosticId(
+            Department department)
+        {
+            return department == null ||
+                department.m_departmentPersistentData == null ||
+                department.m_departmentPersistentData.m_departmentType == null ||
+                department.m_departmentPersistentData.m_departmentType.Entry == null
+                    ? "NONE"
+                    : department.m_departmentPersistentData
+                        .m_departmentType.Entry.DatabaseID.ToString();
+        }
+
+        private static PatientFallbackRequestContext
+            BuildPatientFallbackRequestContext(
+                Entity patient,
+                LyingState lyingState,
+                StretcherUse stretcherUse,
+                BedReservation bedReservation,
+                MovementType movementType,
+                Vehicle vehicle)
+        {
+            HospitalizationState hospitalizationState =
+                HospitalizationState.NoHospitalization;
+            HospitalizationComponent hospitalization =
+                patient == null
+                    ? null
+                    : patient.GetComponent<HospitalizationComponent>();
+            if (hospitalization != null &&
+                hospitalization.m_state != null)
+            {
+                hospitalizationState =
+                    hospitalization.m_state.m_hospitalizationState;
+            }
+
+            PatientFallbackRequestContext context =
+                new PatientFallbackRequestContext();
+            context.HospitalizationState =
+                hospitalizationState;
+            context.LyingState = lyingState;
+            context.StretcherUse = stretcherUse;
+            context.BedReservation = bedReservation;
+            context.MovementType = movementType;
+            context.Vehicle = vehicle;
+            return context;
+        }
+
+        private static bool IsSamePatientFallbackRequest(
+            PatientFallbackRequestContext left,
+            PatientFallbackRequestContext right)
+        {
+            // LyingState is deliberately not part of request identity.
+            // Vanilla can alternate COVERED / UNCOVERED while evaluating
+            // different destinations inside the same hospitalization step.
+            return left != null &&
+                right != null &&
+                left.HospitalizationState ==
+                    right.HospitalizationState &&
+                left.StretcherUse == right.StretcherUse &&
+                left.BedReservation == right.BedReservation &&
+                left.MovementType == right.MovementType &&
+                left.Vehicle == right.Vehicle;
+        }
+
+        private static string DescribePatientFallbackRequestContext(
+            PatientFallbackRequestContext context)
+        {
+            if (context == null)
+            {
+                return "UNKNOWN";
+            }
+
+            return "hospitalizationState=" +
+                context.HospitalizationState +
+                "; lyingState=" +
+                context.LyingState +
+                "; stretcherUse=" +
+                context.StretcherUse +
+                "; bedReservation=" +
+                context.BedReservation +
+                "; movementType=" +
+                context.MovementType +
+                "; vehicle=" +
+                context.Vehicle;
+        }
+
+        private static string DescribePatientFallbackDestination(
+            TileObject destination)
+        {
+            if (destination == null)
+            {
+                return "NONE";
+            }
+
+            string databaseId = "UNKNOWN";
+            Vector2i position = Vector2i.ZERO_VECTOR;
+
+            if (destination.m_state != null)
+            {
+                position = destination.m_state.m_position;
+
+                if (destination.m_state.m_gameDBObject != null &&
+                    !destination.m_state.m_gameDBObject.IsDeleted &&
+                    destination.m_state.m_gameDBObject.Entry != null)
+                {
+                    databaseId =
+                        destination.m_state.m_gameDBObject.Entry.DatabaseID
+                            .ToString();
+                }
+            }
+
+            return "entityId=" +
+                destination.GetEntityID() +
+                "; databaseId=" +
+                databaseId +
+                "; position=" +
+                position +
+                "; floor=" +
+                destination.GetFloorIndex();
+        }
+
+        private static int GetPatientFallbackClockMinute()
+        {
+            if (DayTime.Instance == null)
+            {
+                return 0;
+            }
+
+            return (int)(
+                DayTime.Instance.GetDay() * 1440f +
+                DayTime.Instance.GetDayTimeHours() * 60f);
+        }
+
+        internal static List<PorterPatientFallbackSnapshot>
+            GetPatientFallbackStateSnapshot()
+        {
+            List<PorterPatientFallbackSnapshot> snapshot =
+                new List<PorterPatientFallbackSnapshot>();
+
+            foreach (KeyValuePair<Entity, PatientFallbackWait> pair in
+                FallbackWaits)
+            {
+                if (pair.Key == null ||
+                    pair.Value == null ||
+                    pair.Value.Destination == null)
+                {
+                    continue;
+                }
+
+                PorterPatientFallbackSnapshot entry =
+                    new PorterPatientFallbackSnapshot();
+                entry.Patient = pair.Key;
+                entry.Destination = pair.Value.Destination;
+                entry.RetryCount = pair.Value.RetryCount;
+                entry.NextRetryGameMinute =
+                    pair.Value.NextRetryGameMinute;
+                entry.Released = false;
+                snapshot.Add(entry);
+            }
+
+            foreach (KeyValuePair<Entity, PatientFallbackRelease> pair in
+                ReleasedFallbacks)
+            {
+                if (pair.Key == null ||
+                    pair.Value == null ||
+                    pair.Value.Destination == null)
+                {
+                    continue;
+                }
+
+                PorterPatientFallbackSnapshot entry =
+                    new PorterPatientFallbackSnapshot();
+                entry.Patient = pair.Key;
+                entry.Destination = pair.Value.Destination;
+                entry.RetryCount =
+                    PorterTransportConfig.PatientFallbackRetries;
+                entry.NextRetryGameMinute = 0;
+                entry.Released = true;
+                snapshot.Add(entry);
+            }
+
+            return snapshot;
+        }
+
+        internal static bool RestorePatientFallbackState(
+            Entity patient,
+            TileObject destination,
+            int retryCount,
+            int nextRetryGameMinute,
+            bool released)
+        {
+            if (patient == null ||
+                destination == null)
+            {
+                return false;
+            }
+
+            if (released)
+            {
+                ReleasedFallbacks[patient] =
+                    new PatientFallbackRelease
+                    {
+                        Destination = destination,
+                        Context = null
+                    };
+                return true;
+            }
+
+            if (retryCount < 0 ||
+                nextRetryGameMinute <= 0)
+            {
+                return false;
+            }
+
+            FallbackWaits[patient] =
+                new PatientFallbackWait
+                {
+                    Destination = destination,
+                    Context = null,
+                    RetryCount = retryCount,
+                    NextRetryGameMinute =
+                        nextRetryGameMinute
+                };
+            return true;
+        }
+
+        internal static List<KeyValuePair<Department, int>>
+            GetPatientPorterCapacityFallbackHistorySnapshot()
+        {
+            TrimPatientPorterCapacityFallbackHistory();
+            List<KeyValuePair<Department, int>> snapshot =
+                new List<KeyValuePair<Department, int>>();
+
+            foreach (KeyValuePair<Department, List<int>> pair in
+                PatientPorterCapacityFallbackEvents)
+            {
+                if (pair.Key == null ||
+                    pair.Value == null)
+                {
+                    continue;
+                }
+
+                for (int i = 0;
+                    i < pair.Value.Count;
+                    i++)
+                {
+                    snapshot.Add(
+                        new KeyValuePair<Department, int>(
+                            pair.Key,
+                            pair.Value[i]));
+                }
+            }
+
+            return snapshot;
+        }
+
+        internal static List<Department>
+            GetPatientPorterCapacityNotificationsSnapshot()
+        {
+            return new List<Department>(
+                PatientPorterCapacityNotifications);
+        }
+
+        internal static bool RestorePatientPorterCapacityFallbackEvent(
+            Department department,
+            int gameMinute)
+        {
+            if (department == null ||
+                gameMinute < 0)
+            {
+                return false;
+            }
+
+            int now =
+                GetPatientFallbackClockMinute();
+            if (now - gameMinute >
+                PatientPorterCapacityWindowMinutes)
+            {
+                return false;
+            }
+
+            List<int> events;
+            if (!PatientPorterCapacityFallbackEvents.TryGetValue(
+                    department,
+                    out events))
+            {
+                events = new List<int>();
+                PatientPorterCapacityFallbackEvents[department] =
+                    events;
+            }
+
+            events.Add(gameMinute);
+            return true;
+        }
+
+        internal static bool RestorePatientPorterCapacityNotification(
+            Department department)
+        {
+            return department != null &&
+                PatientPorterCapacityNotifications.Add(
+                    department);
+        }
+
+        internal static void ResetPatientPorterCapacityNotification(
+            Department department)
+        {
+            if (department != null)
+            {
+                PatientPorterCapacityNotifications.Remove(
+                    department);
+            }
+        }
+
+        private static void TrimPatientPorterCapacityFallbackHistory()
+        {
+            int now =
+                GetPatientFallbackClockMinute();
+            List<Department> empty =
+                new List<Department>();
+
+            foreach (KeyValuePair<Department, List<int>> pair in
+                PatientPorterCapacityFallbackEvents)
+            {
+                List<int> events = pair.Value;
+                if (events == null)
+                {
+                    empty.Add(pair.Key);
+                    continue;
+                }
+
+                for (int i = events.Count - 1;
+                    i >= 0;
+                    i--)
+                {
+                    if (now - events[i] >
+                        PatientPorterCapacityWindowMinutes)
+                    {
+                        events.RemoveAt(i);
+                    }
+                }
+
+                if (events.Count == 0)
+                {
+                    empty.Add(pair.Key);
+                }
+            }
+
+            for (int i = 0;
+                i < empty.Count;
+                i++)
+            {
+                PatientPorterCapacityFallbackEvents.Remove(
+                    empty[i]);
+            }
+        }
+
+        private static void RecordPatientPorterCapacityFallback(
+            Department department)
+        {
+            if (department == null)
+            {
+                return;
+            }
+
+            TrimPatientPorterCapacityFallbackHistory();
+
+            List<int> events;
+            if (!PatientPorterCapacityFallbackEvents.TryGetValue(
+                    department,
+                    out events))
+            {
+                events = new List<int>();
+                PatientPorterCapacityFallbackEvents[department] =
+                    events;
+            }
+
+            events.Add(
+                GetPatientFallbackClockMinute());
+            if (events.Count <
+                    PatientPorterCapacityFallbackThreshold ||
+                PatientPorterCapacityNotifications.Contains(
+                    department))
+            {
+                return;
+            }
+
+            NotifyPatientPorterCapacity(
+                department,
+                events.Count);
+            PatientPorterCapacityNotifications.Add(
+                department);
+        }
+
+        private static void NotifyPatientPorterCapacity(
+            Department department,
+            int fallbackCount)
+        {
+            if (department == null ||
+                department.m_departmentPersistentData == null ||
+                department.m_departmentPersistentData.m_departmentType == null ||
+                department.m_departmentPersistentData.m_departmentType.Entry == null ||
+                NotificationManager.GetInstance() == null)
+            {
+                return;
+            }
+
+            string departmentName =
+                StringTable.GetInstance().GetLocalizedText(
+                    department.m_departmentPersistentData
+                        .m_departmentType.Entry);
+            NotificationManager.GetInstance().AddMessage(
+                null,
+                PorterIds.PatientPorterCapacityNotification,
+                departmentName,
+                string.Empty,
+                string.Empty,
+                0,
+                0,
+                0,
+                0,
+                PorterVisuals.CategoryAsset);
+
+            PorterDiagnostics.Log(
+                "patient Porter capacity notification: department=" +
+                department.m_departmentPersistentData
+                    .m_departmentType.Entry.DatabaseID +
+                "; fallbacks=" +
+                fallbackCount +
+                "; windowMinutes=" +
+                PatientPorterCapacityWindowMinutes +
+                ".");
+        }
+
         private static void ClearFallbackTracking(
             Entity patient)
         {
@@ -785,6 +1553,9 @@ namespace HospitalPorters
         new Type[] { typeof(StretcherComponentState) })]
     internal static class PorterPatientTransportExperiencePatch
     {
+        private static readonly FieldInfo PatientField =
+            AccessTools.Field(typeof(StretcherComponent), "m_entity");
+
         private static void Prefix(
             StretcherComponent __instance,
             StretcherComponentState state)
@@ -807,10 +1578,25 @@ namespace HospitalPorters
                 return;
             }
 
+            // StretcherComponent.SwitchState is called before the native
+            // state transition: the patient and assigned mover are still linked.
+            Entity patient = object.ReferenceEquals(PatientField, null)
+                ? null
+                : PatientField.GetValue(__instance) as Entity;
+
             PorterExperience.AwardWorkExperience(porter, 3);
             PorterDiagnostics.Log(
                 "patient completed: porter=" +
-                porter.Name +
+                (porter.Name ?? string.Empty).Trim() +
+                "; patient=" +
+                (patient == null
+                    ? "UNKNOWN"
+                    : (patient.Name ?? string.Empty).Trim()) +
+                "; vehicle=" +
+                __instance.m_state.m_vehicle +
+                "; fromState=" +
+                __instance.m_state.m_stretcherState +
+                "; toState=" + state +
                 ".");
         }
     }

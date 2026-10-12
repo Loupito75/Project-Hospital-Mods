@@ -10,10 +10,10 @@
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.0.2</Version>
-    <AssemblyVersion>1.0.2</AssemblyVersion>
-    <FileVersion>1.0.2</FileVersion>
-    <InformationalVersion>1.0.2</InformationalVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0</AssemblyVersion>
+    <FileVersion>1.1.0</FileVersion>
+    <InformationalVersion>1.1.0</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Porters</Product>
@@ -35,6 +35,7 @@
     <Compile Include="LocalizationManager.cs" />
     <Compile Include="PorterPatches.cs" />
     <Compile Include="PorterSampleTransportPatches.cs" />
+    <Compile Include="HospitalPortersApi.cs" />
     <Compile Include="PorterSampleCartPatches.cs" />
     <Compile Include="PorterSamplePersistencePatches.cs" />
     <Compile Include="PorterSampleStatusPatches.cs" />
@@ -123,6 +124,8 @@
           DestinationFiles="@(ModDatabaseFiles->'$(PluginDir)\Database\%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(ModTextureFiles)"
           DestinationFiles="@(ModTextureFiles->'$(PluginDir)\Textures\%(RecursiveDir)%(Filename)%(Extension)')" />
-    <Copy SourceFiles="@(ModConfigFiles)" DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="@(ModConfigFiles)"
+          DestinationFolder="$(PluginDir)"
+          Condition="!Exists('$(PluginDir)\\Loupito75.HospitalPorters.Config.xml')" />
   </Target>
 </Project>

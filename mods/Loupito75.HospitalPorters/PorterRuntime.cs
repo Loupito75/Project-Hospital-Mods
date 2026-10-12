@@ -21,6 +21,10 @@ namespace HospitalPorters
         internal const string SampleCartUiTag = "ui_porter_sample_cart";
         internal const string SampleCartNotification = "HPO_NOTIF_NOT_ENOUGH_SAMPLE_CARTS";
         internal const string SampleCartNotificationText = "HPO_NOTIF_NOT_ENOUGH_SAMPLE_CARTS_TEXT";
+        internal const string SamplePorterCapacityNotification = "HPO_NOTIF_SAMPLE_PORTER_CAPACITY";
+        internal const string SamplePorterCapacityNotificationText = "HPO_NOTIF_SAMPLE_PORTER_CAPACITY_TEXT";
+        internal const string PatientPorterCapacityNotification = "HPO_NOTIF_PATIENT_PORTER_CAPACITY";
+        internal const string PatientPorterCapacityNotificationText = "HPO_NOTIF_PATIENT_PORTER_CAPACITY_TEXT";
         internal const string PorterCandidates = "HPO_PORTERS";
         internal const string PorterTooltip = "HPO_PORTERS_TOOLTIP";
         internal const string PorterStaffingTooltip = "HPO_PORTERS_STAFFING_TOOLTIP";
@@ -107,7 +111,9 @@ namespace HospitalPorters
                     database.GetEntry<GameDBEmployeeRole>(PorterIds.PatientTransportRole) != null &&
                     database.GetEntry<GameDBEmployeeRole>(PorterIds.SampleTransportRole) != null &&
                     database.GetEntry<GameDBObject>(PorterIds.SampleCart) != null &&
-                    database.GetEntry<GameDBNotification>(PorterIds.SampleCartNotification) != null;
+                    database.GetEntry<GameDBNotification>(PorterIds.SampleCartNotification) != null &&
+                    database.GetEntry<GameDBNotification>(PorterIds.SamplePorterCapacityNotification) != null &&
+                    database.GetEntry<GameDBNotification>(PorterIds.PatientPorterCapacityNotification) != null;
 
                 s_loaded = valid;
                 if (valid)

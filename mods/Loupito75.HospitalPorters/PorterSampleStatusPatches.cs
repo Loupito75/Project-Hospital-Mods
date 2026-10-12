@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using GLib;
 using HarmonyLib;
+using Lopital;
 using UnityEngine.UI;
 
 namespace HospitalPorters
@@ -10,11 +11,8 @@ namespace HospitalPorters
         typeof(CharacterPanelController),
         nameof(CharacterPanelController.Update),
         new Type[] { })]
-    internal static class PorterSampleCharacterStatusPatch
+    internal static class PorterCharacterStatusPatch
     {
-        private const string TechnologistSampleStatusLocId =
-            "TECHNOLOGIST_STATE_GoingForSampleFromHospitalizedPatient";
-
         private static readonly FieldInfo CharacterField =
             AccessTools.Field(
                 typeof(CharacterPanelController),
@@ -32,7 +30,8 @@ namespace HospitalPorters
                 return;
             }
 
-            object value = CharacterField.GetValue(__instance);
+            object value =
+                CharacterField.GetValue(__instance);
             if (value == null)
             {
                 return;
@@ -40,9 +39,35 @@ namespace HospitalPorters
 
             EntityIDPointer<Entity> characterPointer =
                 (EntityIDPointer<Entity>)value;
-            Entity employee = characterPointer.GetEntity();
-            if (!PorterIdentity.IsPorter(employee) ||
-                !PorterSampleTransportRuntime.IsBusy(employee))
+            Entity employee =
+                characterPointer.GetEntity();
+            if (!PorterIdentity.IsPorter(employee))
+            {
+                return;
+            }
+
+            string statusLocId = null;
+
+            if (PorterSampleTransportRuntime.IsBusy(employee))
+            {
+                statusLocId =
+                    PorterLocalizationIds.SampleTransportRole;
+            }
+            else
+            {
+                BehaviorNurse nurse =
+                    employee.GetComponent<BehaviorNurse>();
+                if (nurse != null &&
+                    nurse.m_state != null &&
+                    nurse.m_state.m_nurseState ==
+                        NurseState.OverridenMovingStretcher)
+                {
+                    statusLocId =
+                        PorterLocalizationIds.PatientTransportRole;
+                }
+            }
+
+            if (string.IsNullOrEmpty(statusLocId))
             {
                 return;
             }
@@ -56,7 +81,7 @@ namespace HospitalPorters
 
             statusText.text =
                 StringTable.GetInstance().GetLocalizedText(
-                    TechnologistSampleStatusLocId);
+                    statusLocId);
             UIManager.UpdateFont(__instance.m_status);
         }
     }
