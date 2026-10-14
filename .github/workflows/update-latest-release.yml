@@ -22,6 +22,10 @@ jobs:
   update-release-metadata:
     runs-on: ubuntu-latest
 
+    environment:
+      name: hmuc-signing
+      deployment: false
+
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
