@@ -35,6 +35,9 @@ namespace HospitalModUpdateChecker
 
                 if (!File.Exists(configPath))
                 {
+                    Plugin.Log.LogWarning(
+                        "Could not find " + ConfigFileName +
+                        "; using defaults.");
                     return;
                 }
 

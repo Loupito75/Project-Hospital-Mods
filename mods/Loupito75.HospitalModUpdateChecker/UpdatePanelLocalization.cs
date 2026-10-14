@@ -20,6 +20,28 @@ namespace HospitalModUpdateChecker
         internal const string StatusWarningId = "L75_HMUC_STATUS_WARNING";
         internal const string StatusErrorId = "L75_HMUC_STATUS_ERROR";
         internal const string UnknownAuthorId = "L75_HMUC_UNKNOWN_AUTHOR";
+        internal const string UpdateActionId = "L75_HMUC_UPDATE_ACTION";
+        internal const string CancelActionId = "L75_HMUC_CANCEL_ACTION";
+        internal const string RetryActionId = "L75_HMUC_RETRY_ACTION";
+        internal const string QueuedActionId = "L75_HMUC_QUEUED_ACTION";
+        internal const string WorkingActionId = "L75_HMUC_WORKING_ACTION";
+        internal const string DownloadingId = "L75_HMUC_DOWNLOADING";
+        internal const string VerifyingId = "L75_HMUC_VERIFYING";
+        internal const string PreparingInstallId = "L75_HMUC_PREPARING_INSTALL";
+        internal const string RestartRequiredId = "L75_HMUC_RESTART_REQUIRED";
+        internal const string CancelledId = "L75_HMUC_CANCELLED";
+        internal const string PackageCatalogLoadingId = "L75_HMUC_PACKAGE_CATALOG_LOADING";
+        internal const string PackageUnavailableId = "L75_HMUC_PACKAGE_UNAVAILABLE";
+        internal const string PackageCatalogErrorId = "L75_HMUC_PACKAGE_CATALOG_ERROR";
+        internal const string UpdateBusyId = "L75_HMUC_UPDATE_BUSY";
+        internal const string ReadyToUpdateId = "L75_HMUC_READY_TO_UPDATE";
+        internal const string DownloadErrorId = "L75_HMUC_DOWNLOAD_ERROR";
+        internal const string InstallPreparationErrorId = "L75_HMUC_INSTALL_PREPARATION_ERROR";
+        internal const string NotEnoughSpaceId = "L75_HMUC_NOT_ENOUGH_SPACE";
+        internal const string InstallSucceededId = "L75_HMUC_INSTALL_SUCCEEDED";
+        internal const string InstallFailedId = "L75_HMUC_INSTALL_FAILED";
+        internal const string ConfigAddedId = "L75_HMUC_CONFIG_ADDED";
+        internal const string ConfigWarningId = "L75_HMUC_CONFIG_WARNING";
 
         private sealed class Translation
         {
@@ -94,6 +116,16 @@ namespace HospitalModUpdateChecker
 
         private static readonly Dictionary<string, Translation> Translations =
             CreateTranslations();
+
+        private static readonly Dictionary<string, string> EnglishInstallerStrings =
+            CreateEnglishInstallerStrings();
+
+        private static readonly Dictionary<string, string> FrenchInstallerStrings =
+            CreateFrenchInstallerStrings();
+
+        private static readonly Dictionary<string, Dictionary<string, string>>
+            InstallerTranslations =
+                CreateInstallerTranslations();
 
         internal static string Get(string stringId)
         {
@@ -183,7 +215,593 @@ namespace HospitalModUpdateChecker
                 return translation.UnknownAuthor;
             }
 
+            Dictionary<string, string> installerStrings;
+
+            if (!InstallerTranslations.TryGetValue(
+                    language,
+                    out installerStrings))
+            {
+                installerStrings =
+                    EnglishInstallerStrings;
+            }
+
+            string installerValue;
+            if (installerStrings.TryGetValue(
+                    stringId,
+                    out installerValue))
+            {
+                return installerValue;
+            }
+
             return stringId;
+        }
+
+        private static Dictionary<string, string> CreateEnglishInstallerStrings()
+        {
+            Dictionary<string, string> values =
+                new Dictionary<string, string>(
+                    StringComparer.Ordinal);
+
+            values[UpdateActionId] = "Update";
+            values[CancelActionId] = "Cancel";
+            values[RetryActionId] = "Retry";
+            values[QueuedActionId] = "Queued";
+            values[WorkingActionId] = "Working...";
+            values[DownloadingId] = "Downloading";
+            values[VerifyingId] = "Verifying package";
+            values[PreparingInstallId] = "Preparing installation";
+            values[RestartRequiredId] = "Ready - restart Project Hospital to install.";
+            values[CancelledId] = "Download cancelled.";
+            values[PackageCatalogLoadingId] = "Loading update package information...";
+            values[PackageUnavailableId] = "Automatic installation is not available for this update.";
+            values[PackageCatalogErrorId] = "Update package information is unavailable. Check your Internet connection and retry.";
+            values[UpdateBusyId] = "Another update is currently being prepared.";
+            values[ReadyToUpdateId] = "Ready to download and install after restart.";
+            values[DownloadErrorId] = "Download failed. Check your Internet connection and try again.";
+            values[InstallPreparationErrorId] = "The update could not be prepared safely. See the BepInEx log.";
+            values[NotEnoughSpaceId] = "Not enough free disk space to prepare this update.";
+            values[InstallSucceededId] = "Update installed successfully.";
+            values[InstallFailedId] = "Update installation failed; the previous version was preserved or restored.";
+            values[ConfigAddedId] = "New configuration options added:";
+            values[ConfigWarningId] = "The existing configuration could not be migrated safely and was left unchanged.";
+
+            return values;
+        }
+
+        private static Dictionary<string, string> CreateFrenchInstallerStrings()
+        {
+            Dictionary<string, string> values =
+                new Dictionary<string, string>(
+                    StringComparer.Ordinal);
+
+            values[UpdateActionId] = "Mettre à jour";
+            values[CancelActionId] = "Annuler";
+            values[RetryActionId] = "Réessayer";
+            values[QueuedActionId] = "En attente";
+            values[WorkingActionId] = "En cours...";
+            values[DownloadingId] = "Téléchargement";
+            values[VerifyingId] = "Vérification du paquet";
+            values[PreparingInstallId] = "Préparation de l'installation";
+            values[RestartRequiredId] = "Prêt - redémarrez Project Hospital pour installer.";
+            values[CancelledId] = "Téléchargement annulé.";
+            values[PackageCatalogLoadingId] = "Chargement des informations d'installation...";
+            values[PackageUnavailableId] = "L'installation automatique n'est pas disponible pour cette mise à jour.";
+            values[PackageCatalogErrorId] = "Les informations d'installation sont indisponibles. Vérifiez votre connexion Internet puis réessayez.";
+            values[UpdateBusyId] = "Une autre mise à jour est en cours de préparation.";
+            values[ReadyToUpdateId] = "Prêt à télécharger et à installer après redémarrage.";
+            values[DownloadErrorId] = "Échec du téléchargement. Vérifiez votre connexion Internet puis réessayez.";
+            values[InstallPreparationErrorId] = "La mise à jour n'a pas pu être préparée en toute sécurité. Voir le journal BepInEx.";
+            values[NotEnoughSpaceId] = "Espace disque insuffisant pour préparer cette mise à jour.";
+            values[InstallSucceededId] = "Mise à jour installée avec succès.";
+            values[InstallFailedId] = "Échec de l'installation ; la version précédente a été conservée ou restaurée.";
+            values[ConfigAddedId] = "Nouvelles options de configuration ajoutées :";
+            values[ConfigWarningId] = "La configuration existante n'a pas pu être migrée en toute sécurité et a été laissée inchangée.";
+
+            return values;
+        }
+
+
+        private static Dictionary<string, Dictionary<string, string>>
+            CreateInstallerTranslations()
+        {
+            Dictionary<string, Dictionary<string, string>> translations =
+                new Dictionary<string, Dictionary<string, string>>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            translations["en"] = EnglishInstallerStrings;
+            translations["fr"] = FrenchInstallerStrings;
+
+            translations["cs"] =
+                CreateInstallerStrings(
+                    "Aktualizovat",
+                    "Zrušit",
+                    "Zkusit znovu",
+                    "Ve frontě",
+                    "Probíhá...",
+                    "Stahování",
+                    "Ověřování balíčku",
+                    "Příprava instalace",
+                    "Připraveno – restartujte Project Hospital pro instalaci.",
+                    "Stahování zrušeno.",
+                    "Načítání informací o aktualizačním balíčku...",
+                    "Automatická instalace není pro tuto aktualizaci dostupná.",
+                    "Informace o aktualizačním balíčku nejsou dostupné. Zkontrolujte připojení k internetu a zkuste to znovu.",
+                    "Právě se připravuje jiná aktualizace.",
+                    "Připraveno ke stažení a instalaci po restartu.",
+                    "Stahování se nezdařilo. Zkontrolujte připojení k internetu a zkuste to znovu.",
+                    "Aktualizaci se nepodařilo bezpečně připravit. Viz protokol BepInEx.",
+                    "Nedostatek volného místa na disku pro přípravu této aktualizace.",
+                    "Aktualizace byla úspěšně nainstalována.",
+                    "Instalace aktualizace selhala; předchozí verze byla zachována nebo obnovena.",
+                    "Přidány nové možnosti konfigurace:",
+                    "Stávající konfiguraci se nepodařilo bezpečně migrovat a zůstala beze změny.");
+
+            translations["da"] =
+                CreateInstallerStrings(
+                    "Opdater",
+                    "Annuller",
+                    "Prøv igen",
+                    "I kø",
+                    "Arbejder...",
+                    "Downloader",
+                    "Kontrollerer pakke",
+                    "Forbereder installation",
+                    "Klar – genstart Project Hospital for at installere.",
+                    "Download annulleret.",
+                    "Indlæser oplysninger om opdateringspakken...",
+                    "Automatisk installation er ikke tilgængelig for denne opdatering.",
+                    "Oplysninger om opdateringspakken er ikke tilgængelige. Kontrollér din internetforbindelse, og prøv igen.",
+                    "En anden opdatering er ved at blive forberedt.",
+                    "Klar til download og installation efter genstart.",
+                    "Download mislykkedes. Kontrollér din internetforbindelse, og prøv igen.",
+                    "Opdateringen kunne ikke forberedes sikkert. Se BepInEx-loggen.",
+                    "Der er ikke nok ledig diskplads til at forberede denne opdatering.",
+                    "Opdateringen blev installeret.",
+                    "Installationen af opdateringen mislykkedes; den tidligere version blev bevaret eller gendannet.",
+                    "Nye konfigurationsindstillinger tilføjet:",
+                    "Den eksisterende konfiguration kunne ikke migreres sikkert og blev ikke ændret.");
+
+            translations["de"] =
+                CreateInstallerStrings(
+                    "Aktualisieren",
+                    "Abbrechen",
+                    "Erneut versuchen",
+                    "Warteschlange",
+                    "Wird verarbeitet...",
+                    "Wird heruntergeladen",
+                    "Paket wird überprüft",
+                    "Installation wird vorbereitet",
+                    "Bereit – Project Hospital neu starten, um zu installieren.",
+                    "Download abgebrochen.",
+                    "Update-Paketinformationen werden geladen...",
+                    "Automatische Installation ist für dieses Update nicht verfügbar.",
+                    "Update-Paketinformationen sind nicht verfügbar. Internetverbindung prüfen und erneut versuchen.",
+                    "Ein anderes Update wird gerade vorbereitet.",
+                    "Bereit zum Herunterladen und Installieren nach dem Neustart.",
+                    "Download fehlgeschlagen. Internetverbindung prüfen und erneut versuchen.",
+                    "Das Update konnte nicht sicher vorbereitet werden. Siehe BepInEx-Log.",
+                    "Nicht genügend freier Speicherplatz, um dieses Update vorzubereiten.",
+                    "Update erfolgreich installiert.",
+                    "Installation des Updates fehlgeschlagen; die vorherige Version wurde beibehalten oder wiederhergestellt.",
+                    "Neue Konfigurationsoptionen hinzugefügt:",
+                    "Die vorhandene Konfiguration konnte nicht sicher migriert werden und blieb unverändert.");
+
+            translations["es"] =
+                CreateInstallerStrings(
+                    "Actualizar",
+                    "Cancelar",
+                    "Reintentar",
+                    "En cola",
+                    "En curso...",
+                    "Descargando",
+                    "Verificando paquete",
+                    "Preparando instalación",
+                    "Listo: reinicia Project Hospital para instalar.",
+                    "Descarga cancelada.",
+                    "Cargando información del paquete de actualización...",
+                    "La instalación automática no está disponible para esta actualización.",
+                    "La información del paquete de actualización no está disponible. Comprueba tu conexión a Internet y vuelve a intentarlo.",
+                    "Se está preparando otra actualización.",
+                    "Listo para descargar e instalar tras reiniciar.",
+                    "La descarga ha fallado. Comprueba tu conexión a Internet y vuelve a intentarlo.",
+                    "No se pudo preparar la actualización de forma segura. Consulta el registro de BepInEx.",
+                    "No hay suficiente espacio libre en disco para preparar esta actualización.",
+                    "Actualización instalada correctamente.",
+                    "La instalación de la actualización ha fallado; se conservó o restauró la versión anterior.",
+                    "Nuevas opciones de configuración añadidas:",
+                    "La configuración existente no se pudo migrar de forma segura y se dejó sin cambios.");
+
+            translations["es-419"] =
+                CreateInstallerStrings(
+                    "Actualizar",
+                    "Cancelar",
+                    "Reintentar",
+                    "En cola",
+                    "Procesando...",
+                    "Descargando",
+                    "Verificando paquete",
+                    "Preparando instalación",
+                    "Listo: reinicia Project Hospital para instalar.",
+                    "Descarga cancelada.",
+                    "Cargando información del paquete de actualización...",
+                    "La instalación automática no está disponible para esta actualización.",
+                    "La información del paquete de actualización no está disponible. Verifica tu conexión a Internet y vuelve a intentarlo.",
+                    "Se está preparando otra actualización.",
+                    "Listo para descargar e instalar después de reiniciar.",
+                    "La descarga falló. Verifica tu conexión a Internet y vuelve a intentarlo.",
+                    "No se pudo preparar la actualización de forma segura. Revisa el registro de BepInEx.",
+                    "No hay suficiente espacio libre en disco para preparar esta actualización.",
+                    "Actualización instalada correctamente.",
+                    "La instalación de la actualización falló; se conservó o restauró la versión anterior.",
+                    "Nuevas opciones de configuración agregadas:",
+                    "La configuración existente no se pudo migrar de forma segura y se dejó sin cambios.");
+
+            translations["hu"] =
+                CreateInstallerStrings(
+                    "Frissítés",
+                    "Mégse",
+                    "Újrapróbálás",
+                    "Várólistán",
+                    "Folyamatban...",
+                    "Letöltés",
+                    "Csomag ellenőrzése",
+                    "Telepítés előkészítése",
+                    "Kész – indítsd újra a Project Hospitalt a telepítéshez.",
+                    "Letöltés megszakítva.",
+                    "Frissítési csomag adatainak betöltése...",
+                    "Az automatikus telepítés ehhez a frissítéshez nem érhető el.",
+                    "A frissítési csomag adatai nem érhetők el. Ellenőrizd az internetkapcsolatot, majd próbáld újra.",
+                    "Egy másik frissítés előkészítése folyamatban van.",
+                    "Letöltésre kész; az újraindítás után települ.",
+                    "A letöltés sikertelen. Ellenőrizd az internetkapcsolatot, majd próbáld újra.",
+                    "A frissítést nem sikerült biztonságosan előkészíteni. Lásd a BepInEx naplót.",
+                    "Nincs elég szabad lemezterület a frissítés előkészítéséhez.",
+                    "A frissítés sikeresen telepítve.",
+                    "A frissítés telepítése sikertelen; az előző verzió megmaradt vagy vissza lett állítva.",
+                    "Új konfigurációs beállítások hozzáadva:",
+                    "A meglévő konfiguráció nem volt biztonságosan migrálható, ezért változatlan maradt.");
+
+            translations["it"] =
+                CreateInstallerStrings(
+                    "Aggiorna",
+                    "Annulla",
+                    "Riprova",
+                    "In coda",
+                    "In corso...",
+                    "Download",
+                    "Verifica pacchetto",
+                    "Preparazione installazione",
+                    "Pronto: riavvia Project Hospital per installare.",
+                    "Download annullato.",
+                    "Caricamento delle informazioni sul pacchetto di aggiornamento...",
+                    "L'installazione automatica non è disponibile per questo aggiornamento.",
+                    "Le informazioni sul pacchetto di aggiornamento non sono disponibili. Controlla la connessione Internet e riprova.",
+                    "È in preparazione un altro aggiornamento.",
+                    "Pronto per il download e l'installazione dopo il riavvio.",
+                    "Download non riuscito. Controlla la connessione Internet e riprova.",
+                    "Non è stato possibile preparare l'aggiornamento in modo sicuro. Consulta il log di BepInEx.",
+                    "Spazio libero su disco insufficiente per preparare questo aggiornamento.",
+                    "Aggiornamento installato correttamente.",
+                    "Installazione dell'aggiornamento non riuscita; la versione precedente è stata mantenuta o ripristinata.",
+                    "Nuove opzioni di configurazione aggiunte:",
+                    "Non è stato possibile migrare in modo sicuro la configurazione esistente, che è rimasta invariata.");
+
+            translations["ja"] =
+                CreateInstallerStrings(
+                    "更新",
+                    "キャンセル",
+                    "再試行",
+                    "待機中",
+                    "処理中...",
+                    "ダウンロード中",
+                    "パッケージを検証中",
+                    "インストールを準備中",
+                    "準備完了 - Project Hospital を再起動するとインストールされます。",
+                    "ダウンロードをキャンセルしました。",
+                    "更新パッケージ情報を読み込み中...",
+                    "この更新では自動インストールを利用できません。",
+                    "更新パッケージ情報を取得できません。インターネット接続を確認して再試行してください。",
+                    "別の更新を準備しています。",
+                    "ダウンロードの準備完了。再起動後にインストールされます。",
+                    "ダウンロードに失敗しました。インターネット接続を確認して再試行してください。",
+                    "更新を安全に準備できませんでした。BepInEx ログを確認してください。",
+                    "この更新を準備するための空きディスク容量が不足しています。",
+                    "更新を正常にインストールしました。",
+                    "更新のインストールに失敗しました。以前のバージョンは保持または復元されました。",
+                    "新しい設定項目を追加しました:",
+                    "既存の設定を安全に移行できなかったため、変更せずに保持しました。");
+
+            translations["ko"] =
+                CreateInstallerStrings(
+                    "업데이트",
+                    "취소",
+                    "다시 시도",
+                    "대기 중",
+                    "작업 중...",
+                    "다운로드 중",
+                    "패키지 확인 중",
+                    "설치 준비 중",
+                    "준비 완료 - 설치하려면 Project Hospital을 다시 시작하세요.",
+                    "다운로드가 취소되었습니다.",
+                    "업데이트 패키지 정보 불러오는 중...",
+                    "이 업데이트에서는 자동 설치를 사용할 수 없습니다.",
+                    "업데이트 패키지 정보를 가져올 수 없습니다. 인터넷 연결을 확인한 후 다시 시도하세요.",
+                    "다른 업데이트를 준비 중입니다.",
+                    "다운로드 준비 완료. 다시 시작한 후 설치됩니다.",
+                    "다운로드에 실패했습니다. 인터넷 연결을 확인한 후 다시 시도하세요.",
+                    "업데이트를 안전하게 준비하지 못했습니다. BepInEx 로그를 확인하세요.",
+                    "이 업데이트를 준비할 디스크 여유 공간이 부족합니다.",
+                    "업데이트가 성공적으로 설치되었습니다.",
+                    "업데이트 설치에 실패했습니다. 이전 버전이 유지되거나 복원되었습니다.",
+                    "새 구성 옵션이 추가되었습니다:",
+                    "기존 구성을 안전하게 마이그레이션할 수 없어 변경하지 않았습니다.");
+
+            translations["nl"] =
+                CreateInstallerStrings(
+                    "Bijwerken",
+                    "Annuleren",
+                    "Opnieuw proberen",
+                    "In wachtrij",
+                    "Bezig...",
+                    "Downloaden",
+                    "Pakket verifiëren",
+                    "Installatie voorbereiden",
+                    "Gereed - start Project Hospital opnieuw om te installeren.",
+                    "Download geannuleerd.",
+                    "Informatie over updatepakket laden...",
+                    "Automatische installatie is niet beschikbaar voor deze update.",
+                    "Informatie over het updatepakket is niet beschikbaar. Controleer je internetverbinding en probeer opnieuw.",
+                    "Er wordt al een andere update voorbereid.",
+                    "Gereed om te downloaden en na opnieuw starten te installeren.",
+                    "Download mislukt. Controleer je internetverbinding en probeer opnieuw.",
+                    "De update kon niet veilig worden voorbereid. Zie het BepInEx-logboek.",
+                    "Onvoldoende vrije schijfruimte om deze update voor te bereiden.",
+                    "Update is geïnstalleerd.",
+                    "Installatie van de update is mislukt; de vorige versie is behouden of hersteld.",
+                    "Nieuwe configuratieopties toegevoegd:",
+                    "De bestaande configuratie kon niet veilig worden gemigreerd en is ongewijzigd gebleven.");
+
+            translations["pl"] =
+                CreateInstallerStrings(
+                    "Aktualizuj",
+                    "Anuluj",
+                    "Spróbuj ponownie",
+                    "W kolejce",
+                    "W toku...",
+                    "Pobieranie",
+                    "Weryfikacja pakietu",
+                    "Przygotowywanie instalacji",
+                    "Gotowe — uruchom ponownie Project Hospital, aby zainstalować.",
+                    "Pobieranie anulowane.",
+                    "Ładowanie informacji o pakiecie aktualizacji...",
+                    "Automatyczna instalacja nie jest dostępna dla tej aktualizacji.",
+                    "Informacje o pakiecie aktualizacji są niedostępne. Sprawdź połączenie z Internetem i spróbuj ponownie.",
+                    "Trwa przygotowywanie innej aktualizacji.",
+                    "Gotowe do pobrania i instalacji po ponownym uruchomieniu.",
+                    "Pobieranie nie powiodło się. Sprawdź połączenie z Internetem i spróbuj ponownie.",
+                    "Nie udało się bezpiecznie przygotować aktualizacji. Zobacz dziennik BepInEx.",
+                    "Za mało wolnego miejsca na dysku, aby przygotować tę aktualizację.",
+                    "Aktualizacja została pomyślnie zainstalowana.",
+                    "Instalacja aktualizacji nie powiodła się; poprzednia wersja została zachowana lub przywrócona.",
+                    "Dodano nowe opcje konfiguracji:",
+                    "Nie udało się bezpiecznie zmigrować istniejącej konfiguracji, więc pozostawiono ją bez zmian.");
+
+            translations["pt-br"] =
+                CreateInstallerStrings(
+                    "Atualizar",
+                    "Cancelar",
+                    "Tentar novamente",
+                    "Na fila",
+                    "Em andamento...",
+                    "Baixando",
+                    "Verificando pacote",
+                    "Preparando instalação",
+                    "Pronto — reinicie o Project Hospital para instalar.",
+                    "Download cancelado.",
+                    "Carregando informações do pacote de atualização...",
+                    "A instalação automática não está disponível para esta atualização.",
+                    "As informações do pacote de atualização não estão disponíveis. Verifique sua conexão com a Internet e tente novamente.",
+                    "Outra atualização está sendo preparada.",
+                    "Pronto para baixar e instalar após reiniciar.",
+                    "Falha no download. Verifique sua conexão com a Internet e tente novamente.",
+                    "Não foi possível preparar a atualização com segurança. Consulte o log do BepInEx.",
+                    "Não há espaço livre em disco suficiente para preparar esta atualização.",
+                    "Atualização instalada com sucesso.",
+                    "Falha na instalação da atualização; a versão anterior foi mantida ou restaurada.",
+                    "Novas opções de configuração adicionadas:",
+                    "A configuração existente não pôde ser migrada com segurança e foi mantida sem alterações.");
+
+            translations["ru"] =
+                CreateInstallerStrings(
+                    "Обновить",
+                    "Отмена",
+                    "Повторить",
+                    "В очереди",
+                    "Выполняется...",
+                    "Загрузка",
+                    "Проверка пакета",
+                    "Подготовка установки",
+                    "Готово — перезапустите Project Hospital для установки.",
+                    "Загрузка отменена.",
+                    "Загрузка сведений о пакете обновления...",
+                    "Автоматическая установка недоступна для этого обновления.",
+                    "Сведения о пакете обновления недоступны. Проверьте подключение к Интернету и повторите попытку.",
+                    "Сейчас подготавливается другое обновление.",
+                    "Готово к загрузке и установке после перезапуска.",
+                    "Ошибка загрузки. Проверьте подключение к Интернету и повторите попытку.",
+                    "Не удалось безопасно подготовить обновление. См. журнал BepInEx.",
+                    "Недостаточно свободного места на диске для подготовки этого обновления.",
+                    "Обновление успешно установлено.",
+                    "Не удалось установить обновление; предыдущая версия была сохранена или восстановлена.",
+                    "Добавлены новые параметры конфигурации:",
+                    "Не удалось безопасно перенести существующую конфигурацию, поэтому она оставлена без изменений.");
+
+            translations["sv"] =
+                CreateInstallerStrings(
+                    "Uppdatera",
+                    "Avbryt",
+                    "Försök igen",
+                    "I kö",
+                    "Arbetar...",
+                    "Laddar ned",
+                    "Verifierar paket",
+                    "Förbereder installation",
+                    "Klart – starta om Project Hospital för att installera.",
+                    "Nedladdningen avbröts.",
+                    "Läser in information om uppdateringspaketet...",
+                    "Automatisk installation är inte tillgänglig för den här uppdateringen.",
+                    "Information om uppdateringspaketet är inte tillgänglig. Kontrollera internetanslutningen och försök igen.",
+                    "En annan uppdatering förbereds just nu.",
+                    "Klart för nedladdning och installation efter omstart.",
+                    "Nedladdningen misslyckades. Kontrollera internetanslutningen och försök igen.",
+                    "Uppdateringen kunde inte förberedas på ett säkert sätt. Se BepInEx-loggen.",
+                    "Det finns inte tillräckligt med ledigt diskutrymme för att förbereda uppdateringen.",
+                    "Uppdateringen installerades.",
+                    "Installationen av uppdateringen misslyckades; den tidigare versionen behölls eller återställdes.",
+                    "Nya konfigurationsalternativ har lagts till:",
+                    "Den befintliga konfigurationen kunde inte migreras på ett säkert sätt och lämnades oförändrad.");
+
+            translations["tr"] =
+                CreateInstallerStrings(
+                    "Güncelle",
+                    "İptal",
+                    "Yeniden dene",
+                    "Sırada",
+                    "İşleniyor...",
+                    "İndiriliyor",
+                    "Paket doğrulanıyor",
+                    "Kurulum hazırlanıyor",
+                    "Hazır — yüklemek için Project Hospital'ı yeniden başlatın.",
+                    "İndirme iptal edildi.",
+                    "Güncelleme paketi bilgileri yükleniyor...",
+                    "Bu güncelleme için otomatik kurulum kullanılamıyor.",
+                    "Güncelleme paketi bilgileri kullanılamıyor. İnternet bağlantınızı kontrol edip yeniden deneyin.",
+                    "Başka bir güncelleme hazırlanıyor.",
+                    "İndirmeye ve yeniden başlatmadan sonra kurulmaya hazır.",
+                    "İndirme başarısız. İnternet bağlantınızı kontrol edip yeniden deneyin.",
+                    "Güncelleme güvenli şekilde hazırlanamadı. BepInEx günlüğüne bakın.",
+                    "Bu güncellemeyi hazırlamak için yeterli boş disk alanı yok.",
+                    "Güncelleme başarıyla yüklendi.",
+                    "Güncelleme kurulumu başarısız oldu; önceki sürüm korundu veya geri yüklendi.",
+                    "Yeni yapılandırma seçenekleri eklendi:",
+                    "Mevcut yapılandırma güvenli şekilde taşınamadı ve değiştirilmeden bırakıldı.");
+
+            translations["uk"] =
+                CreateInstallerStrings(
+                    "Оновити",
+                    "Скасувати",
+                    "Повторити",
+                    "У черзі",
+                    "Виконується...",
+                    "Завантаження",
+                    "Перевірка пакета",
+                    "Підготовка встановлення",
+                    "Готово — перезапустіть Project Hospital для встановлення.",
+                    "Завантаження скасовано.",
+                    "Завантаження відомостей про пакет оновлення...",
+                    "Автоматичне встановлення недоступне для цього оновлення.",
+                    "Відомості про пакет оновлення недоступні. Перевірте підключення до Інтернету та повторіть спробу.",
+                    "Зараз готується інше оновлення.",
+                    "Готово до завантаження та встановлення після перезапуску.",
+                    "Помилка завантаження. Перевірте підключення до Інтернету та повторіть спробу.",
+                    "Не вдалося безпечно підготувати оновлення. Див. журнал BepInEx.",
+                    "Недостатньо вільного місця на диску для підготовки цього оновлення.",
+                    "Оновлення успішно встановлено.",
+                    "Не вдалося встановити оновлення; попередню версію збережено або відновлено.",
+                    "Додано нові параметри конфігурації:",
+                    "Не вдалося безпечно перенести наявну конфігурацію, тому її залишено без змін.");
+
+            translations["zh-cn"] =
+                CreateInstallerStrings(
+                    "更新",
+                    "取消",
+                    "重试",
+                    "已排队",
+                    "处理中...",
+                    "正在下载",
+                    "正在验证更新包",
+                    "正在准备安装",
+                    "已准备好 - 重启 Project Hospital 即可安装。",
+                    "下载已取消。",
+                    "正在加载更新包信息...",
+                    "此更新不支持自动安装。",
+                    "无法获取更新包信息。请检查网络连接后重试。",
+                    "正在准备另一项更新。",
+                    "已准备好下载，并将在重启后安装。",
+                    "下载失败。请检查网络连接后重试。",
+                    "无法安全准备此更新。请查看 BepInEx 日志。",
+                    "磁盘可用空间不足，无法准备此更新。",
+                    "更新安装成功。",
+                    "更新安装失败；已保留或恢复上一版本。",
+                    "已添加新的配置选项：",
+                    "无法安全迁移现有配置，因此未作更改。");
+
+            translations["zh-tw"] =
+                CreateInstallerStrings(
+                    "更新",
+                    "取消",
+                    "重試",
+                    "已排入佇列",
+                    "處理中...",
+                    "正在下載",
+                    "正在驗證更新套件",
+                    "正在準備安裝",
+                    "已準備完成 - 重新啟動 Project Hospital 即可安裝。",
+                    "下載已取消。",
+                    "正在載入更新套件資訊...",
+                    "此更新不支援自動安裝。",
+                    "無法取得更新套件資訊。請檢查網路連線後重試。",
+                    "正在準備另一項更新。",
+                    "已準備好下載，並將在重新啟動後安裝。",
+                    "下載失敗。請檢查網路連線後重試。",
+                    "無法安全準備此更新。請查看 BepInEx 記錄。",
+                    "磁碟可用空間不足，無法準備此更新。",
+                    "更新安裝成功。",
+                    "更新安裝失敗；已保留或還原上一個版本。",
+                    "已新增設定選項：",
+                    "無法安全移轉現有設定，因此未做變更。");
+
+            return translations;
+        }
+
+        private static Dictionary<string, string> CreateInstallerStrings(
+            params string[] strings)
+        {
+            if (strings == null ||
+                strings.Length != 22)
+            {
+                throw new ArgumentException(
+                    "HMUC installer localization requires exactly 22 strings.");
+            }
+
+            Dictionary<string, string> values =
+                new Dictionary<string, string>(
+                    StringComparer.Ordinal);
+
+            values[UpdateActionId] = strings[0];
+            values[CancelActionId] = strings[1];
+            values[RetryActionId] = strings[2];
+            values[QueuedActionId] = strings[3];
+            values[WorkingActionId] = strings[4];
+            values[DownloadingId] = strings[5];
+            values[VerifyingId] = strings[6];
+            values[PreparingInstallId] = strings[7];
+            values[RestartRequiredId] = strings[8];
+            values[CancelledId] = strings[9];
+            values[PackageCatalogLoadingId] = strings[10];
+            values[PackageUnavailableId] = strings[11];
+            values[PackageCatalogErrorId] = strings[12];
+            values[UpdateBusyId] = strings[13];
+            values[ReadyToUpdateId] = strings[14];
+            values[DownloadErrorId] = strings[15];
+            values[InstallPreparationErrorId] = strings[16];
+            values[NotEnoughSpaceId] = strings[17];
+            values[InstallSucceededId] = strings[18];
+            values[InstallFailedId] = strings[19];
+            values[ConfigAddedId] = strings[20];
+            values[ConfigWarningId] = strings[21];
+
+            return values;
         }
 
         private static string GetCurrentLanguage()

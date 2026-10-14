@@ -26,6 +26,12 @@ namespace HospitalModUpdateChecker
         private const float UpdatesSectionHeight = 210f;
         private const float PluginsSectionHeight = 210f;
 
+        private const float UpdateRowHeight = 88f;
+        private const float UpdateRowGap = 8f;
+        private const float ActionButtonWidth = 112f;
+        private const float ActionButtonHeight = 30f;
+        private const float ProgressBarHeight = 9f;
+
         private sealed class SectionView
         {
             internal GameObject Root;
@@ -33,6 +39,17 @@ namespace HospitalModUpdateChecker
             internal RectTransform Viewport;
             internal RectTransform ContentRect;
             internal ScrollRect ScrollRect;
+        }
+
+        private sealed class UpdateRowView
+        {
+            internal AvailableUpdate Update;
+            internal GameObject Root;
+            internal Text Text;
+            internal Button Button;
+            internal Text ButtonText;
+            internal GameObject ProgressRoot;
+            internal RectTransform ProgressFill;
         }
 
         private sealed class LoadedPluginDisplayEntry
@@ -45,9 +62,12 @@ namespace HospitalModUpdateChecker
 
         private static TitleScreenController _controller;
         private static GameObject _panel;
+        private static Text _sourceText;
         private static SectionView _newsSection;
         private static SectionView _updatesSection;
         private static SectionView _pluginsSection;
+        private static readonly List<UpdateRowView> _updateRows =
+            new List<UpdateRowView>();
         private static bool _dismissedForSession;
 
         internal static void Attach(TitleScreenController controller)
@@ -86,15 +106,35 @@ namespace HospitalModUpdateChecker
                 _newsSection,
                 BuildNewsText());
 
-            SetSectionText(
-                _updatesSection,
-                BuildUpdatesText());
+            RefreshUpdatesSection();
 
             SetSectionText(
                 _pluginsSection,
                 BuildLoadedPluginsText());
 
             _panel.SetActive(true);
+        }
+
+        internal static void RefreshInstallProgress()
+        {
+            if (_panel == null ||
+                !_panel.activeSelf)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _updateRows.Count; i++)
+            {
+                UpdateRowView row = _updateRows[i];
+
+                if (row != null &&
+                    row.Update != null)
+                {
+                    ApplyUpdateRowState(
+                        row,
+                        row.Update);
+                }
+            }
         }
 
         private static bool EnsurePanel()
@@ -113,6 +153,8 @@ namespace HospitalModUpdateChecker
                     "HMUC dashboard could not use m_modErrorText because it has no Text component.");
                 return false;
             }
+
+            _sourceText = sourceText;
 
             _panel = new GameObject(
                 "Loupito75.HospitalModUpdateChecker.Dashboard");
@@ -516,6 +558,618 @@ namespace HospitalModUpdateChecker
             section.ScrollRect.verticalNormalizedPosition = 1f;
         }
 
+        private static void RefreshUpdatesSection()
+        {
+            DestroyUpdateRows();
+
+            if (_updatesSection == null)
+            {
+                return;
+            }
+
+            IList<AvailableUpdate> updates =
+                UpdateChecker.AvailableUpdates;
+
+            if (UpdateChecker.UpdateState !=
+                    RemoteContentState.Ready ||
+                updates.Count == 0)
+            {
+                SetSectionText(
+                    _updatesSection,
+                    BuildUpdatesText());
+                return;
+            }
+
+            string summary =
+                BuildInstallResultsText();
+
+            _updatesSection.Content.text =
+                summary;
+
+            Canvas.ForceUpdateCanvases();
+
+            float summaryHeight =
+                string.IsNullOrEmpty(summary)
+                    ? 0f
+                    : _updatesSection.Content.preferredHeight + 8f;
+
+            float rowsHeight =
+                updates.Count *
+                (UpdateRowHeight + UpdateRowGap);
+
+            float height =
+                Math.Max(
+                    _updatesSection.Viewport.rect.height,
+                    summaryHeight + rowsHeight);
+
+            _updatesSection.ContentRect.sizeDelta =
+                new Vector2(0f, height);
+
+            for (int i = 0; i < updates.Count; i++)
+            {
+                CreateUpdateRow(
+                    updates[i],
+                    summaryHeight +
+                    i * (UpdateRowHeight + UpdateRowGap));
+            }
+
+            _updatesSection.ScrollRect.verticalNormalizedPosition = 1f;
+        }
+
+        private static void CreateUpdateRow(
+            AvailableUpdate update,
+            float top)
+        {
+            if (update == null ||
+                _sourceText == null)
+            {
+                return;
+            }
+
+            GameObject root =
+                new GameObject(
+                    "Update_" + update.Guid);
+
+            root.transform.SetParent(
+                _updatesSection.ContentRect,
+                false);
+
+            RectTransform rect =
+                root.AddComponent<RectTransform>();
+
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(0f, -top);
+            rect.sizeDelta = new Vector2(0f, UpdateRowHeight);
+
+            Image background =
+                root.AddComponent<Image>();
+
+            Color rowColor =
+                GetHeadingColor();
+            rowColor.a = 0.22f;
+            background.color = rowColor;
+            background.raycastTarget = false;
+
+            Text text =
+                CreateTextClone(
+                    _sourceText,
+                    "UpdateText",
+                    root.transform);
+
+            RectTransform textRect =
+                text.GetComponent<RectTransform>();
+
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            float textRightInset =
+                ActionButtonWidth +
+                ContentPadding * 2f;
+
+            textRect.anchoredPosition =
+                new Vector2(
+                    (ContentPadding - textRightInset) * 0.5f,
+                    ProgressBarHeight * 0.5f);
+            textRect.sizeDelta =
+                new Vector2(
+                    -(ContentPadding + textRightInset),
+                    -(ProgressBarHeight + 8f));
+
+            text.alignment = TextAnchor.UpperLeft;
+            text.fontSize =
+                Math.Max(_sourceText.fontSize, 13);
+            text.supportRichText = true;
+
+            Button button;
+            Text buttonText;
+
+            CreateActionButton(
+                root.transform,
+                update,
+                out button,
+                out buttonText);
+
+            GameObject progressRoot =
+                new GameObject("Progress");
+
+            progressRoot.transform.SetParent(
+                root.transform,
+                false);
+
+            RectTransform progressRect =
+                progressRoot.AddComponent<RectTransform>();
+
+            progressRect.anchorMin = new Vector2(0f, 0f);
+            progressRect.anchorMax = new Vector2(1f, 0f);
+            progressRect.pivot = new Vector2(0.5f, 0f);
+            progressRect.anchoredPosition = new Vector2(0f, 3f);
+            progressRect.sizeDelta =
+                new Vector2(0f, ProgressBarHeight);
+
+            Image progressBackground =
+                progressRoot.AddComponent<Image>();
+
+            Color progressBackgroundColor =
+                GetHeadingColor();
+            progressBackgroundColor.a = 0.34f;
+            progressBackground.color = progressBackgroundColor;
+            progressBackground.raycastTarget = false;
+
+            GameObject fill =
+                new GameObject("Fill");
+
+            fill.transform.SetParent(
+                progressRoot.transform,
+                false);
+
+            RectTransform fillRect =
+                fill.AddComponent<RectTransform>();
+
+            fillRect.anchorMin = new Vector2(0f, 0f);
+            fillRect.anchorMax = new Vector2(0f, 1f);
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            fillRect.anchoredPosition = Vector2.zero;
+            fillRect.sizeDelta = Vector2.zero;
+
+            Image fillImage =
+                fill.AddComponent<Image>();
+
+            Color fillColor =
+                GetSectionHeaderColor();
+            fillColor.a = 1f;
+            fillImage.color = fillColor;
+            fillImage.raycastTarget = false;
+
+            UpdateRowView view =
+                new UpdateRowView
+                {
+                    Update = update,
+                    Root = root,
+                    Text = text,
+                    Button = button,
+                    ButtonText = buttonText,
+                    ProgressRoot = progressRoot,
+                    ProgressFill = fillRect
+                };
+
+            _updateRows.Add(view);
+
+            ApplyUpdateRowState(
+                view,
+                update);
+        }
+
+        private static void CreateActionButton(
+            Transform parent,
+            AvailableUpdate update,
+            out Button button,
+            out Text buttonText)
+        {
+            GameObject buttonObject =
+                new GameObject("ActionButton");
+
+            buttonObject.transform.SetParent(
+                parent,
+                false);
+
+            RectTransform rect =
+                buttonObject.AddComponent<RectTransform>();
+
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition =
+                new Vector2(
+                    -ContentPadding,
+                    -ContentPadding);
+            rect.sizeDelta =
+                new Vector2(
+                    ActionButtonWidth,
+                    ActionButtonHeight);
+
+            Image image =
+                buttonObject.AddComponent<Image>();
+
+            Color color =
+                GetSectionHeaderColor();
+            color.a = 0.95f;
+            image.color = color;
+
+            button =
+                buttonObject.AddComponent<Button>();
+
+            button.targetGraphic = image;
+
+            AvailableUpdate captured =
+                update;
+
+            button.onClick.AddListener(
+                delegate
+                {
+                    PackageUpdateManager.StartOrCancel(
+                        captured);
+                });
+
+            buttonText =
+                CreateTextClone(
+                    _sourceText,
+                    "Text",
+                    buttonObject.transform);
+
+            RectTransform textRect =
+                buttonText.GetComponent<RectTransform>();
+
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.anchoredPosition = Vector2.zero;
+            textRect.sizeDelta = Vector2.zero;
+
+            buttonText.alignment = TextAnchor.MiddleCenter;
+            buttonText.fontStyle = FontStyle.Bold;
+            buttonText.fontSize =
+                Math.Max(_sourceText.fontSize, 12);
+            buttonText.raycastTarget = false;
+        }
+
+        private static void ApplyUpdateRowState(
+            UpdateRowView row,
+            AvailableUpdate update)
+        {
+            PackageOperation operation =
+                PackageUpdateManager.GetOperation(
+                    update.Guid);
+
+            string status =
+                GetUpdateStatus(
+                    update,
+                    operation);
+
+            StringBuilder builder =
+                new StringBuilder();
+
+            builder.Append("\u2022 ");
+            builder.Append(update.Name);
+            builder.Append(" (");
+            builder.Append(update.Author);
+            builder.Append(")\n   v");
+            builder.Append(update.InstalledVersion);
+            builder.Append(" \u2192 <b>v");
+            builder.Append(update.AvailableVersion);
+            builder.Append("</b>");
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                builder.Append("\n<i>");
+                builder.Append(status);
+                builder.Append("</i>");
+            }
+
+            row.Text.text =
+                builder.ToString();
+
+            bool showProgress =
+                operation != null &&
+                (operation.State ==
+                    PackageOperationState.Downloading ||
+                 operation.State ==
+                    PackageOperationState.Verifying ||
+                 operation.State ==
+                    PackageOperationState.Extracting ||
+                 operation.State ==
+                    PackageOperationState.PendingRestart);
+
+            row.ProgressRoot.SetActive(
+                showProgress);
+
+            float progress =
+                operation == null
+                    ? 0f
+                    : Mathf.Clamp01(
+                        operation.Progress);
+
+            row.ProgressFill.anchorMax =
+                new Vector2(
+                    progress,
+                    1f);
+
+            string buttonLabel =
+                UpdatePanelLocalization.Get(
+                    UpdatePanelLocalization.UpdateActionId);
+
+            bool interactable = false;
+
+            if (operation != null)
+            {
+                if (operation.State ==
+                    PackageOperationState.Downloading)
+                {
+                    buttonLabel =
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.CancelActionId);
+
+                    interactable = true;
+                }
+                else if (operation.State ==
+                    PackageOperationState.Error ||
+                    operation.State ==
+                    PackageOperationState.Cancelled)
+                {
+                    buttonLabel =
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.RetryActionId);
+
+                    interactable =
+                        PackageUpdateManager.IsPackageAvailable(
+                            update) &&
+                        !PackageUpdateManager.IsAnotherOperationRunning(
+                            update.Guid);
+                }
+                else if (operation.State ==
+                    PackageOperationState.PendingRestart)
+                {
+                    buttonLabel =
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.QueuedActionId);
+                }
+                else
+                {
+                    buttonLabel =
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.WorkingActionId);
+                }
+            }
+            else
+            {
+                if ((PackageUpdateManager.CatalogState ==
+                        PackageCatalogState.Error ||
+                     PackageUpdateManager.CatalogState ==
+                        PackageCatalogState.NotLoaded) &&
+                    !UpdateCheckerConfig.Debug)
+                {
+                    buttonLabel =
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.RetryActionId);
+
+                    interactable =
+                        !PackageUpdateManager.IsAnotherOperationRunning(
+                            update.Guid);
+                }
+                else
+                {
+                    interactable =
+                        PackageUpdateManager.IsPackageAvailable(
+                            update) &&
+                        !PackageUpdateManager.IsAnotherOperationRunning(
+                            update.Guid);
+                }
+            }
+
+            row.Button.interactable =
+                interactable;
+            row.ButtonText.text =
+                buttonLabel;
+        }
+
+        private static string GetUpdateStatus(
+            AvailableUpdate update,
+            PackageOperation operation)
+        {
+            if (operation != null)
+            {
+                if (operation.State ==
+                    PackageOperationState.Downloading)
+                {
+                    int percent =
+                        (int)Math.Round(
+                            Math.Min(
+                                1f,
+                                operation.Progress / 0.72f) *
+                            100f);
+
+                    return
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.DownloadingId) +
+                        " " +
+                        percent.ToString() +
+                        "%";
+                }
+
+                if (operation.State ==
+                    PackageOperationState.Verifying)
+                {
+                    return UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.VerifyingId);
+                }
+
+                if (operation.State ==
+                    PackageOperationState.Extracting)
+                {
+                    return UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.PreparingInstallId);
+                }
+
+                if (operation.State ==
+                    PackageOperationState.PendingRestart)
+                {
+                    return "<b>" +
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.RestartRequiredId) +
+                        "</b>";
+                }
+
+                if (operation.State ==
+                    PackageOperationState.Cancelled)
+                {
+                    return UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.CancelledId);
+                }
+
+                if (operation.State ==
+                    PackageOperationState.Error)
+                {
+                    return string.IsNullOrEmpty(
+                            operation.Error)
+                        ? UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.DownloadErrorId)
+                        : operation.Error;
+                }
+            }
+
+            if (PackageUpdateManager.CatalogState ==
+                PackageCatalogState.Loading)
+            {
+                return UpdatePanelLocalization.Get(
+                    UpdatePanelLocalization.PackageCatalogLoadingId);
+            }
+
+            if (PackageUpdateManager.CatalogState ==
+                    PackageCatalogState.Error &&
+                !UpdateCheckerConfig.Debug)
+            {
+                return UpdatePanelLocalization.Get(
+                    UpdatePanelLocalization.PackageCatalogErrorId);
+            }
+
+            if (PackageUpdateManager.IsAnotherOperationRunning(
+                    update.Guid))
+            {
+                return UpdatePanelLocalization.Get(
+                    UpdatePanelLocalization.UpdateBusyId);
+            }
+
+            if (!PackageUpdateManager.IsPackageAvailable(
+                    update))
+            {
+                return UpdatePanelLocalization.Get(
+                    UpdatePanelLocalization.PackageUnavailableId);
+            }
+
+            return UpdatePanelLocalization.Get(
+                UpdatePanelLocalization.ReadyToUpdateId);
+        }
+
+        private static string BuildInstallResultsText()
+        {
+            IList<InstallResultDisplay> results =
+                PackageUpdateManager.LastResults;
+
+            if (results.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder builder =
+                new StringBuilder();
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                InstallResultDisplay result =
+                    results[i];
+
+                if (result == null)
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append("\n\n");
+                }
+
+                builder.Append("\u2022 <b>");
+                builder.Append(result.Name);
+                builder.Append(" ");
+                builder.Append(result.Version);
+                builder.Append("</b>");
+
+                if (string.Equals(
+                        result.Status,
+                        "failure",
+                        StringComparison.Ordinal))
+                {
+                    builder.Append("\n   <i>");
+                    builder.Append(
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.InstallFailedId));
+                    builder.Append("</i>");
+                    continue;
+                }
+
+                builder.Append("\n   <i>");
+                builder.Append(
+                    UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.InstallSucceededId));
+                builder.Append("</i>");
+
+                if (result.AddedSettings.Count > 0)
+                {
+                    builder.Append("\n   ");
+                    builder.Append(
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.ConfigAddedId));
+
+                    for (int j = 0;
+                        j < result.AddedSettings.Count;
+                        j++)
+                    {
+                        builder.Append("\n      \u2022 ");
+                        builder.Append(
+                            result.AddedSettings[j]);
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(
+                        result.ConfigWarning))
+                {
+                    builder.Append("\n   <i>");
+                    builder.Append(
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.ConfigWarningId));
+                    builder.Append("</i>");
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        private static void DestroyUpdateRows()
+        {
+            for (int i = 0; i < _updateRows.Count; i++)
+            {
+                if (_updateRows[i] != null &&
+                    _updateRows[i].Root != null)
+                {
+                    UnityEngine.Object.Destroy(
+                        _updateRows[i].Root);
+                }
+            }
+
+            _updateRows.Clear();
+        }
+
         private static string BuildNewsText()
         {
             if (UpdateChecker.NewsState == RemoteContentState.Loading)
@@ -572,60 +1226,62 @@ namespace HospitalModUpdateChecker
 
         private static string BuildUpdatesText()
         {
-            if (UpdateChecker.UpdateState == RemoteContentState.Loading)
-            {
-                return UpdatePanelLocalization.Get(
-                    UpdatePanelLocalization.LoadingId);
-            }
-
-            if (UpdateChecker.UpdateState == RemoteContentState.Error)
-            {
-                return UpdatePanelLocalization.Get(
-                    UpdatePanelLocalization.UpdateErrorId);
-            }
-
-            if (UpdateChecker.UpdateState == RemoteContentState.Empty)
-            {
-                return UpdatePanelLocalization.Get(
-                    UpdatePanelLocalization.NoUpdatesId);
-            }
-
-            if (UpdateChecker.UpdateState == RemoteContentState.Cached)
-            {
-                return UpdatePanelLocalization.Get(
-                    UpdatePanelLocalization.NoUpdatesCachedId);
-            }
-
-            IList<AvailableUpdate> updates =
-                UpdateChecker.AvailableUpdates;
-
             StringBuilder builder =
                 new StringBuilder();
 
-            for (int i = 0; i < updates.Count; i++)
+            string results =
+                BuildInstallResultsText();
+
+            if (!string.IsNullOrEmpty(results))
             {
-                AvailableUpdate update = updates[i];
-
-                if (i > 0)
-                {
-                    builder.Append("\n\n");
-                }
-
-                builder.Append("\u2022 ");
-                builder.Append(update.Name);
-                builder.Append(" (");
-                builder.Append(update.Author);
-                builder.Append(")\n   v");
-                builder.Append(update.InstalledVersion);
-                builder.Append(" \u2192 <b>v");
-                builder.Append(update.AvailableVersion);
-                builder.Append("</b>");
+                builder.Append(results);
+                builder.Append("\n\n");
             }
 
-            return builder.Length == 0
-                ? UpdatePanelLocalization.Get(
-                    UpdatePanelLocalization.NoUpdatesId)
-                : builder.ToString();
+            if (UpdateChecker.UpdateState ==
+                RemoteContentState.Loading)
+            {
+                builder.Append(
+                    UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.LoadingId));
+                return builder.ToString();
+            }
+
+            if (UpdateChecker.UpdateState ==
+                RemoteContentState.Error)
+            {
+                builder.Append(
+                    UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.UpdateErrorId));
+                return builder.ToString();
+            }
+
+            if (UpdateChecker.UpdateState ==
+                RemoteContentState.Empty)
+            {
+                builder.Append(
+                    UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.NoUpdatesId));
+                return builder.ToString();
+            }
+
+            if (UpdateChecker.UpdateState ==
+                RemoteContentState.Cached)
+            {
+                builder.Append(
+                    UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.NoUpdatesCachedId));
+                return builder.ToString();
+            }
+
+            if (builder.Length == 0)
+            {
+                builder.Append(
+                    UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.NoUpdatesId));
+            }
+
+            return builder.ToString();
         }
 
         private static string BuildLoadedPluginsText()
@@ -1059,12 +1715,15 @@ namespace HospitalModUpdateChecker
 
         private static void DestroyPanel()
         {
+            DestroyUpdateRows();
+
             if (_panel != null)
             {
                 UnityEngine.Object.Destroy(_panel);
             }
 
             _panel = null;
+            _sourceText = null;
             _newsSection = null;
             _updatesSection = null;
             _pluginsSection = null;
