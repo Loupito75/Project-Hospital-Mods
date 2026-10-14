@@ -65,6 +65,11 @@ namespace HospitalPorters
         internal bool ShowingSampleRoomWaitingBubble;
         internal bool FridgeDepositSoundPlayed;
         internal bool PostDeliveryReturn;
+        // WalkComponent builds seated routes from the chair's physical tile,
+        // not from the character's actual use position. If the cart use tile
+        // matches that chair tile, vanilla can produce a one-node route and
+        // remain seated. Stage the native stand-up before routing to the cart.
+        internal bool WaitingForStandUpBeforeCart;
         internal PorterSampleTransportPhase Phase;
     }
 
@@ -495,16 +500,6 @@ namespace HospitalPorters
             }
 
             nurse.CancelBrowsing();
-            AnimModelComponent anim =
-                porter.GetComponent<AnimModelComponent>();
-            if (anim != null)
-            {
-                anim.PlayAnimation(
-                    walk.IsSitting()
-                        ? "sit_relax_pc_out"
-                        : "stand_idle",
-                    looping: false);
-            }
             nurse.SwitchState(NurseState.Idle);
 
             HideSampleRoomWaitingBubble(porter, job);
@@ -1170,54 +1165,6 @@ namespace HospitalPorters
             ClearRoomWaitTracking(procedure);
         }
 
-        internal static bool IsRoomClaimedForSamplePickup(
-            Room room)
-        {
-            if (room == null ||
-                room.m_roomPersistentData == null ||
-                room.m_roomPersistentData.m_roomType == null ||
-                room.m_roomPersistentData.m_roomType.Entry == null ||
-                room.m_roomPersistentData.m_roomType.Entry
-                    .HasTag("hospitalization"))
-            {
-                return false;
-            }
-
-            foreach (KeyValuePair<Entity, PorterSampleTransportJob> pair in
-                Jobs)
-            {
-                PorterSampleTransportJob job =
-                    pair.Value;
-                if (job == null ||
-                    !IsSamplePickupClaimPhase(job.Phase))
-                {
-                    continue;
-                }
-
-                Room sourceRoom =
-                    GetSampleSourceRoom(job.Procedure);
-                if (sourceRoom == room)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool IsSamplePickupClaimPhase(
-            PorterSampleTransportPhase phase)
-        {
-            return phase ==
-                    PorterSampleTransportPhase.GoingToCart ||
-                phase ==
-                    PorterSampleTransportPhase.GoingToSampleParking ||
-                phase ==
-                    PorterSampleTransportPhase.GoingToSample ||
-                phase ==
-                    PorterSampleTransportPhase.TakingSample;
-        }
-
         internal static void AppendCurrentPatients(
             Entity porter,
             List<Entity> patients)
@@ -1495,6 +1442,34 @@ namespace HospitalPorters
 
             Jobs[porter] = job;
             NextOrphanedCartRecoveryTimes.Remove(porter);
+
+            // WaitingForStandUpBeforeCart is intentionally transient. Rebuild
+            // it from vanilla's persisted seat state so a save made during a
+            // seated GoingToCart departure cannot restore the one-node route
+            // loop that this guard prevents.
+            WalkComponent restoredWalk =
+                porter.GetComponent<WalkComponent>();
+            if (job.Phase ==
+                    PorterSampleTransportPhase.GoingToCart &&
+                job.Cart != null &&
+                restoredWalk != null &&
+                restoredWalk.IsSitting())
+            {
+                job.WaitingForStandUpBeforeCart = true;
+
+                PorterDiagnostics.Log(
+                    "sample departure stand-up restored after load: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; current=" +
+                    restoredWalk.GetCurrentTile() +
+                    "; cartUseTile=" +
+                    ToTile(job.Cart.GetDefaultUsePosition()) +
+                    "; walkState=" +
+                    (restoredWalk.m_state == null
+                        ? "UNKNOWN"
+                        : restoredWalk.m_state.m_walkState.ToString()) +
+                    ".");
+            }
 
             if (job.Procedure != null &&
                 job.Phase !=
@@ -5967,6 +5942,15 @@ namespace HospitalPorters
                 job == null
                     ? null
                     : job.Cart;
+            TileObject seat =
+                walk.m_state == null ||
+                walk.m_state.m_objectSittingOn == null
+                    ? null
+                    : walk.m_state.m_objectSittingOn.GetEntity();
+            AnimModelComponent animation =
+                porter == null
+                    ? null
+                    : porter.GetComponent<AnimModelComponent>();
 
             PorterDiagnostics.Log(
                 "sample route mismatch: porter=" +
@@ -5989,6 +5973,26 @@ namespace HospitalPorters
                 walk.GetFloorIndex() +
                 "; expectedFloor=" +
                 expectedFloor +
+                "; walkState=" +
+                (walk.m_state == null
+                    ? "UNKNOWN"
+                    : walk.m_state.m_walkState.ToString()) +
+                "; seated=" +
+                (seat != null) +
+                "; seatPosition=" +
+                (seat == null
+                    ? "NONE"
+                    : seat.m_state.m_position.ToString()) +
+                "; seatUseTile=" +
+                (seat == null
+                    ? "NONE"
+                    : ToTile(
+                        seat.GetDefaultUsePosition()).ToString()) +
+                "; animation=" +
+                (animation == null ||
+                 animation.m_state == null
+                    ? "NONE"
+                    : animation.m_state.m_currentAnimationID) +
                 "; cartPosition=" +
                 (cart == null
                     ? "NONE"
@@ -7272,16 +7276,6 @@ namespace HospitalPorters
                     targetDepartment);
 
             nurse.CancelBrowsing();
-            AnimModelComponent anim =
-                porter.GetComponent<AnimModelComponent>();
-            if (anim != null)
-            {
-                anim.PlayAnimation(
-                    walk.IsSitting()
-                        ? "sit_relax_pc_out"
-                        : "stand_idle",
-                    looping: false);
-            }
             nurse.SwitchState(NurseState.Idle);
 
             use.ReserveObject(source);
@@ -7325,9 +7319,56 @@ namespace HospitalPorters
             ShowSampleBubble(porter, procedure);
             if (hasCart)
             {
-                walk.SetDestination(
-                    cart.GetDefaultUsePosition(),
-                    cart.GetFloorIndex());
+                TileObject seat =
+                    walk.m_state == null ||
+                    walk.m_state.m_objectSittingOn == null
+                        ? null
+                        : walk.m_state.m_objectSittingOn.GetEntity();
+
+                if (seat != null)
+                {
+                    job.WaitingForStandUpBeforeCart = true;
+
+                    AnimModelComponent animation =
+                        porter.GetComponent<AnimModelComponent>();
+                    PorterDiagnostics.Log(
+                        "sample departure staged from seat: porter=" +
+                        (porter.Name ?? string.Empty).Trim() +
+                        "; current=" +
+                        walk.GetCurrentTile() +
+                        "; seatPosition=" +
+                        seat.m_state.m_position +
+                        "; seatUseTile=" +
+                        ToTile(seat.GetDefaultUsePosition()) +
+                        "; cartUseTile=" +
+                        ToTile(cart.GetDefaultUsePosition()) +
+                        "; walkState=" +
+                        (walk.m_state == null
+                            ? "UNKNOWN"
+                            : walk.m_state.m_walkState.ToString()) +
+                        "; animation=" +
+                        (animation == null ||
+                         animation.m_state == null
+                            ? "NONE"
+                            : animation.m_state.m_currentAnimationID) +
+                        ".");
+
+                    // Keep ownership in vanilla WalkComponent. It releases the
+                    // seat User in UpdateStandingUp(); HPO only waits until the
+                    // native transition has fully completed before routing.
+                    // If another native movement transition is already active,
+                    // do not restart it; UpdateGoingToCart will wait for it.
+                    if (!walk.IsBusy())
+                    {
+                        walk.StandUp();
+                    }
+                }
+                else
+                {
+                    walk.SetDestination(
+                        cart.GetDefaultUsePosition(),
+                        cart.GetFloorIndex());
+                }
             }
             else
             {
@@ -7612,13 +7653,53 @@ namespace HospitalPorters
                 return;
             }
 
+            Vector2i cartUseTile =
+                ToTile(job.Cart.GetDefaultUsePosition());
+
+            if (job.WaitingForStandUpBeforeCart)
+            {
+                // StandingUp remains busy and keeps m_objectSittingOn until
+                // vanilla finishes the exit animation. Once vanilla has fully
+                // cleared the seat and settled its old seat destination, start
+                // the cart route from the Porter's real standing tile.
+                if (walk.IsSitting())
+                {
+                    if (!walk.IsBusy())
+                    {
+                        walk.StandUp();
+                    }
+                    return;
+                }
+
+                if (walk.IsBusy())
+                {
+                    return;
+                }
+
+                job.WaitingForStandUpBeforeCart = false;
+                job.RouteRecoveryAttempts = 0;
+                walk.SetDestination(
+                    cartUseTile,
+                    job.Cart.GetFloorIndex());
+
+                PorterDiagnostics.Log(
+                    "sample departure resumed after stand-up: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; current=" +
+                    walk.GetCurrentTile() +
+                    "; cartUseTile=" +
+                    cartUseTile +
+                    "; floor=" +
+                    job.Cart.GetFloorIndex() +
+                    ".");
+                return;
+            }
+
             if (walk.IsBusy())
             {
                 return;
             }
 
-            Vector2i cartUseTile =
-                ToTile(job.Cart.GetDefaultUsePosition());
             if (!EnsureReachedDestination(
                     porter,
                     walk,
@@ -9532,29 +9613,33 @@ namespace HospitalPorters
 
             UseComponent use = porter.GetComponent<UseComponent>();
             if (use == null ||
+                use.m_state == null ||
                 (use.m_state.m_reservedObject == null && !use.IsUsing()))
             {
                 return;
             }
 
-            if (!PorterTransportConfig.EnableDiagnostics)
-            {
-                use.Interrupt();
-                return;
-            }
-
-            // Inspect only before Interrupt(): vanilla clears the reserved
-            // object and may also deactivate the currently used object.
+            // Inspect ownership before touching vanilla UseComponent state.
+            // UseComponent.Interrupt() unconditionally clears the User of its
+            // reserved object, so it must never be called while this Porter's
+            // stale pointer references an object now owned by another entity.
             TileObject reservedObject =
-                use.m_state == null ||
                 use.m_state.m_reservedObject == null
                     ? null
                     : use.m_state.m_reservedObject.GetEntity();
             TileObject activeObject =
-                use.m_state == null ||
                 use.m_state.m_object == null
                     ? null
                     : use.m_state.m_object.GetEntity();
+            Entity reservedUser =
+                reservedObject == null
+                    ? null
+                    : reservedObject.User;
+            Entity activeUser =
+                activeObject == null
+                    ? null
+                    : activeObject.User;
+
             string reservedId =
                 reservedObject == null ||
                 reservedObject.m_state == null ||
@@ -9570,19 +9655,75 @@ namespace HospitalPorters
                     ? "NONE"
                     : activeObject.m_state.m_gameDBObject.Entry.DatabaseID.ToString();
             string useState =
-                use.m_state == null
-                    ? "UNKNOWN"
-                    : use.m_state.m_useComponentState.ToString();
-            bool reservedObjectWasPorter =
-                reservedObject != null && reservedObject.User == porter;
-            bool activeObjectWasPorter =
-                activeObject != null && activeObject.User == porter;
+                use.m_state.m_useComponentState.ToString();
 
+            bool reservedObjectWasPorter =
+                reservedObject != null &&
+                reservedUser == porter;
+            bool activeObjectWasPorter =
+                activeObject != null &&
+                activeUser == porter;
+            bool staleForeignOrUnownedReservation =
+                reservedObject != null &&
+                reservedUser != porter;
+
+            if (staleForeignOrUnownedReservation)
+            {
+                string previousReservedUser =
+                    reservedUser == null
+                        ? "NONE"
+                        : reservedUser.GetType().Name + ":" +
+                          (reservedUser.Name ?? string.Empty).Trim() +
+                          "#" + reservedUser.GetEntityID();
+
+                // Clear only this Porter's stale persistent pointer. Do not
+                // mutate TileObject.User: it may belong to another employee.
+                use.m_state.m_reservedObject = null;
+
+                bool interruptedOwnActiveUse = false;
+                bool foreignActiveUsePreserved =
+                    activeObject != null &&
+                    activeUser != null &&
+                    activeUser != porter;
+
+                if (use.IsUsing() &&
+                    !foreignActiveUsePreserved)
+                {
+                    // Safe after detaching the stale reserved pointer: the
+                    // remaining active object is either ours or absent.
+                    use.Interrupt();
+                    interruptedOwnActiveUse = true;
+                }
+
+                PorterDiagnostics.Log(
+                    "sample recovery: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; action=cleared stale reservation pointer" +
+                    "; preservedReservedObjectUser=True" +
+                    "; previousUseState=" + useState +
+                    "; reservedObject=" + reservedId +
+                    "; reservedObjectUser=" +
+                    previousReservedUser +
+                    "; activeObject=" + activeId +
+                    "; activeObjectUserWasPorter=" +
+                    activeObjectWasPorter +
+                    "; interruptedOwnActiveUse=" +
+                    interruptedOwnActiveUse +
+                    "; foreignActiveUsePreserved=" +
+                    foreignActiveUsePreserved +
+                    ".");
+                return;
+            }
+
+            // The reservation is still owned by this Porter (or only an active
+            // use remains), so vanilla Interrupt() is safe and remains the
+            // preferred cleanup path.
             use.Interrupt();
+
             PorterDiagnostics.Log(
                 "sample recovery: porter=" +
                 (porter.Name ?? string.Empty).Trim() +
-                "; action=cleared orphaned equipment reservation" +
+                "; action=cleared owned orphaned use state" +
                 "; previousUseState=" + useState +
                 "; reservedObject=" + reservedId +
                 "; activeObject=" + activeId +
@@ -10064,106 +10205,6 @@ namespace HospitalPorters
             codes.Insert(matchIndex + 1, new CodeInstruction(OpCodes.Call, timeoutHelper));
 
             return codes;
-        }
-    }
-
-    [HarmonyPatch(
-        typeof(ProcedureSceneFactory),
-        nameof(ProcedureSceneFactory.CreateProcedureScene),
-        new Type[]
-        {
-            typeof(GameDBProcedure),
-            typeof(Entity),
-            typeof(Department),
-            typeof(Room),
-            typeof(AccessRights),
-            typeof(ProcedureSceneType),
-            typeof(EquipmentListRules),
-            typeof(StaffSelectionRules)
-        })]
-    internal static class PorterSampleRoomPatientPriorityQueryPatch
-    {
-        [HarmonyPostfix]
-        [HarmonyPriority(Priority.Last)]
-        private static void Postfix(
-            Entity patient,
-            ProcedureScene __result)
-        {
-            ApplySampleRoomClaim(
-                patient,
-                __result);
-        }
-
-        private static void ApplySampleRoomClaim(
-            Entity patient,
-            ProcedureScene scene)
-        {
-            if (patient == null ||
-                scene == null ||
-                scene.m_room == null)
-            {
-                return;
-            }
-
-            BehaviorPatient behavior =
-                patient.GetComponent<BehaviorPatient>();
-            WalkComponent walk =
-                patient.GetComponent<WalkComponent>();
-            Room room =
-                scene.m_room.GetEntity();
-            if (behavior == null ||
-                walk == null ||
-                room == null ||
-                behavior.m_state.m_patientState ==
-                    PatientState.Collapsing ||
-                (walk.GetFloorIndex() == room.GetFloorIndex() &&
-                 room.IsPositionInRoom(walk.GetCurrentTile())) ||
-                !PorterSampleTransportRuntime
-                    .IsRoomClaimedForSamplePickup(room))
-            {
-                return;
-            }
-
-            scene.m_availability |=
-                ProcedureSceneAvailability.NO_ROOM;
-        }
-
-        internal static void Apply(
-            Entity patient,
-            ProcedureScene scene)
-        {
-            ApplySampleRoomClaim(
-                patient,
-                scene);
-        }
-    }
-
-    [HarmonyPatch(
-        typeof(ProcedureSceneFactory),
-        nameof(ProcedureSceneFactory.CreateProcedureScene),
-        new Type[]
-        {
-            typeof(GameDBProcedure),
-            typeof(Entity),
-            typeof(Entity),
-            typeof(Entity),
-            typeof(Entity),
-            typeof(AccessRights),
-            typeof(Room),
-            typeof(ProcedureSceneType),
-            typeof(EquipmentListRules)
-        })]
-    internal static class PorterSampleRoomPatientPriorityInstantiationPatch
-    {
-        [HarmonyPostfix]
-        [HarmonyPriority(Priority.Last)]
-        private static void Postfix(
-            Entity patient,
-            ProcedureScene __result)
-        {
-            PorterSampleRoomPatientPriorityQueryPatch.Apply(
-                patient,
-                __result);
         }
     }
 
