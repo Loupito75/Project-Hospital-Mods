@@ -932,8 +932,8 @@ def inspect_release_zip(
         + "/"
     )
 
-    top_level_directories = set()
     top_level_files = set()
+    package_files = set()
     seen_paths = set()
 
     unpacked_bytes = 0
@@ -1032,9 +1032,6 @@ def inspect_release_zip(
                 ).parts
 
                 if info.is_dir():
-                    top_level_directories.add(
-                        parts[0]
-                    )
                     continue
 
                 unpacked_bytes += (
@@ -1050,12 +1047,12 @@ def inspect_release_zip(
                         "HMUC unpacked size limit."
                     )
 
+                package_files.add(
+                    relative
+                )
+
                 if len(parts) == 1:
                     top_level_files.add(
-                        parts[0]
-                    )
-                else:
-                    top_level_directories.add(
                         parts[0]
                     )
 
@@ -1078,16 +1075,20 @@ def inspect_release_zip(
     )
 
     runtime_files = sorted(
-        value
-        for value in top_level_files
-        if value.lower()
-        != config_file.lower()
-    )
-
-    runtime_directories = sorted(
-        top_level_directories,
+        (
+            value
+            for value in package_files
+            if value.lower()
+            != config_file.lower()
+        ),
         key=str.lower,
     )
+
+    # Ownership is intentionally file-by-file.
+    # Never infer a mirror directory from ZIP structure:
+    # a directory such as Audio/MyMusic may contain user files
+    # that must survive a mod update.
+    runtime_directories = []
 
     if plugin_file not in runtime_files:
         raise RuntimeError(
