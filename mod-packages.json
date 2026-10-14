@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "manifestRevision": 1,
+  "updatedUtc": "2026-10-14T19:03:06Z",
+  "expiresUtc": "2027-01-12T19:03:06Z",
+  "packages": [
+    {
+      "guid": "loupito75.HospitalPorters",
+      "name": "Hospital Porters",
+      "version": "1.1.1",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalPorters-v1.1.1/Loupito75.HospitalPorters-v1.1.1.zip",
+      "sha256": "6f737967bcaa316158c7caf6ffc7eabeafd76004684d35ae2dd408f499cef8fb",
+      "packageBytes": 660709,
+      "maximumUnpackedBytes": 903466,
+      "installDirectory": "Loupito75.HospitalPorters",
+      "archiveRoot": "Loupito75.HospitalPorters",
+      "pluginFile": "Loupito75.HospitalPorters.dll",
+      "configFile": "Loupito75.HospitalPorters.Config.xml",
+      "runtimeDirectories": [
+        "Database",
+        "Textures"
+      ],
+      "runtimeFiles": [
+        "Loupito75.HospitalPorters.dll",
+        "README_NEVER_MISS_AN_UPDATE.txt",
+        "preview.png"
+      ],
+      "removeFiles": []
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "formatVersion": 1,
+  "keyId": "hmuc-packages-2026-01",
+  "algorithm": "RSASSA-PKCS1-v1_5-SHA256",
+  "signature": "KR2XVb/DODuE2ro3qffC8+Yheq0DkvHixnRa7SA8fFczRr5KpwPIDmzXw+kKFnARqKbKp9MbPkTc2T4golkuGPn4TwUt1c7e2Mfljih/vPjX9/x8bQ+BKmtujMJmMCBLyoELC6nixUImiTNyqr73sNa2ubkSjiwRIvN9k85jUy6uhBkvJzerOMeULp8WvA7p71TeZP1SqU/lGW3aqKlTpWUQaCqQ4Po9ZJhEEe4MgdnI7uPk2isAc1c2JqXGbW8aqgcLQFrb7Nip8MlhXEUtBc1QwWKNj+LL1RL3jga8B+1gXgICw2KNGhlpNzRw46kVh6E0ySRhCvpO76V2lGYUEFNz3AbchgGBb9DO6QDOWJWAFbXFKCt5egg2YKf8/WXhYe88JT7pC/5osb6cGlnRaNG7Xkw+UeQFvhXBT6/ZnkMdCW74vP0HFkAj9wSHUaEAVlnMiFKyD/k5RMjSURoPF9v9DLa9iEJlTz8r2r1E48LRMwn5Zhnuz32c0fega7IN"
+}
