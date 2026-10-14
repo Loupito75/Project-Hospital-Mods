@@ -162,6 +162,17 @@ namespace HospitalModUpdateChecker
                 TitleScreenUpdatePanel.Refresh();
             }
 
+            if (!UpdateCheckerConfig.Debug)
+            {
+                IEnumerator packageRoutine =
+                    PackageUpdateManager.RefreshCatalog();
+
+                while (packageRoutine.MoveNext())
+                {
+                    yield return packageRoutine.Current;
+                }
+            }
+
             if (!UpdateCheckerConfig.ShowNews)
             {
                 _newsItems.Clear();
@@ -272,6 +283,7 @@ namespace HospitalModUpdateChecker
 
                     _availableUpdates.Add(
                         new AvailableUpdate(
+                            remote.Guid,
                             remote.Name,
                             remote.Author,
                             localVersion,
@@ -339,6 +351,7 @@ namespace HospitalModUpdateChecker
 
                 _availableUpdates.Add(
                     new AvailableUpdate(
+                        entry.Guid,
                         entry.Name,
                         entry.Author,
                         installedVersion,
@@ -351,11 +364,6 @@ namespace HospitalModUpdateChecker
                 ? RemoteContentState.Empty
                 : RemoteContentState.Ready;
 
-            Plugin.Log.LogInfo(
-                "HMUC debug update manifest enabled with " +
-                _availableUpdates.Count.ToString(
-                    CultureInfo.InvariantCulture) +
-                " test entries.");
         }
 
         private static void LoadDebugNewsManifest()
@@ -383,11 +391,6 @@ namespace HospitalModUpdateChecker
                 ? RemoteContentState.Empty
                 : RemoteContentState.Ready;
 
-            Plugin.Log.LogInfo(
-                "HMUC debug news manifest enabled with " +
-                _newsItems.Count.ToString(
-                    CultureInfo.InvariantCulture) +
-                " test entries.");
         }
 
         private static IEnumerator CheckNewsManifest()
@@ -806,17 +809,20 @@ namespace HospitalModUpdateChecker
 
     internal sealed class AvailableUpdate
     {
+        internal string Guid { get; private set; }
         internal string Name { get; private set; }
         internal string Author { get; private set; }
         internal Version InstalledVersion { get; private set; }
         internal Version AvailableVersion { get; private set; }
 
         internal AvailableUpdate(
+            string guid,
             string name,
             string author,
             Version installedVersion,
             Version availableVersion)
         {
+            Guid = guid;
             Name = name;
             Author = author;
             InstalledVersion = installedVersion;

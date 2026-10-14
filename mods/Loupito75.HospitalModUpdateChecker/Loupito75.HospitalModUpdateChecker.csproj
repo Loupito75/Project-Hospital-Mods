@@ -10,14 +10,14 @@
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0</AssemblyVersion>
-    <FileVersion>1.1.0</FileVersion>
-    <InformationalVersion>1.1.0</InformationalVersion>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0</AssemblyVersion>
+    <FileVersion>1.2.0</FileVersion>
+    <InformationalVersion>1.2.0</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Mod Update Checker</Product>
-    <Description>Project Hospital mod update notification checker powered by BepInEx and Harmony.</Description>
+    <Description>Project Hospital secure mod update checker and installer powered by BepInEx and Harmony.</Description>
 
     <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_DIR)' != ''">$(PROJECT_HOSPITAL_DIR)</GameDir>
     <ManagedDir Condition="'$(GameDir)' != ''">$(GameDir)\ProjectHospital_Data\Managed</ManagedDir>
@@ -36,10 +36,19 @@
     <Compile Include="TitleScreenUpdatePanel.cs" />
     <Compile Include="UpdatePanelLocalization.cs" />
     <Compile Include="PluginLogStatusTracker.cs" />
+    <Compile Include="PackageManifest.cs" />
+    <Compile Include="SafeZipExtractor.cs" />
+    <Compile Include="PackageUpdateManager.cs" />
+    <Compile Include="PackageTrust.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="Loupito75.HospitalModUpdateChecker.Config.xml" />
+    <None Include="Loupito75.HospitalModUpdateChecker.PackagePublicKey.xml" />
+    <ProjectReference Include="BootstrapLoader\Loupito75.HospitalModUpdateChecker.Bootstrap.Loader.csproj"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="Bootstrap\Loupito75.HospitalModUpdateChecker.Bootstrap.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -57,6 +66,10 @@
     </Reference>
     <Reference Include="0Harmony">
       <HintPath>$(BepInExDir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Mono.Cecil">
+      <HintPath>$(BepInExDir)\Mono.Cecil.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine" Condition="Exists('$(ManagedDir)\UnityEngine.dll')">
@@ -94,6 +107,8 @@
            Text="BepInEx.dll was not found under the configured GameDir." />
     <Error Condition="'$(GameDir)' != '' AND !Exists('$(BepInExDir)\0Harmony.dll')"
            Text="0Harmony.dll was not found under the configured GameDir." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(BepInExDir)\Mono.Cecil.dll')"
+           Text="Mono.Cecil.dll was not found under the configured GameDir." />
     <Error Condition="'$(GameDir)' != '' AND !Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')"
            Text="UnityEngine.CoreModule.dll was not found under the configured GameDir." />
     <Error Condition="'$(GameDir)' != '' AND !Exists('$(ManagedDir)\UnityEngine.UI.dll')"
@@ -109,5 +124,20 @@
   <Target Name="CopyPluginToGame" AfterTargets="Build" Condition="'$(PluginDir)' != ''">
     <MakeDir Directories="$(PluginDir)" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\BootstrapLoader\bin\$(Configuration)\Loupito75.HospitalModUpdateChecker.Bootstrap.dll"
+          DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Bootstrap\bin\$(Configuration)\Loupito75.HospitalModUpdateChecker.Bootstrap.Core.dll"
+          DestinationFolder="$(PluginDir)" />
+    <Error Condition="!Exists('$(PluginDir)\Loupito75.HospitalModUpdateChecker.Bootstrap.dll')"
+           Text="HMUC bootstrap loader payload was not copied to the plugin folder." />
+    <Error Condition="!Exists('$(PluginDir)\Loupito75.HospitalModUpdateChecker.Bootstrap.Core.dll')"
+           Text="HMUC bootstrap core payload was not copied to the plugin folder." />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Loupito75.HospitalModUpdateChecker.Config.xml"
+          DestinationFolder="$(PluginDir)"
+          Condition="!Exists('$(PluginDir)\Loupito75.HospitalModUpdateChecker.Config.xml')" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Loupito75.HospitalModUpdateChecker.PackagePublicKey.xml"
+          DestinationFolder="$(PluginDir)" />
+    <Error Condition="!Exists('$(PluginDir)\Loupito75.HospitalModUpdateChecker.PackagePublicKey.xml')"
+           Text="HMUC package public key was not copied to the plugin folder." />
   </Target>
 </Project>

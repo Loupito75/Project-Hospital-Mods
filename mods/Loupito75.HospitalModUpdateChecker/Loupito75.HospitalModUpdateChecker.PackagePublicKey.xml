@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HMUCPublicKey formatVersion="1" keyId="hmuc-packages-2026-01" algorithm="RSASSA-PKCS1-v1_5-SHA256" configured="true">
+  <Modulus>o4adr8eswy141w/oEJSx3Lp/hROCbDTeYTn/5ir+FsGwSghmDTghcC6sur6DDIGFv3GRfKa8nxJWCdH2Dvo1WTOF7Eyw54AkpzP7XnbZKd4oYVjgzo/MGgilKPA0BeeYnMGPZlMrDPM7tWW9GTrzykiMlO/IPi7NWXrResRi9BpOG06c/zJ1EAW0wrEy8EoatUvcYnx6VULVeE+S2rvAEQYqwSScIfIzZv1VZgRHSJg0ZHE22OTQDeMNJjhFAeyuLrE3qCOVJiF/jFEEhSaY279j7SbKClctJVOSu3IvxvoSjweEXRxXQ6lDejwEaLXNx0gz13uzspXvWWr3QjK85yPemTXh9hyLRCYqzcRPey7Kdgpl39jVvsmgnVyqQCK9HrX7kJMCW8LyQnQn/7MZ4Nw6TA/r/8Mz9LyVe6gOj+nECwQb/Ekq34tjBxmHImsWj65XhAWZDYgJffdMIwNeiu9REx36JWUnnwKX1I+UI64D5rxYFhi4hVKoTxniBdJl</Modulus>
+  <Exponent>AQAB</Exponent>
+</HMUCPublicKey>
