@@ -1,9 +1,33 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 2,
-  "updatedUtc": "2026-10-14T20:02:40Z",
-  "expiresUtc": "2027-01-12T20:02:40Z",
+  "manifestRevision": 3,
+  "updatedUtc": "2026-10-14T22:23:34Z",
+  "expiresUtc": "2027-01-12T22:23:34Z",
   "packages": [
+    {
+      "guid": "loupito75.HospitalModUpdateChecker",
+      "name": "Hospital Mod Update Checker",
+      "version": "1.2.0",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalModUpdateChecker-v1.2.0/Loupito75.HospitalModUpdateChecker-v1.2.0.zip",
+      "sha256": "184e14bbb173e6e28bf5cb9e296e8844e981c55671f9e435ba099cc4ecb48ac1",
+      "packageBytes": 422794,
+      "maximumUnpackedBytes": 553103,
+      "installDirectory": "Loupito75.HospitalModUpdateChecker",
+      "archiveRoot": "Loupito75.HospitalModUpdateChecker",
+      "pluginFile": "Loupito75.HospitalModUpdateChecker.dll",
+      "configFile": "Loupito75.HospitalModUpdateChecker.Config.xml",
+      "runtimeDirectories": [],
+      "runtimeFiles": [
+        "Database/ModAddon.xml",
+        "Database/ModStringTableEn.xml",
+        "Loupito75.HospitalModUpdateChecker.Bootstrap.Core.dll",
+        "Loupito75.HospitalModUpdateChecker.Bootstrap.dll",
+        "Loupito75.HospitalModUpdateChecker.dll",
+        "Loupito75.HospitalModUpdateChecker.PackagePublicKey.xml",
+        "preview.png"
+      ],
+      "removeFiles": []
+    },
     {
       "guid": "loupito75.HospitalModUpdateTest",
       "name": "HMUC Test Mod",
