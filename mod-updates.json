@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731446,
-  "updatedUtc": "2026-10-12T19:13:40Z",
+  "manifestRevision": 731447,
+  "updatedUtc": "2026-10-14T19:03:06Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -55,7 +55,7 @@
       "guid": "loupito75.HospitalPorters",
       "name": "Hospital Porters",
       "author": "Loupito75",
-      "version": "1.1.0"
+      "version": "1.1.1"
     }
   ]
 }
