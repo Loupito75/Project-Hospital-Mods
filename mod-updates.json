@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731447,
-  "updatedUtc": "2026-10-14T19:03:06Z",
+  "manifestRevision": 731448,
+  "updatedUtc": "2026-10-14T20:02:39Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -56,6 +56,12 @@
       "name": "Hospital Porters",
       "author": "Loupito75",
       "version": "1.1.1"
+    },
+    {
+      "guid": "loupito75.HospitalModUpdateTest",
+      "name": "HMUC Test Mod",
+      "author": "Loupito75",
+      "version": "1.0.1"
     }
   ]
 }

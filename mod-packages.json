@@ -1,9 +1,27 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 1,
-  "updatedUtc": "2026-10-14T19:03:06Z",
-  "expiresUtc": "2027-01-12T19:03:06Z",
+  "manifestRevision": 2,
+  "updatedUtc": "2026-10-14T20:02:40Z",
+  "expiresUtc": "2027-01-12T20:02:40Z",
   "packages": [
+    {
+      "guid": "loupito75.HospitalModUpdateTest",
+      "name": "HMUC Test Mod",
+      "version": "1.0.1",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalModUpdateTest-v1.0.1/Loupito75.HospitalModUpdateTest-v1.0.1.zip",
+      "sha256": "a6724c3cd85877cb22aaacab94bc8073af0de9467572c72d7381af7dbec895d4",
+      "packageBytes": 2385,
+      "maximumUnpackedBytes": 4815,
+      "installDirectory": "Loupito75.HospitalModUpdateTest",
+      "archiveRoot": "Loupito75.HospitalModUpdateTest",
+      "pluginFile": "Loupito75.HospitalModUpdateTest.dll",
+      "configFile": "Loupito75.HospitalModUpdateTest.Config.xml",
+      "runtimeDirectories": [],
+      "runtimeFiles": [
+        "Loupito75.HospitalModUpdateTest.dll"
+      ],
+      "removeFiles": []
+    },
     {
       "guid": "loupito75.HospitalPorters",
       "name": "Hospital Porters",
