@@ -35,6 +35,14 @@ namespace HospitalTrafficControl
         private const float ProtectedRoomWaitIdealDoorDistance = 3.5f;
         private const float ProtectedRoomWaitMaximumDoorDistance = 7f;
         private const float ProtectedRoomWaitMinimumDoorDistance = 2f;
+        private const float ProtectedRoomWaitAnyDoorPenalty = 100f;
+        private const float ProtectedRoomWaitWallPreferenceBonus = 10f;
+
+        // Exterior cart staging uses the bucket cart's real one-tile
+        // placement + pickup access, like HPO's movable sample cart. Vanilla
+        // FindClosest3x3Area(...) remains the untouched interior fallback.
+        private const int JanitorCartExteriorRadius = 5;
+        private const int JanitorCartDoorPreferenceRadius = 2;
 
         // Native speech bubbles atlas: row 2, column 9 (16 icons per row,
         // zero-based linear index). Provisional icon until a custom wait icon.
@@ -100,6 +108,9 @@ namespace HospitalTrafficControl
         private static readonly Dictionary<Room, Entity>
             OccupiedWaitRoomOwners = new Dictionary<Room, Entity>();
 
+        [ThreadStatic]
+        private static BehaviorJanitor s_cartDestinationJanitor;
+
         private static readonly Dictionary<Entity, string>
             LastCartRouteDiagnostics =
                 new Dictionary<Entity, string>();
@@ -158,6 +169,7 @@ namespace HospitalTrafficControl
             NextOccupiedWaitRollMinute.Clear();
             OccupiedWaitDecisions.Clear();
             OccupiedWaitRoomOwners.Clear();
+            s_cartDestinationJanitor = null;
             LastCartRouteDiagnostics.Clear();
             NextPatientDiagnosticRealtime.Clear();
             WcCleaningTraces.Clear();
@@ -1011,6 +1023,72 @@ namespace HospitalTrafficControl
             return true;
         }
 
+        internal static void TryInterruptProtectedRoomBeforeMovement(
+            WalkComponent walk)
+        {
+            if (walk == null ||
+                walk.m_state == null ||
+                walk.m_state.m_walkState != WalkState.Walking ||
+                walk.m_route == null ||
+                walk.Floor == null)
+            {
+                return;
+            }
+
+            // MultiUpdate is a hot path for every moving character. Stay on
+            // cheap grid data until the next movement segment actually crosses
+            // a room boundary; only then resolve BehaviorJanitor.
+            Vector2i currentTile = walk.GetCurrentTile();
+            Vector2i nextTile = ToTile(walk.m_state.m_nextPosition);
+            Room nextRoom =
+                walk.Floor.GetRoomTileSafe(nextTile.m_x, nextTile.m_y);
+            if (nextRoom == null ||
+                ReferenceEquals(
+                    nextRoom,
+                    walk.Floor.GetRoomTileSafe(
+                        currentTile.m_x,
+                        currentTile.m_y)))
+            {
+                return;
+            }
+
+            Entity entity = CharacterAccess.GetEntity(walk);
+            BehaviorJanitor janitor =
+                entity == null
+                    ? null
+                    : entity.GetComponent<BehaviorJanitor>();
+            if (janitor == null ||
+                janitor.m_state == null ||
+                janitor.m_state.m_janitorState !=
+                    BehaviorJanitorState.WalkingToNextRoom ||
+                janitor.m_state.m_room == null)
+            {
+                return;
+            }
+
+            Room room = janitor.m_state.m_room.GetEntity();
+            if (room == null ||
+                !ReferenceEquals(room, nextRoom) ||
+                walk.GetFloorIndex() != room.GetFloorIndex())
+            {
+                return;
+            }
+
+            Entity reservationOwner = GetRoomReservationOwner(room);
+            bool claimedByOther =
+                reservationOwner != null &&
+                !ReferenceEquals(reservationOwner, janitor.m_entity);
+            if (!claimedByOther && !ShouldAvoidWholeRoomFresh(room))
+            {
+                return;
+            }
+
+            // Reuse the existing HTC room-travel recovery. It owns the
+            // reservation/cart cleanup and optional exterior-wait decision.
+            // This executes before WalkComponent.UpdateMovement().
+            TryHandleProtectedRoomTravel(janitor);
+        }
+
         internal static bool TryInterruptProtectedRoomBeforeTravel(
             BehaviorJanitor janitor)
         {
@@ -1195,6 +1273,15 @@ namespace HospitalTrafficControl
                             ProtectedRoomWaits.ContainsKey(janitor.m_entity) +
                         ".");
                 }
+
+                // SpeechComponentPersistentData is serialized by vanilla,
+                // while HTC intentionally does not persist the transient
+                // ProtectedRoomWait/Approach objects. Therefore an indefinite
+                // raw wait icon can survive a save/load after its HTC owner
+                // state is gone. This branch is already the narrowly-scoped
+                // recovery for exactly that lost exterior wait destination.
+                TryClearRecoveredProtectedRoomWaitingBubble(
+                    janitor.m_entity);
 
                 if (walk.IsBusy())
                 {
@@ -1407,10 +1494,17 @@ namespace HospitalTrafficControl
                 Vector2i destination;
                 if (IsCartAttached(janitor))
                 {
-                    destination =
-                        MapScriptInterface.Instance.FindClosest3x3Area(
+                    if (!TrySelectJanitorCartDestination(
+                            janitor,
                             walk.GetCurrentTile(),
-                            room);
+                            room,
+                            out destination))
+                    {
+                        destination =
+                            MapScriptInterface.Instance.FindClosest3x3Area(
+                                walk.GetCurrentTile(),
+                                room);
+                    }
 
                     if (destination == Vector2i.ZERO_VECTOR)
                     {
@@ -1633,6 +1727,54 @@ namespace HospitalTrafficControl
             }
 
             wait.ShowingWaitingBubble = false;
+        }
+
+        private static void TryClearRecoveredProtectedRoomWaitingBubble(
+            Entity entity)
+        {
+            if (entity == null)
+            {
+                return;
+            }
+
+            SpeechComponent speech =
+                entity.GetComponent<SpeechComponent>();
+            SpeechComponentPersistentData state =
+                speech == null
+                    ? null
+                    : speech.GetPersistentData() as
+                        SpeechComponentPersistentData;
+            if (state == null)
+            {
+                return;
+            }
+
+            // Match only the exact indefinite raw icon HTC creates with
+            // SetBubble(ProtectedRoomWaitBubbleIndex). Do not touch database
+            // speech bubbles, asset icons, timed bubbles or other raw icons.
+            bool exactRecoveredHtcWaitBubble =
+                state.m_speechBubble == null &&
+                state.m_bubbleTextureIndex ==
+                    ProtectedRoomWaitBubbleIndex &&
+                state.m_bubbleIconIndex == -1 &&
+                state.m_bubbleIconAssetID == null &&
+                state.m_displayTime < 0f;
+
+            if (!exactRecoveredHtcWaitBubble)
+            {
+                return;
+            }
+
+            speech.HideBubble();
+
+            if (TrafficControlConfig.PathfindingDebug)
+            {
+                Plugin.Log?.LogInfo(
+                    "[JanitorDebug] ROOM_WAIT_LOAD_BUBBLE_CLEANUP" +
+                    " | janitor=" + CharacterName(entity) +
+                    " | bubble=" + ProtectedRoomWaitBubbleIndex +
+                    ".");
+            }
         }
 
         private static bool TryGetProtectedRoomWait(
@@ -2286,12 +2428,9 @@ namespace HospitalTrafficControl
                 return false;
             }
 
-            Room publicRoom = floor.GetRoomTileSafe(
-                candidate.m_x, candidate.m_y);
-            string id = RoomTypeId(publicRoom);
-            if (id != "ROOM_TYPE_CORRIDOR" &&
-                id != "ROOM_TYPE_WAITING" &&
-                id != "ROOM_TYPE_RECEPTION")
+            if (!IsJanitorStagingArea(
+                    floor,
+                    candidate))
             {
                 return false;
             }
@@ -2302,6 +2441,202 @@ namespace HospitalTrafficControl
             return user == null ||
                 user.GetEntity() == null ||
                 ReferenceEquals(user.GetEntity(), janitorEntity);
+        }
+
+        private static bool IsPublicJanitorStagingRoom(Room room)
+        {
+            string id = RoomTypeId(room);
+            return id == "ROOM_TYPE_CORRIDOR" ||
+                   id == "ROOM_TYPE_WAITING" ||
+                   id == "ROOM_TYPE_RECEPTION";
+        }
+
+        private static bool IsJanitorInRoomWallParkingTarget(Room room)
+        {
+            return IsPublicJanitorStagingRoom(room);
+        }
+
+        private static bool IsJanitorStagingArea(
+            Floor floor,
+            Vector2i position)
+        {
+            if (floor == null ||
+                !RoomGeometry.IsInsideFloor(floor, position) ||
+                floor.IsOutdoors(position) ||
+                floor.m_mapPersistentData.m_foundationsLayer
+                    .m_foundations[
+                        position.m_x,
+                        position.m_y] != 2)
+            {
+                return false;
+            }
+
+            Room room =
+                floor.GetRoomTileSafe(
+                    position.m_x,
+                    position.m_y);
+
+            // Unzoned indoor tiles are normal transit in HTC and can be used
+            // like corridor / waiting / reception for temporary janitor
+            // staging, provided the caller's physical/access checks pass.
+            return room == null ||
+                   IsPublicJanitorStagingRoom(room);
+        }
+
+        private static bool IsJanitorCartLocalAreaCompatible(
+            Floor floor,
+            Vector2i parkingPosition,
+            Vector2i relatedPosition)
+        {
+            if (floor == null ||
+                !RoomGeometry.IsInsideFloor(
+                    floor,
+                    parkingPosition) ||
+                !RoomGeometry.IsInsideFloor(
+                    floor,
+                    relatedPosition))
+            {
+                return false;
+            }
+
+            Room parkingRoom =
+                floor.GetRoomTileSafe(
+                    parkingPosition.m_x,
+                    parkingPosition.m_y);
+            Room relatedRoom =
+                floor.GetRoomTileSafe(
+                    relatedPosition.m_x,
+                    relatedPosition.m_y);
+
+            if (parkingRoom != null &&
+                ReferenceEquals(
+                    parkingRoom,
+                    relatedRoom))
+            {
+                return true;
+            }
+
+            return IsJanitorStagingArea(
+                       floor,
+                       parkingPosition) &&
+                   IsJanitorStagingArea(
+                       floor,
+                       relatedPosition);
+        }
+
+        private static bool HasNearbyDoor(
+            Floor floor,
+            Vector2i position,
+            int radius)
+        {
+            if (floor == null || radius < 0)
+            {
+                return false;
+            }
+
+            for (int x = position.m_x - radius;
+                 x <= position.m_x + radius;
+                 x++)
+            {
+                for (int y = position.m_y - radius;
+                     y <= position.m_y + radius;
+                     y++)
+                {
+                    if (x < 0 ||
+                        y < 0 ||
+                        x >= floor.Size.m_x ||
+                        y >= floor.Size.m_y)
+                    {
+                        continue;
+                    }
+
+                    TileWalls walls = floor.GetWallsSafe(x, y);
+                    if (walls != null &&
+                        (walls.m_doorSW != null ||
+                         walls.m_doorSE != null))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasDoorOnTileBoundary(
+            Floor floor,
+            Vector2i position)
+        {
+            if (floor == null ||
+                position.m_x < 0 ||
+                position.m_y < 0 ||
+                position.m_x >= floor.Size.m_x ||
+                position.m_y >= floor.Size.m_y)
+            {
+                return false;
+            }
+
+            TileWalls current =
+                floor.GetWallsSafe(position.m_x, position.m_y);
+            TileWalls north =
+                position.m_y + 1 < floor.Size.m_y
+                    ? floor.GetWallsSafe(
+                        position.m_x,
+                        position.m_y + 1)
+                    : null;
+            TileWalls east =
+                position.m_x + 1 < floor.Size.m_x
+                    ? floor.GetWallsSafe(
+                        position.m_x + 1,
+                        position.m_y)
+                    : null;
+
+            return
+                (current != null &&
+                 (current.m_doorSW != null ||
+                  current.m_doorSE != null)) ||
+                (north != null &&
+                 north.m_doorSW != null) ||
+                (east != null &&
+                 east.m_doorSE != null);
+        }
+
+        private static bool HasAdjacentWall(
+            Floor floor,
+            Vector2i position)
+        {
+            if (floor == null ||
+                position.m_x < 0 ||
+                position.m_y < 0 ||
+                position.m_x >= floor.Size.m_x ||
+                position.m_y >= floor.Size.m_y)
+            {
+                return false;
+            }
+
+            TileWalls current =
+                floor.GetWallsSafe(position.m_x, position.m_y);
+            TileWalls north =
+                position.m_y + 1 < floor.Size.m_y
+                    ? floor.GetWallsSafe(
+                        position.m_x,
+                        position.m_y + 1)
+                    : null;
+            TileWalls east =
+                position.m_x + 1 < floor.Size.m_x
+                    ? floor.GetWallsSafe(
+                        position.m_x + 1,
+                        position.m_y)
+                    : null;
+
+            return
+                (current != null &&
+                 (current.m_wallSW != null ||
+                  current.m_wallSE != null)) ||
+                (north != null &&
+                 north.m_wallSW != null) ||
+                (east != null &&
+                 east.m_wallSE != null);
         }
 
         private static bool TryFindProtectedRoomWaitTile(
@@ -2456,6 +2791,15 @@ namespace HospitalTrafficControl
 
                     float score = Math.Abs(
                         fromDoor - ProtectedRoomWaitIdealDoorDistance);
+                    if (HasNearbyDoor(floor, candidate, 1))
+                    {
+                        score += ProtectedRoomWaitAnyDoorPenalty;
+                    }
+                    else if (HasAdjacentWall(floor, candidate))
+                    {
+                        score -= ProtectedRoomWaitWallPreferenceBonus;
+                    }
+
                     if (score > bestScore ||
                         (score == bestScore &&
                          fromDoor > bestDoorDistance))
@@ -2999,44 +3343,6 @@ namespace HospitalTrafficControl
                 janitor, room, walk, "wait-timeout");
         }
 
-        private static bool IsAdjacentToRoom(
-            WalkComponent walk,
-            Room room)
-        {
-            if (walk == null ||
-                room == null ||
-                walk.GetFloorIndex() != room.GetFloorIndex())
-            {
-                return false;
-            }
-
-            Vector2i tile = walk.GetCurrentTile();
-            int floor = walk.GetFloorIndex();
-            // In particular, never freeze a janitor who is still inside
-            // a different bathroom while targeting a neighbouring room.
-            if (IsBathroomRoom(GetRoomAtSafe(tile, floor)))
-            {
-                return false;
-            }
-
-            return ReferenceEquals(
-                       GetRoomAtSafe(
-                           new Vector2i(tile.m_x + 1, tile.m_y),
-                           floor), room) ||
-                   ReferenceEquals(
-                       GetRoomAtSafe(
-                           new Vector2i(tile.m_x - 1, tile.m_y),
-                           floor), room) ||
-                   ReferenceEquals(
-                       GetRoomAtSafe(
-                           new Vector2i(tile.m_x, tile.m_y + 1),
-                           floor), room) ||
-                   ReferenceEquals(
-                       GetRoomAtSafe(
-                           new Vector2i(tile.m_x, tile.m_y - 1),
-                           floor), room);
-        }
-
         private static bool IsProtectedRoomDeferred(
             Room room)
         {
@@ -3405,11 +3711,33 @@ namespace HospitalTrafficControl
             Department department,
             int threshold)
         {
-            return FindDirtiestRoomTile(
+            Vector3i assignedCandidate = FindDirtiestRoomTile(
                 behaviorJanitor,
                 department,
                 threshold,
                 true);
+
+            // During NIGHT, an occupied hospitalization room is only a
+            // deferred fallback for ordinary dirt. Do not let an assigned
+            // deferred room hide an ordinary non-deferred room that vanilla
+            // will query immediately afterwards.
+            if (!IsOrdinaryNightDeferredRoomCandidate(assignedCandidate))
+            {
+                return assignedCandidate;
+            }
+
+            Vector3i anyCandidate = FindDirtiestRoomTile(
+                null,
+                department,
+                threshold,
+                false);
+            if (!IsZeroRoomCandidate(anyCandidate) &&
+                !IsOrdinaryNightDeferredRoomCandidate(anyCandidate))
+            {
+                return new Vector3i(0, 0, 0);
+            }
+
+            return assignedCandidate;
         }
 
         internal static Vector3i FindDirtiestTileInAnyUnreservedRoomAnyFloor(
@@ -3421,6 +3749,467 @@ namespace HospitalTrafficControl
                 department,
                 threshold,
                 false);
+        }
+
+        internal static bool ShouldYieldNightDeferredRoomToIndoorTile(
+            BehaviorJanitor behaviorJanitor)
+        {
+            if (!TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight ||
+                DayTime.Instance == null ||
+                DayTime.Instance.GetShift() != Shift.NIGHT ||
+                behaviorJanitor == null ||
+                behaviorJanitor.m_state == null ||
+                Hospital.Instance == null)
+            {
+                return false;
+            }
+
+            Department department = behaviorJanitor.GetDepartment();
+            WalkComponent walk =
+                behaviorJanitor.GetComponent<WalkComponent>();
+            if (department == null ||
+                department.m_departmentPersistentData == null ||
+                walk == null ||
+                walk.m_state == null)
+            {
+                return false;
+            }
+
+            int floorIndex = walk.GetFloorIndex();
+            if (floorIndex < 0 ||
+                floorIndex >= Hospital.Instance.m_floors.Count)
+            {
+                return false;
+            }
+
+            Vector3i assignedCandidate = FindDirtiestRoomTile(
+                behaviorJanitor,
+                department,
+                10,
+                true);
+            bool assignedDeferred =
+                IsOrdinaryNightDeferredRoomCandidate(assignedCandidate);
+            if (!IsZeroRoomCandidate(assignedCandidate) &&
+                !assignedDeferred)
+            {
+                if (IsNightOccupiedHospitalizationBloodCandidate(
+                        assignedCandidate))
+                {
+                    LogNightHospitalizationPriorityDecision(
+                        behaviorJanitor,
+                        "select-next-action",
+                        "BLOOD_PRIORITY",
+                        assignedCandidate,
+                        "none",
+                        new Vector3i(0, 0, 0),
+                        10);
+                }
+                return false;
+            }
+
+            Vector3i anyCandidate = FindDirtiestRoomTile(
+                null,
+                department,
+                10,
+                false);
+            bool anyDeferred =
+                IsOrdinaryNightDeferredRoomCandidate(anyCandidate);
+            if (!IsZeroRoomCandidate(anyCandidate) &&
+                !anyDeferred)
+            {
+                if (IsNightOccupiedHospitalizationBloodCandidate(
+                        anyCandidate))
+                {
+                    LogNightHospitalizationPriorityDecision(
+                        behaviorJanitor,
+                        "select-next-action",
+                        "BLOOD_PRIORITY",
+                        anyCandidate,
+                        assignedDeferred ? "deferred-room" : "none",
+                        assignedDeferred
+                            ? assignedCandidate
+                            : new Vector3i(0, 0, 0),
+                        10);
+                }
+                else if (assignedDeferred)
+                {
+                    LogNightHospitalizationPriorityDecision(
+                        behaviorJanitor,
+                        "select-next-action",
+                        "YIELD_TO_NORMAL_ROOM",
+                        assignedCandidate,
+                        "room",
+                        anyCandidate,
+                        10);
+                }
+                return false;
+            }
+
+            if (!assignedDeferred && !anyDeferred)
+            {
+                return false;
+            }
+
+            Vector3i nightRoomCandidate =
+                assignedDeferred ? assignedCandidate : anyCandidate;
+            Vector2i indoorCandidate = FindClosestDirtyIndoorsTile(
+                walk.GetCurrentTile(),
+                floorIndex,
+                10);
+            bool yieldToIndoor = IsNonDeferredIndoorCandidate(
+                indoorCandidate,
+                floorIndex);
+
+            LogNightHospitalizationPriorityDecision(
+                behaviorJanitor,
+                "select-next-action",
+                yieldToIndoor
+                    ? "YIELD_TO_INDOOR"
+                    : "KEEP_DEFERRED_FALLBACK",
+                nightRoomCandidate,
+                "indoor",
+                indoorCandidate == Vector2i.ZERO_VECTOR
+                    ? new Vector3i(0, 0, 0)
+                    : new Vector3i(
+                        indoorCandidate.m_x,
+                        indoorCandidate.m_y,
+                        floorIndex),
+                10);
+
+            return yieldToIndoor;
+        }
+
+        internal static bool TrySelectNightPreferredIndoorTileAtHome(
+            BehaviorJanitor janitor)
+        {
+            if (!TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight ||
+                DayTime.Instance == null ||
+                DayTime.Instance.GetShift() != Shift.NIGHT ||
+                janitor == null ||
+                janitor.m_entity == null ||
+                janitor.m_state == null ||
+                !janitor.m_state.m_finished ||
+                janitor.m_state.m_timeInState <= 30f ||
+                Hospital.Instance == null)
+            {
+                return false;
+            }
+
+            EmployeeComponent employee =
+                janitor.GetComponent<EmployeeComponent>();
+            WalkComponent walk =
+                janitor.GetComponent<WalkComponent>();
+            Department department = janitor.GetDepartment();
+            if (employee == null ||
+                employee.m_state == null ||
+                walk == null ||
+                walk.m_state == null ||
+                department == null ||
+                department.IsClosed() ||
+                DayTime.Instance.GetShift() != employee.m_state.m_shift)
+            {
+                return false;
+            }
+
+            GameDBRoomType homeRoomType = employee.GetHomeRoomType();
+            if (homeRoomType != null &&
+                homeRoomType.HasTag("janitor_admin_workplace"))
+            {
+                return false;
+            }
+
+            // Vanilla AtHome recovery checks a department room at threshold 25
+            // before its floor-wide indoor fallback. If that room is only an
+            // ordinary NIGHT-deferred hospitalization fallback, give normal
+            // work anywhere on the current floor the same threshold first.
+            Vector3i roomCandidate = FindDirtiestRoomTile(
+                null,
+                department,
+                25,
+                false);
+            if (!IsOrdinaryNightDeferredRoomCandidate(roomCandidate))
+            {
+                if (IsNightOccupiedHospitalizationBloodCandidate(
+                        roomCandidate))
+                {
+                    LogNightHospitalizationPriorityDecision(
+                        janitor,
+                        "at-home-recovery",
+                        "BLOOD_PRIORITY",
+                        roomCandidate,
+                        "none",
+                        new Vector3i(0, 0, 0),
+                        25);
+                }
+                return false;
+            }
+
+            int floorIndex = walk.GetFloorIndex();
+            if (floorIndex < 0 ||
+                floorIndex >= Hospital.Instance.m_floors.Count)
+            {
+                return false;
+            }
+
+            Vector2i indoorCandidate = FindClosestDirtyIndoorsTile(
+                walk.GetCurrentTile(),
+                floorIndex,
+                25);
+            if (!IsNonDeferredIndoorCandidate(
+                    indoorCandidate,
+                    floorIndex))
+            {
+                LogNightHospitalizationPriorityDecision(
+                    janitor,
+                    "at-home-recovery",
+                    "KEEP_DEFERRED_FALLBACK",
+                    roomCandidate,
+                    "indoor",
+                    indoorCandidate == Vector2i.ZERO_VECTOR
+                        ? new Vector3i(0, 0, 0)
+                        : new Vector3i(
+                            indoorCandidate.m_x,
+                            indoorCandidate.m_y,
+                            floorIndex),
+                    25);
+                return false;
+            }
+
+            // Reuse the native selector for reservation, state transition,
+            // destination and cleaning-time updates. The probe above only
+            // changes ordering; it never reserves a second target.
+            bool selected = InvokeBool(
+                TryToSelectIndoorTileMethod,
+                janitor,
+                new object[] { 25 });
+
+            LogNightHospitalizationPriorityDecision(
+                janitor,
+                "at-home-recovery",
+                selected
+                    ? "YIELD_TO_INDOOR"
+                    : "INDOOR_SELECTION_FAILED",
+                roomCandidate,
+                "indoor",
+                new Vector3i(
+                    indoorCandidate.m_x,
+                    indoorCandidate.m_y,
+                    floorIndex),
+                25);
+
+            return selected;
+        }
+
+        private static void LogNightHospitalizationPriorityDecision(
+            BehaviorJanitor janitor,
+            string stage,
+            string decision,
+            Vector3i nightRoomCandidate,
+            string alternativeKind,
+            Vector3i alternativeCandidate,
+            int threshold)
+        {
+            if (!TrafficControlConfig.JanitorCartDebug ||
+                janitor == null ||
+                janitor.m_entity == null)
+            {
+                return;
+            }
+
+            Room nightRoom = GetRoomForCandidate(nightRoomCandidate);
+            Room alternativeRoom = GetRoomForCandidate(alternativeCandidate);
+
+            Plugin.Log?.LogInfo(
+                "[JanitorDebug] NIGHT_HOSPITALIZATION_PRIORITY" +
+                " | janitor=" + CharacterName(janitor.m_entity) +
+                " | stage=" + stage +
+                " | decision=" + decision +
+                " | threshold=" + threshold +
+                " | nightRoomTile=" + nightRoomCandidate +
+                " | nightRoom=" + RoomTypeId(nightRoom) +
+                " | nightRoomDepartment=" +
+                    DepartmentTypeId(nightRoom) +
+                " | nightRoomFloor=" +
+                    (nightRoom == null
+                        ? nightRoomCandidate.m_z
+                        : nightRoom.GetFloorIndex()) +
+                " | nightRoomDirt=" +
+                    CandidateDirtType(nightRoomCandidate) +
+                " | nightRoomBedReservationPercent=" +
+                    BedReservationPercent(nightRoom) +
+                " | alternativeKind=" + alternativeKind +
+                " | alternativeTile=" + alternativeCandidate +
+                " | alternativeRoom=" + RoomTypeId(alternativeRoom) +
+                " | alternativeDepartment=" +
+                    DepartmentTypeId(alternativeRoom) +
+                " | alternativeFloor=" +
+                    (IsZeroRoomCandidate(alternativeCandidate)
+                        ? -1
+                        : alternativeRoom == null
+                            ? alternativeCandidate.m_z
+                            : alternativeRoom.GetFloorIndex()) +
+                " | alternativeDirt=" +
+                    CandidateDirtType(alternativeCandidate) +
+                ".");
+        }
+
+        private static bool IsNightOccupiedHospitalizationBloodCandidate(
+            Vector3i candidate)
+        {
+            Room room = GetRoomForCandidate(candidate);
+            return room != null &&
+                   ShouldDeferOrdinaryCleaning(room) &&
+                   CandidateDirtType(candidate) == DirtType.BLOOD.ToString();
+        }
+
+        private static Room GetRoomForCandidate(Vector3i candidate)
+        {
+            if (IsZeroRoomCandidate(candidate) ||
+                Hospital.Instance == null ||
+                candidate.m_z < 0 ||
+                candidate.m_z >= Hospital.Instance.m_floors.Count)
+            {
+                return null;
+            }
+
+            Floor floor = Hospital.Instance.m_floors[candidate.m_z];
+            if (candidate.m_x < 0 ||
+                candidate.m_y < 0 ||
+                candidate.m_x >= floor.Size.m_x ||
+                candidate.m_y >= floor.Size.m_y)
+            {
+                return null;
+            }
+
+            return floor.m_roomTiles[candidate.m_x, candidate.m_y];
+        }
+
+        private static string CandidateDirtType(Vector3i candidate)
+        {
+            if (IsZeroRoomCandidate(candidate) ||
+                Hospital.Instance == null ||
+                candidate.m_z < 0 ||
+                candidate.m_z >= Hospital.Instance.m_floors.Count)
+            {
+                return "<none>";
+            }
+
+            Floor floor = Hospital.Instance.m_floors[candidate.m_z];
+            if (candidate.m_x < 0 ||
+                candidate.m_y < 0 ||
+                candidate.m_x >= floor.Size.m_x ||
+                candidate.m_y >= floor.Size.m_y)
+            {
+                return "<none>";
+            }
+
+            return floor.m_mapPersistentData.m_tiles[
+                candidate.m_x,
+                candidate.m_y].m_dirtType.ToString();
+        }
+
+        private static string DepartmentTypeId(Room room)
+        {
+            Department department =
+                room == null ||
+                room.m_roomPersistentData == null ||
+                room.m_roomPersistentData.m_department == null
+                    ? null
+                    : room.m_roomPersistentData.m_department.GetEntity();
+            GameDBDepartment departmentType =
+                department == null ||
+                department.m_departmentPersistentData == null ||
+                department.m_departmentPersistentData.m_departmentType == null
+                    ? null
+                    : department.m_departmentPersistentData.m_departmentType.Entry;
+
+            return departmentType == null
+                ? "<none>"
+                : departmentType.DatabaseID.ToString();
+        }
+
+        private static float BedReservationPercent(Room room)
+        {
+            if (room == null ||
+                Hospital.Instance == null)
+            {
+                return 0f;
+            }
+
+            int floorIndex = room.GetFloorIndex();
+            if (floorIndex < 0 ||
+                floorIndex >= Hospital.Instance.m_floors.Count)
+            {
+                return 0f;
+            }
+
+            return room.GetBedReservationPercent(
+                Hospital.Instance.m_floors[floorIndex]);
+        }
+
+        private static bool IsZeroRoomCandidate(Vector3i candidate)
+        {
+            return candidate.m_x == 0 && candidate.m_y == 0;
+        }
+
+        private static bool IsOrdinaryNightDeferredRoomCandidate(
+            Vector3i candidate)
+        {
+            if (IsZeroRoomCandidate(candidate) ||
+                Hospital.Instance == null ||
+                candidate.m_z < 0 ||
+                candidate.m_z >= Hospital.Instance.m_floors.Count)
+            {
+                return false;
+            }
+
+            Floor floor = Hospital.Instance.m_floors[candidate.m_z];
+            if (candidate.m_x < 0 ||
+                candidate.m_y < 0 ||
+                candidate.m_x >= floor.Size.m_x ||
+                candidate.m_y >= floor.Size.m_y)
+            {
+                return false;
+            }
+
+            Room room = floor.m_roomTiles[
+                candidate.m_x, candidate.m_y];
+            return ShouldDeferOrdinaryCleaning(room) &&
+                floor.m_mapPersistentData.m_tiles[
+                    candidate.m_x, candidate.m_y].m_dirtType !=
+                    DirtType.BLOOD;
+        }
+
+        private static bool IsNonDeferredIndoorCandidate(
+            Vector2i candidate,
+            int floorIndex)
+        {
+            if (candidate == Vector2i.ZERO_VECTOR ||
+                Hospital.Instance == null ||
+                floorIndex < 0 ||
+                floorIndex >= Hospital.Instance.m_floors.Count)
+            {
+                return false;
+            }
+
+            Floor floor = Hospital.Instance.m_floors[floorIndex];
+            if (candidate.m_x < 0 ||
+                candidate.m_y < 0 ||
+                candidate.m_x >= floor.Size.m_x ||
+                candidate.m_y >= floor.Size.m_y)
+            {
+                return false;
+            }
+
+            if (floor.m_mapPersistentData.m_tiles[
+                    candidate.m_x, candidate.m_y].m_dirtType ==
+                DirtType.BLOOD)
+            {
+                return true;
+            }
+
+            return !ShouldDeferOrdinaryCleaning(
+                floor.m_roomTiles[candidate.m_x, candidate.m_y]);
         }
 
         private static Vector3i FindDirtiestRoomTile(
@@ -3898,6 +4687,978 @@ namespace HospitalTrafficControl
             return result;
         }
 
+        internal static BehaviorJanitor PushJanitorCartDestinationContext(
+            BehaviorJanitor janitor)
+        {
+            BehaviorJanitor previous = s_cartDestinationJanitor;
+            s_cartDestinationJanitor = janitor;
+            return previous;
+        }
+
+        internal static void PopJanitorCartDestinationContext(
+            BehaviorJanitor previous)
+        {
+            s_cartDestinationJanitor = previous;
+        }
+
+        internal static bool TrySelectJanitorCartDestination(
+            Vector2i position,
+            Room room,
+            out Vector2i result)
+        {
+            return TrySelectJanitorCartDestination(
+                s_cartDestinationJanitor,
+                position,
+                room,
+                out result);
+        }
+
+        private static bool TrySelectJanitorCartDestination(
+            BehaviorJanitor janitor,
+            Vector2i position,
+            Room room,
+            out Vector2i result)
+        {
+            result = Vector2i.ZERO_VECTOR;
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                janitor.m_state == null ||
+                janitor.m_state.m_cart == null ||
+                janitor.m_state.m_cart.GetEntity() == null ||
+                janitor.m_state.m_room == null ||
+                room == null ||
+                !ReferenceEquals(janitor.m_state.m_room.GetEntity(), room) ||
+                room.m_roomPersistentData == null ||
+                room.m_roomPersistentData.m_roomType.Entry == null ||
+                Hospital.Instance == null ||
+                GridMap.GetInstance() == null ||
+                room.GetFloorIndex() < 0 ||
+                room.GetFloorIndex() >= Hospital.Instance.m_floors.Count ||
+                (janitor.m_state.m_janitorState !=
+                     BehaviorJanitorState.WalkingToCartToNextRoom &&
+                 janitor.m_state.m_janitorState !=
+                     BehaviorJanitorState.WalkingToNextRoom))
+            {
+                return false;
+            }
+
+            Floor floor = Hospital.Instance.m_floors[room.GetFloorIndex()];
+            if (floor == null)
+            {
+                return false;
+            }
+
+            AccessRights accessRights = janitor.GetAccessRights();
+            TileObject cart = janitor.m_state.m_cart.GetEntity();
+
+            // Shared/public rooms are themselves the cleaning destination.
+            // Vanilla FindClosest3x3Area(...) only prefers the closest clear
+            // center and has no wall-parking notion. For these rooms HTC
+            // keeps the cart inside the target room but chooses a real,
+            // one-tile wall-side parking position.
+            if (IsJanitorInRoomWallParkingTarget(room))
+            {
+                return TrySelectJanitorCartDestinationInsideSharedRoom(
+                    janitor,
+                    cart,
+                    position,
+                    room,
+                    floor,
+                    accessRights,
+                    out result);
+            }
+
+            // Reuse the same topology principle as private bathrooms:
+            // only room boundaries that are physically traversable count as
+            // real exits. This avoids treating a neighbouring room behind a
+            // wall as a place where the cart could be staged.
+            HashSet<Vector2i> doorwayAnchors = new HashSet<Vector2i>();
+            Vector2i bottom = room.m_roomPersistentData.m_positionBottom;
+            Vector2i top = room.m_roomPersistentData.m_positionTop;
+
+            for (int x = bottom.m_x; x <= top.m_x; x++)
+            {
+                for (int y = bottom.m_y; y <= top.m_y; y++)
+                {
+                    Vector2i inside = new Vector2i(x, y);
+                    if (!room.IsPositionInRoom(inside))
+                    {
+                        continue;
+                    }
+
+                    TryAddJanitorCartDoorwayAnchor(
+                        floor,
+                        room,
+                        inside,
+                        new Vector2i(x - 1, y),
+                        accessRights,
+                        doorwayAnchors);
+                    TryAddJanitorCartDoorwayAnchor(
+                        floor,
+                        room,
+                        inside,
+                        new Vector2i(x + 1, y),
+                        accessRights,
+                        doorwayAnchors);
+                    TryAddJanitorCartDoorwayAnchor(
+                        floor,
+                        room,
+                        inside,
+                        new Vector2i(x, y - 1),
+                        accessRights,
+                        doorwayAnchors);
+                    TryAddJanitorCartDoorwayAnchor(
+                        floor,
+                        room,
+                        inside,
+                        new Vector2i(x, y + 1),
+                        accessRights,
+                        doorwayAnchors);
+                }
+            }
+
+            if (doorwayAnchors.Count == 0)
+            {
+                // No proven exterior connection: leave the native
+                // FindClosest3x3Area(...) completely untouched.
+                return false;
+            }
+
+            BathroomCleaningTopology bathroomTopology = null;
+            if (TrafficControlConfig.AvoidCleaningOccupiedBathrooms &&
+                IsBathroomRoom(room))
+            {
+                bathroomTopology =
+                    BathroomCleaningTopology.Create(room);
+            }
+
+            GridMap gridMap = GridMap.GetInstance();
+            int bestWallRank = int.MaxValue;
+            int bestDoorRank = int.MaxValue;
+            float bestScore = float.MaxValue;
+            int bestDistance = int.MaxValue;
+
+            foreach (Vector2i anchor in doorwayAnchors)
+            {
+                int minX = Math.Max(
+                    0, anchor.m_x - JanitorCartExteriorRadius);
+                int maxX = Math.Min(
+                    floor.Size.m_x - 1,
+                    anchor.m_x + JanitorCartExteriorRadius);
+                int minY = Math.Max(
+                    0, anchor.m_y - JanitorCartExteriorRadius);
+                int maxY = Math.Min(
+                    floor.Size.m_y - 1,
+                    anchor.m_y + JanitorCartExteriorRadius);
+
+                for (int x = minX; x <= maxX; x++)
+                {
+                    for (int y = minY; y <= maxY; y++)
+                    {
+                        Vector2i candidate = new Vector2i(x, y);
+                        if (room.IsPositionInRoom(candidate) ||
+                            doorwayAnchors.Contains(candidate) ||
+                            HasDoorOnTileBoundary(
+                                floor,
+                                candidate) ||
+                            !IsJanitorStagingArea(
+                                floor,
+                                candidate) ||
+                            !NavigationAccessPolicy.IsTileAccessible(
+                                floor,
+                                candidate,
+                                accessRights) ||
+                            (bathroomTopology != null &&
+                             bathroomTopology.IsTileProtected(
+                                 candidate)) ||
+                            !IsJanitorCartParkingTileSafe(
+                                janitor,
+                                cart,
+                                floor,
+                                candidate))
+                        {
+                            continue;
+                        }
+
+                        int anchorDx =
+                            candidate.m_x - anchor.m_x;
+                        int anchorDy =
+                            candidate.m_y - anchor.m_y;
+                        int anchorDistanceSquared =
+                            anchorDx * anchorDx +
+                            anchorDy * anchorDy;
+                        if (anchorDistanceSquared >
+                            JanitorCartExteriorRadius *
+                            JanitorCartExteriorRadius)
+                        {
+                            continue;
+                        }
+
+                        bool wallPreferred =
+                            HasAdjacentWall(
+                                floor,
+                                candidate);
+                        int wallRank = wallPreferred ? 0 : 1;
+                        int doorRank =
+                            HasNearbyDoor(
+                                floor,
+                                candidate,
+                                JanitorCartDoorPreferenceRadius)
+                                ? 1
+                                : 0;
+
+                        // Corridor usability comes first: a physically safe
+                        // wall-side cart always beats an open/middle tile,
+                        // even when that wall is close to a door. Door
+                        // proximity only breaks ties inside the same WALL or
+                        // OPEN category. The doorway tile itself was already
+                        // rejected above.
+                        if (wallRank > bestWallRank ||
+                            (wallRank == bestWallRank &&
+                             doorRank > bestDoorRank))
+                        {
+                            continue;
+                        }
+
+                        float lowerBound =
+                            (float)Math.Sqrt(
+                                anchorDistanceSquared);
+                        if (wallRank == bestWallRank &&
+                            doorRank == bestDoorRank &&
+                            lowerBound > bestScore)
+                        {
+                            continue;
+                        }
+
+                        float fromDoor = gridMap.GetDistance(
+                            floor.m_floorIndex,
+                            anchor,
+                            floor.m_floorIndex,
+                            candidate,
+                            accessRights);
+                        if (float.IsNaN(fromDoor) ||
+                            fromDoor < 0f ||
+                            fromDoor >
+                                JanitorCartExteriorRadius + 2)
+                        {
+                            continue;
+                        }
+
+                        int distance =
+                            (candidate.m_x - position.m_x) *
+                            (candidate.m_x - position.m_x) +
+                            (candidate.m_y - position.m_y) *
+                            (candidate.m_y - position.m_y);
+                        float score = fromDoor;
+
+                        if (wallRank > bestWallRank ||
+                            (wallRank == bestWallRank &&
+                             (doorRank > bestDoorRank ||
+                              (doorRank == bestDoorRank &&
+                               (score > bestScore ||
+                                (score == bestScore &&
+                                 distance >= bestDistance))))))
+                        {
+                            continue;
+                        }
+
+                        bestWallRank = wallRank;
+                        bestDoorRank = doorRank;
+                        bestScore = score;
+                        bestDistance = distance;
+                        result = candidate;
+                    }
+                }
+            }
+
+            // No safe exterior cart tile is a compatibility fallback, not an
+            // error: return false so the original Vanilla interior selector
+            // runs exactly as before.
+            return result != Vector2i.ZERO_VECTOR;
+        }
+
+        private static bool TrySelectJanitorCartDestinationInsideSharedRoom(
+            BehaviorJanitor janitor,
+            TileObject cart,
+            Vector2i position,
+            Room room,
+            Floor floor,
+            AccessRights accessRights,
+            out Vector2i result)
+        {
+            result = Vector2i.ZERO_VECTOR;
+            if (janitor == null ||
+                cart == null ||
+                room == null ||
+                floor == null ||
+                room.m_roomPersistentData == null ||
+                GridMap.GetInstance() == null)
+            {
+                return false;
+            }
+
+            WalkComponent walk =
+                janitor.m_entity.GetComponent<WalkComponent>();
+            int originFloor =
+                walk == null
+                    ? room.GetFloorIndex()
+                    : walk.GetFloorIndex();
+            GridMap gridMap = GridMap.GetInstance();
+
+            int bestWallRank = int.MaxValue;
+            int bestDoorRank = int.MaxValue;
+            float bestRoute = float.MaxValue;
+            int bestDistance = int.MaxValue;
+
+            Vector2i bottom =
+                room.m_roomPersistentData.m_positionBottom;
+            Vector2i top =
+                room.m_roomPersistentData.m_positionTop;
+
+            for (int x = bottom.m_x; x <= top.m_x; x++)
+            {
+                for (int y = bottom.m_y; y <= top.m_y; y++)
+                {
+                    Vector2i candidate =
+                        new Vector2i(x, y);
+                    if (!room.IsPositionInRoom(candidate) ||
+                        HasDoorOnTileBoundary(floor, candidate) ||
+                        !NavigationAccessPolicy.IsTileAccessible(
+                            floor,
+                            candidate,
+                            accessRights) ||
+                        !IsJanitorCartParkingTileSafe(
+                            janitor,
+                            cart,
+                            floor,
+                            candidate))
+                    {
+                        continue;
+                    }
+
+                    int wallRank =
+                        HasAdjacentWall(floor, candidate)
+                            ? 0
+                            : 1;
+                    int doorRank =
+                        HasNearbyDoor(
+                            floor,
+                            candidate,
+                            JanitorCartDoorPreferenceRadius)
+                            ? 1
+                            : 0;
+
+                    if (wallRank > bestWallRank ||
+                        (wallRank == bestWallRank &&
+                         doorRank > bestDoorRank))
+                    {
+                        continue;
+                    }
+
+                    int distance =
+                        (candidate.m_x - position.m_x) *
+                        (candidate.m_x - position.m_x) +
+                        (candidate.m_y - position.m_y) *
+                        (candidate.m_y - position.m_y);
+
+                    float route =
+                        gridMap.GetDistance(
+                            originFloor,
+                            position,
+                            room.GetFloorIndex(),
+                            candidate,
+                            accessRights);
+                    if (float.IsNaN(route) ||
+                        route < 0f ||
+                        route >= float.MaxValue)
+                    {
+                        continue;
+                    }
+
+                    if (wallRank > bestWallRank ||
+                        (wallRank == bestWallRank &&
+                         (doorRank > bestDoorRank ||
+                          (doorRank == bestDoorRank &&
+                           (route > bestRoute ||
+                            (route == bestRoute &&
+                             distance >= bestDistance))))))
+                    {
+                        continue;
+                    }
+
+                    bestWallRank = wallRank;
+                    bestDoorRank = doorRank;
+                    bestRoute = route;
+                    bestDistance = distance;
+                    result = candidate;
+                }
+            }
+
+            return result != Vector2i.ZERO_VECTOR;
+        }
+
+        private static void TryAddJanitorCartDoorwayAnchor(
+            Floor floor,
+            Room room,
+            Vector2i inside,
+            Vector2i outside,
+            AccessRights accessRights,
+            HashSet<Vector2i> doorwayAnchors)
+        {
+            if (floor == null ||
+                room == null ||
+                doorwayAnchors == null ||
+                !RoomGeometry.IsInsideFloor(floor, outside) ||
+                room.IsPositionInRoom(outside) ||
+                !IsJanitorStagingArea(
+                    floor,
+                    outside) ||
+                !NavigationAccessPolicy.IsTileAccessible(
+                    floor,
+                    outside,
+                    accessRights) ||
+                !RoomGeometry.IsBoundaryTraversable(
+                    floor,
+                    inside,
+                    outside))
+            {
+                return;
+            }
+
+            doorwayAnchors.Add(outside);
+        }
+
+        private static bool IsJanitorCartParkingTileSafe(
+            BehaviorJanitor janitor,
+            TileObject cart,
+            Floor floor,
+            Vector2i position)
+        {
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                cart == null ||
+                cart.m_state == null ||
+                cart.m_state.m_gameDBObject == null ||
+                cart.m_state.m_gameDBObject.Entry == null ||
+                floor == null ||
+                MapScriptInterface.Instance == null ||
+                GridMap.GetInstance() == null ||
+                !RoomGeometry.IsInsideFloor(floor, position) ||
+                !GridMap.GetInstance().IsInGrid(
+                    position,
+                    floor.m_floorIndex))
+            {
+                return false;
+            }
+
+            TileObjects objects =
+                floor.m_tileObjects[
+                    position.m_x,
+                    position.m_y];
+            if (objects == null ||
+                objects.HasAnyObject() ||
+                floor.m_mapPersistentData.m_foundationsLayer
+                    .m_foundations[
+                        position.m_x,
+                        position.m_y] != 2 ||
+                floor.m_accessibility[
+                    position.m_x,
+                    position.m_y] == 2)
+            {
+                return false;
+            }
+
+            // CanMoveObject(...) evaluates the object's CURRENT floor. When
+            // the janitor is about to carry the cart to another floor, only
+            // validate the target tile here; Vanilla will move the attached
+            // object across floors with the character before the final drop.
+            if (cart.GetFloorIndex() == floor.m_floorIndex &&
+                !MapScriptInterface.Instance.CanMoveObject(
+                    cart,
+                    position))
+            {
+                return false;
+            }
+
+            Entity tileUser =
+                floor.m_mapPersistentData
+                    .m_tiles[
+                        position.m_x,
+                        position.m_y]
+                    .m_user == null
+                        ? null
+                        : floor.m_mapPersistentData
+                            .m_tiles[
+                                position.m_x,
+                                position.m_y]
+                            .m_user.GetEntity();
+            if (tileUser != null &&
+                tileUser != janitor.m_entity)
+            {
+                return false;
+            }
+
+            Direction safeDirection;
+            return TryFindJanitorCartDropDirection(
+                janitor,
+                cart,
+                floor,
+                position,
+                Direction.None,
+                out safeDirection);
+        }
+
+        private static bool TryFindJanitorCartDropDirection(
+            BehaviorJanitor janitor,
+            TileObject cart,
+            Floor floor,
+            Vector2i janitorPosition,
+            Direction preferredDirection,
+            out Direction direction)
+        {
+            direction = Direction.None;
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                cart == null ||
+                floor == null)
+            {
+                return false;
+            }
+
+            if (preferredDirection != Direction.None &&
+                IsJanitorCartDropDirectionSafe(
+                    janitor,
+                    cart,
+                    floor,
+                    janitorPosition,
+                    preferredDirection))
+            {
+                direction = preferredDirection;
+                return true;
+            }
+
+            Direction[] directions =
+                new Direction[]
+                {
+                    Direction.NW,
+                    Direction.NE,
+                    Direction.SE,
+                    Direction.SW
+                };
+
+            for (int i = 0; i < directions.Length; i++)
+            {
+                Direction candidate = directions[i];
+                if (candidate == preferredDirection)
+                {
+                    continue;
+                }
+
+                if (IsJanitorCartDropDirectionSafe(
+                        janitor,
+                        cart,
+                        floor,
+                        janitorPosition,
+                        candidate))
+                {
+                    direction = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsJanitorCartDropDirectionSafe(
+            BehaviorJanitor janitor,
+            TileObject cart,
+            Floor floor,
+            Vector2i janitorPosition,
+            Direction direction)
+        {
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                cart == null ||
+                floor == null ||
+                GridMap.GetInstance() == null)
+            {
+                return false;
+            }
+
+            Vector2f offset =
+                TileObject.TransformOffsetForDirection(
+                    cart.GetCharacterAttachmentOffset(),
+                    direction);
+            Vector2i attachedCartTile =
+                new Vector2f(janitorPosition)
+                    .add(offset)
+                    .ToVector2i();
+
+            if (!RoomGeometry.IsInsideFloor(
+                    floor,
+                    attachedCartTile) ||
+                !IsJanitorCartLocalAreaCompatible(
+                    floor,
+                    janitorPosition,
+                    attachedCartTile) ||
+                floor.m_tileObjects[
+                    attachedCartTile.m_x,
+                    attachedCartTile.m_y].HasAnyObject() ||
+                !floor.IsAccessibleIgnoreDoors(
+                    janitorPosition,
+                    attachedCartTile) ||
+                !NavigationAccessPolicy.IsTileAccessible(
+                    floor,
+                    attachedCartTile,
+                    janitor.GetAccessRights()) ||
+                !GridMap.GetInstance().IsInGrid(
+                    attachedCartTile,
+                    floor.m_floorIndex))
+            {
+                return false;
+            }
+
+            Entity tileUser =
+                floor.m_mapPersistentData
+                    .m_tiles[
+                        attachedCartTile.m_x,
+                        attachedCartTile.m_y]
+                    .m_user == null
+                        ? null
+                        : floor.m_mapPersistentData
+                            .m_tiles[
+                                attachedCartTile.m_x,
+                                attachedCartTile.m_y]
+                            .m_user.GetEntity();
+            if (tileUser != null &&
+                tileUser != janitor.m_entity)
+            {
+                return false;
+            }
+
+            Direction parkedOrientation =
+                cart.TransformAttachmentOrientation(direction);
+            return parkedOrientation != Direction.None &&
+                IsJanitorCartPickupReachable(
+                    janitor,
+                    cart,
+                    floor,
+                    janitorPosition,
+                    parkedOrientation);
+        }
+
+        private static bool TryFindJanitorCartParkingOrientation(
+            BehaviorJanitor janitor,
+            TileObject cart,
+            Floor floor,
+            Vector2i placement,
+            Direction preferredOrientation,
+            out Direction orientation)
+        {
+            orientation = Direction.None;
+            if (janitor == null ||
+                cart == null ||
+                floor == null)
+            {
+                return false;
+            }
+
+            if (preferredOrientation != Direction.None &&
+                IsJanitorCartPickupReachable(
+                    janitor,
+                    cart,
+                    floor,
+                    placement,
+                    preferredOrientation))
+            {
+                orientation = preferredOrientation;
+                return true;
+            }
+
+            Direction[] orientations =
+                new Direction[]
+                {
+                    Direction.NW,
+                    Direction.NE,
+                    Direction.SE,
+                    Direction.SW
+                };
+
+            for (int i = 0; i < orientations.Length; i++)
+            {
+                Direction candidate = orientations[i];
+                if (candidate == preferredOrientation)
+                {
+                    continue;
+                }
+
+                if (IsJanitorCartPickupReachable(
+                        janitor,
+                        cart,
+                        floor,
+                        placement,
+                        candidate))
+                {
+                    orientation = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsJanitorCartPickupReachable(
+            BehaviorJanitor janitor,
+            TileObject cart,
+            Floor floor,
+            Vector2i placement,
+            Direction orientation)
+        {
+            if (janitor == null ||
+                cart == null ||
+                floor == null ||
+                cart.m_state == null ||
+                cart.m_state.m_gameDBObject == null ||
+                cart.m_state.m_gameDBObject.Entry == null ||
+                GridMap.GetInstance() == null)
+            {
+                return false;
+            }
+
+            Vector2i[] accessPositions =
+                cart.m_state.m_gameDBObject.Entry.AccessPositions;
+            if (accessPositions == null ||
+                accessPositions.Length == 0)
+            {
+                accessPositions =
+                    new Vector2i[]
+                    {
+                        new Vector2i(-1, 0)
+                    };
+            }
+
+            AccessRights accessRights =
+                janitor.GetAccessRights();
+
+            for (int i = 0; i < accessPositions.Length; i++)
+            {
+                Vector2i accessTile =
+                    placement +
+                    TileObject.TransformUsePositionForDirection(
+                        accessPositions[i],
+                        orientation);
+
+                if (!RoomGeometry.IsInsideFloor(
+                        floor,
+                        accessTile) ||
+                    !IsJanitorCartLocalAreaCompatible(
+                        floor,
+                        placement,
+                        accessTile) ||
+                    floor.IsAnyBlockingObjectAt(
+                        accessTile) ||
+                    !floor.IsAccessibleIgnoreDoors(
+                        accessTile,
+                        placement) ||
+                    !NavigationAccessPolicy.IsTileAccessible(
+                        floor,
+                        accessTile,
+                        accessRights) ||
+                    !GridMap.GetInstance().IsInGrid(
+                        accessTile,
+                        floor.m_floorIndex))
+                {
+                    continue;
+                }
+
+                float route =
+                    GridMap.GetInstance().GetDistance(
+                        floor.m_floorIndex,
+                        placement,
+                        floor.m_floorIndex,
+                        accessTile,
+                        accessRights);
+                if (!float.IsNaN(route) &&
+                    route >= 0f &&
+                    route < float.MaxValue)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static void PrepareExteriorJanitorCartParking(
+            BehaviorJanitor janitor)
+        {
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                janitor.m_state == null ||
+                janitor.m_state.m_cart == null ||
+                janitor.m_state.m_room == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null)
+            {
+                return;
+            }
+
+            WalkComponent walk =
+                janitor.m_entity.GetComponent<WalkComponent>();
+            TileObject cart =
+                janitor.m_state.m_cart.GetEntity();
+            Room targetRoom =
+                janitor.m_state.m_room.GetEntity();
+            if (walk == null ||
+                walk.IsBusy() ||
+                cart == null ||
+                targetRoom == null ||
+                cart.m_state == null ||
+                !cart.IsAttachedToCharacter() ||
+                walk.GetFloorIndex() < 0 ||
+                walk.GetFloorIndex() >=
+                    Hospital.Instance.m_floors.Count)
+            {
+                return;
+            }
+
+            Floor floor =
+                Hospital.Instance.m_floors[
+                    walk.GetFloorIndex()];
+            Vector2i placement =
+                walk.GetCurrentTile();
+            Room placementRoom =
+                floor == null
+                    ? null
+                    : floor.GetRoomTileSafe(
+                        placement.m_x,
+                        placement.m_y);
+            bool sharedRoomParking =
+                IsJanitorInRoomWallParkingTarget(targetRoom) &&
+                ReferenceEquals(placementRoom, targetRoom);
+            bool exteriorParking =
+                !targetRoom.IsPositionInRoom(placement) &&
+                IsJanitorStagingArea(
+                    floor,
+                    placement);
+
+            if (floor == null ||
+                (!sharedRoomParking &&
+                 !exteriorParking))
+            {
+                return;
+            }
+
+            AnimModelComponent animation =
+                janitor.m_entity.GetComponent<AnimModelComponent>();
+            Direction preferredDirection =
+                animation == null ||
+                animation.m_state == null
+                    ? Direction.None
+                    : animation.m_state.m_direction;
+            Direction safeDirection;
+            if (!TryFindJanitorCartDropDirection(
+                    janitor,
+                    cart,
+                    floor,
+                    placement,
+                    preferredDirection,
+                    out safeDirection) ||
+                safeDirection == Direction.None)
+            {
+                return;
+            }
+
+            if (animation != null &&
+                animation.m_state != null &&
+                animation.m_state.m_direction != safeDirection)
+            {
+                animation.SetDirection(safeDirection);
+            }
+
+            // BehaviorJanitor will call MoveObject(...) immediately after this
+            // prefix. Set the same orientation TileObject.Update would derive
+            // from the chosen character direction so Vanilla parks the cart
+            // with its pickup side facing a structurally reachable tile.
+            cart.m_state.m_moveOrientation =
+                cart.TransformAttachmentOrientation(
+                    safeDirection);
+        }
+
+        internal static void FinalizeExteriorJanitorCartParking(
+            BehaviorJanitor janitor)
+        {
+            if (janitor == null ||
+                janitor.m_state == null ||
+                janitor.m_state.m_cart == null ||
+                janitor.m_state.m_room == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null)
+            {
+                return;
+            }
+
+            TileObject cart =
+                janitor.m_state.m_cart.GetEntity();
+            Room targetRoom =
+                janitor.m_state.m_room.GetEntity();
+            if (cart == null ||
+                targetRoom == null ||
+                cart.m_state == null ||
+                cart.IsAttachedToCharacter() ||
+                cart.GetFloorIndex() < 0 ||
+                cart.GetFloorIndex() >=
+                    Hospital.Instance.m_floors.Count)
+            {
+                return;
+            }
+
+            Vector2i placement =
+                cart.m_state.m_position;
+            Floor floor =
+                Hospital.Instance.m_floors[
+                    cart.GetFloorIndex()];
+            Room placementRoom =
+                floor == null
+                    ? null
+                    : floor.GetRoomTileSafe(
+                        placement.m_x,
+                        placement.m_y);
+            bool sharedRoomParking =
+                IsJanitorInRoomWallParkingTarget(targetRoom) &&
+                ReferenceEquals(placementRoom, targetRoom);
+            bool exteriorParking =
+                !targetRoom.IsPositionInRoom(placement) &&
+                IsJanitorStagingArea(
+                    floor,
+                    placement);
+
+            if (floor == null ||
+                (!sharedRoomParking &&
+                 !exteriorParking))
+            {
+                return;
+            }
+
+            Direction safeOrientation;
+            if (!TryFindJanitorCartParkingOrientation(
+                    janitor,
+                    cart,
+                    floor,
+                    placement,
+                    cart.Orientation,
+                    out safeOrientation) ||
+                safeOrientation == Direction.None ||
+                safeOrientation == cart.Orientation)
+            {
+                return;
+            }
+
+            // MoveObject(...) already completed natively. Only rotate the
+            // parked one-tile cart so its real pickup side stays reachable.
+            cart.Orientation = safeOrientation;
+        }
+
         internal static Vector2i FilterBathroomCartDestination(
             Vector2i position,
             Room room,
@@ -3906,6 +5667,14 @@ namespace HospitalTrafficControl
             if (selected == Vector2i.ZERO_VECTOR ||
                 !TrafficControlConfig.AvoidCleaningOccupiedBathrooms ||
                 !IsBathroomRoom(room))
+            {
+                return selected;
+            }
+
+            // Exterior staging is validated on the bucket cart's real
+            // one-tile placement and pickup access. Keep the 3x3 WC protection
+            // only for Vanilla interior destinations.
+            if (!room.IsPositionInRoom(selected))
             {
                 return selected;
             }
@@ -4164,20 +5933,6 @@ namespace HospitalTrafficControl
 
             return topology != null &&
                    topology.IsTileProtected(tile);
-        }
-
-        internal static bool IsOccupiedBathroom(Room room)
-        {
-            if (!TrafficControlConfig.AvoidCleaningOccupiedBathrooms ||
-                !IsBathroomRoom(room))
-            {
-                return false;
-            }
-
-            BathroomCleaningTopology topology =
-                BathroomCleaningTopology.Create(room);
-            return topology != null &&
-                   topology.HasOccupiedCompartment;
         }
 
         private static bool ShouldAvoidActiveProcedureCached(
@@ -4650,14 +6405,6 @@ namespace HospitalTrafficControl
                    room.m_roomPersistentData != null &&
                    room.m_roomPersistentData.m_roomType.Entry != null &&
                    room.m_roomPersistentData.m_roomType.Entry.HasTag("hospitalization");
-        }
-
-        internal static bool IsOperatingRoom(Room room)
-        {
-            return room != null &&
-                   room.m_roomPersistentData != null &&
-                   room.m_roomPersistentData.m_roomType.Entry != null &&
-                   room.m_roomPersistentData.m_roomType.Entry.HasTag("operating_room");
         }
 
         internal static Entity GetRoomReservationOwner(Room room)

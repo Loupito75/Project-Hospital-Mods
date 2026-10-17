@@ -48,7 +48,7 @@ namespace HospitalTrafficControl
 
             // Native saves/prefabs may expose the neighbour link from only one leaf.
             // Search the floor for a Door whose native m_neighbourDoor points back to
-            // the clicked leaf. This remains a fallback for legacy/native links.
+            // the clicked leaf. This remains a fallback for native neighbour links.
             if (group.Count == 1 && floor != null && floor.m_mapPersistentData != null &&
                 floor.m_mapPersistentData.m_tileWalls != null)
             {

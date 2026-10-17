@@ -30,7 +30,7 @@ namespace HospitalTrafficControl.Patches
 
             TileObject toilet = __instance.GetEquipment(0);
             // Single-WC rooms stay exclusive during the sink/dryer steps.
-            // The legacy post-load recovery must not release their WC Owner.
+            // Post-load recovery must not release their WC Owner.
             if (SingleToiletBathroomLockManager.IsSingleToiletRoom(toilet))
             {
                 return;

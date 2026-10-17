@@ -8,10 +8,10 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 
-    <Version>1.5.0</Version>
-    <AssemblyVersion>1.5.0</AssemblyVersion>
-    <FileVersion>1.5.0</FileVersion>
-    <InformationalVersion>1.5.0</InformationalVersion>
+    <Version>1.5.1</Version>
+    <AssemblyVersion>1.5.1</AssemblyVersion>
+    <FileVersion>1.5.1</FileVersion>
+    <InformationalVersion>1.5.1</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Traffic Control</Product>
@@ -35,7 +35,6 @@
     <Compile Include="JanitorCleaningManager.cs" />
     <Compile Include="LocalizationManager.cs" />
     <Compile Include="NavigationChangeTracker.cs" />
-    <Compile Include="GraphPerformanceDiagnostics.cs" />
     <Compile Include="HtcDatabase.cs" />
     <Compile Include="HospitalTrafficControlApi.cs" />
     <Compile Include="NotificationPreferenceMigration.cs" />
@@ -57,10 +56,8 @@
     <Compile Include="RoomTransitManager.cs" />
     <Compile Include="RuntimeStateManager.cs" />
     <Compile Include="TrafficControlConfig.cs" />
-    <Compile Include="WaitingRoomDiagnostics.cs" />
     <Compile Include="Patches\NavigationGraphPatch.cs" />
     <Compile Include="Patches\AccessRightsChangedPatch.cs" />
-    <Compile Include="Patches\BathroomAvailabilityDiagnosticsPatch.cs" />
     <Compile Include="Patches\BathroomFlowPatch.cs" />
     <Compile Include="Patches\BathroomLoadRecoveryPatch.cs" />
     <Compile Include="Patches\BlockedBusyPatch.cs" />
@@ -79,7 +76,6 @@
     <Compile Include="Patches\StatLabMeetingPatch.cs" />
     <Compile Include="Patches\StringTablePatch.cs" />
     <Compile Include="Patches\VisitorAccessSelectionPatch.cs" />
-    <Compile Include="Patches\WaitingRoomDiagnosticsPatch.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -115,7 +115,6 @@ namespace HospitalTrafficControl
             PendingPhysicalExit.Clear();
             DeferredMovements.Clear();
             RecoveryMovement.Clear();
-            WaitingRoomDiagnostics.Reset();
             AccessZoneRecoveryTracker.Reset();
         }
 

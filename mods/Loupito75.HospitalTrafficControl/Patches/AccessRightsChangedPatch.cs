@@ -125,22 +125,14 @@ namespace HospitalTrafficControl.Patches
     [HarmonyPatch(typeof(Floor), nameof(Floor.UpdateStaticNavigationData))]
     internal static class NavigationRebuiltPatch
     {
-        private static void Prefix(Floor __instance, out long __state)
+        private static void Prefix(Floor __instance)
         {
-            __state = GraphPerformanceDiagnostics.BeginSample();
             NavigationChangeTracker.BeginNavigationRebuild(__instance);
             NavigationChangeTracker.PrepareRoomAccessForNativeRebuild(__instance);
         }
 
-        private static void Postfix(Floor __instance, long __state)
+        private static void Postfix(Floor __instance)
         {
-            // Floor original plus its GridMap postfix, before recovery and repath.
-            GraphPerformanceDiagnostics.RecordRebuild(
-                __state,
-                "FLOOR",
-                __instance.m_floorIndex,
-                0);
-
             bool roomAccessChangedDuringRebuild;
             AccessChangeSet accessChange =
                 NavigationChangeTracker.CompleteNavigationRebuild(
@@ -178,9 +170,6 @@ namespace HospitalTrafficControl.Patches
 
             if (accessChange != null)
             {
-                WaitingRoomDiagnostics.LogInvalidWaitingRoomPatients(
-                    __instance);
-
                 AccessZoneRecoveryManager.HandleAccessRightsChanged(
                     __instance,
                     accessChange);

@@ -14,7 +14,7 @@ namespace HospitalTrafficControl
         public const string HarmonyId = "Loupito75:HospitalTrafficControl";
         public const string PluginName = "Hospital Traffic Control";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.5.0";
+        public const string PluginVersion = "1.5.1";
 
         internal static ManualLogSource Log { get; private set; }
 
@@ -41,7 +41,6 @@ namespace HospitalTrafficControl
             bool debugEnabled =
                 TrafficControlConfig.PathfindingDebug ||
                 TrafficControlConfig.JanitorCartDebug ||
-                TrafficControlConfig.GraphPerformanceDebug ||
                 TrafficControlConfig.DoorDebug ||
                 TrafficControlConfig.BathroomFlowDebug;
 
@@ -73,10 +72,6 @@ namespace HospitalTrafficControl
             {
                 Log.LogInfo("[JanitorDebug] Focused janitor/cart diagnostics are ENABLED.");
             }
-            if (TrafficControlConfig.GraphPerformanceDebug)
-            {
-                Log.LogInfo("[GraphPerf] Navigation profiling enabled (20s summaries).");
-            }
             if (TrafficControlConfig.DoorDebug)
             {
                 Log.LogInfo("[DoorDebug] Door and OneWay arrow diagnostics are ENABLED.");
@@ -94,7 +89,6 @@ namespace HospitalTrafficControl
 
         private void Update()
         {
-            GraphPerformanceDiagnostics.UpdateFrame();
             AccessZoneRecoveryManager.UpdatePendingPhysicalExits();
 
             try
@@ -135,7 +129,6 @@ namespace HospitalTrafficControl
 
         private void OnDestroy()
         {
-            GraphPerformanceDiagnostics.Reset();
             RuntimeStateManager.Reset();
             _harmony?.UnpatchSelf();
             DeferredGridMapPatches.Reset();
