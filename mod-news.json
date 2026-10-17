@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 164237,
-  "updatedUtc": "2026-10-14T22:58:13Z",
+  "manifestRevision": 164238,
+  "updatedUtc": "2026-10-17T06:12:42Z",
   "items": [
     {
       "id": 20,
@@ -17,6 +17,11 @@
       "id": 18,
       "title": "2026-10-14 ★ HMUC - New features",
       "text": "→ You can now update supported mods DIRECTLY from the main menu.\n→ Update HMUC manually one last time, then enjoy much easier updates for your other supported mods."
+    },
+    {
+      "id": 17,
+      "title": "2026-10-17 ★ HPO - New features",
+      "text": "→ Cross-department Patient transport.\n→ Native Porter needs and breaks restored.\n→ More natural post-transport return flow."
     }
   ]
 }
