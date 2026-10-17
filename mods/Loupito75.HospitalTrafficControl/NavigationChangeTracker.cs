@@ -56,31 +56,6 @@ namespace HospitalTrafficControl
             return wasLegal && !isLegal;
         }
 
-        internal bool AffectsGraph(AccessRights grantedRights)
-        {
-            int granted = (int)grantedRights;
-
-            for (int i = 0; i < _beforeRoom.Length; i++)
-            {
-                int beforeRequired = (int)GetCombinedGraphAccess(
-                    _beforeRoom[i],
-                    _beforeLogistics[i]);
-                int afterRequired = (int)GetCombinedGraphAccess(
-                    _afterRoom[i],
-                    _afterLogistics[i]);
-
-                bool beforeAccessible = beforeRequired <= granted;
-                bool afterAccessible = afterRequired <= granted;
-
-                if (beforeAccessible != afterAccessible)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         // Evaluate all graph passability thresholds in one snapshot scan.
         internal int GetAffectedGraphMask(AccessRights[] graphRights)
         {

@@ -165,6 +165,38 @@ namespace HospitalTrafficControl.Patches
         }
     }
 
+    [HarmonyPatch(typeof(BehaviorJanitor), "UpdateStateAtHome")]
+    internal static class JanitorNightAtHomePriorityPatch
+    {
+        private static bool Prefix(BehaviorJanitor __instance)
+        {
+            return !JanitorCleaningManager
+                .TrySelectNightPreferredIndoorTileAtHome(__instance);
+        }
+    }
+
+    // Keep the native SelectNextAction() structure, but do not let an
+    // ordinary occupied hospitalization room deferred by HTC win before a
+    // non-deferred indoor tile on the janitor's current floor. Returning
+    // false makes vanilla continue to its existing free-time/indoor fallback.
+    [HarmonyPatch(typeof(BehaviorJanitor), "TryToSelectTileInARoom")]
+    internal static class JanitorNightRoomVsIndoorPriorityPatch
+    {
+        private static bool Prefix(
+            BehaviorJanitor __instance,
+            ref bool __result)
+        {
+            if (!JanitorCleaningManager
+                    .ShouldYieldNightDeferredRoomToIndoorTile(__instance))
+            {
+                return true;
+            }
+
+            __result = false;
+            return false;
+        }
+    }
+
     // SelectNextAction() first asks vanilla for a free room in the janitor's
     // department, then calls TryToSelectIndoorTile(10), whose vanilla search is
     // floor-wide and may therefore jump to another department. Give an occupied
@@ -224,6 +256,35 @@ namespace HospitalTrafficControl.Patches
         }
     }
 
+    // UpdateLookingForPath can switch to Walking and MultiUpdate can then
+    // move immediately in the same call. Recheck as soon as a route becomes
+    // available so the first segment gets the same protection as later ones.
+    [HarmonyPatch(typeof(WalkComponent), "UpdateLookingForPath")]
+    internal static class JanitorProtectedRoomPathReadyPatch
+    {
+        private static void Postfix(WalkComponent __instance)
+        {
+            JanitorCleaningManager.TryInterruptProtectedRoomBeforeMovement(
+                __instance);
+        }
+    }
+
+    // WalkComponent is updated before BehaviorJanitor on a character. This
+    // boundary check therefore runs before the physical movement step that
+    // could otherwise carry a janitor one tile into a newly protected room.
+    [HarmonyPatch(
+        typeof(WalkComponent),
+        nameof(WalkComponent.MultiUpdate),
+        new Type[] { typeof(int), typeof(float) })]
+    internal static class JanitorProtectedRoomPreMovementPatch
+    {
+        private static void Prefix(WalkComponent __instance)
+        {
+            JanitorCleaningManager.TryInterruptProtectedRoomBeforeMovement(
+                __instance);
+        }
+    }
+
     [HarmonyPatch(
         typeof(BehaviorJanitor),
         "UpdateStateWalking",
@@ -240,16 +301,34 @@ namespace HospitalTrafficControl.Patches
     [HarmonyPatch(typeof(BehaviorJanitor), "UpdateStateWalkingToCartToNextRoom")]
     internal static class JanitorProtectedRoomPreTravelPatch
     {
-        private static bool Prefix(BehaviorJanitor __instance)
+        private static bool Prefix(
+            BehaviorJanitor __instance,
+            out BehaviorJanitor __state)
         {
+            __state =
+                JanitorCleaningManager.PushJanitorCartDestinationContext(
+                    __instance);
             return !JanitorCleaningManager.TryInterruptProtectedRoomBeforeTravel(
                 __instance);
         }
 
-        private static void Postfix(BehaviorJanitor __instance)
+        private static void Postfix(
+            BehaviorJanitor __instance,
+            BehaviorJanitor __state)
         {
+            JanitorCleaningManager.PopJanitorCartDestinationContext(
+                __state);
             JanitorCleaningManager.StagePendingOccupiedWaitImmediately(
                 __instance);
+        }
+
+        private static Exception Finalizer(
+            Exception __exception,
+            BehaviorJanitor __state)
+        {
+            JanitorCleaningManager.PopJanitorCartDestinationContext(
+                __state);
+            return __exception;
         }
     }
 
@@ -258,7 +337,20 @@ namespace HospitalTrafficControl.Patches
     {
         private static bool Prefix(BehaviorJanitor __instance)
         {
-            return !JanitorCleaningManager.TryHandleProtectedRoomTravel(
+            if (JanitorCleaningManager.TryHandleProtectedRoomTravel(
+                    __instance))
+            {
+                return false;
+            }
+
+            JanitorCleaningManager.PrepareExteriorJanitorCartParking(
+                __instance);
+            return true;
+        }
+
+        private static void Postfix(BehaviorJanitor __instance)
+        {
+            JanitorCleaningManager.FinalizeExteriorJanitorCartParking(
                 __instance);
         }
     }
@@ -292,8 +384,26 @@ namespace HospitalTrafficControl.Patches
         typeof(MapScriptInterface),
         nameof(MapScriptInterface.FindClosest3x3Area),
         new Type[] { typeof(Vector2i), typeof(Room) })]
-    internal static class JanitorBathroomCartDestinationPatch
+    internal static class JanitorCartDestinationPatch
     {
+        private static bool Prefix(
+            Vector2i position,
+            Room room,
+            ref Vector2i __result)
+        {
+            Vector2i preferred;
+            if (!JanitorCleaningManager.TrySelectJanitorCartDestination(
+                    position,
+                    room,
+                    out preferred))
+            {
+                return true;
+            }
+
+            __result = preferred;
+            return false;
+        }
+
         private static void Postfix(
             Vector2i position,
             Room room,
@@ -310,7 +420,7 @@ namespace HospitalTrafficControl.Patches
         typeof(MapScriptInterface),
         nameof(MapScriptInterface.FindDirtiestTileInARoom),
         new Type[] { typeof(Room), typeof(bool), typeof(int) })]
-    internal static class JanitorCurrentRoomNightPriorityPatch
+    internal static class JanitorCurrentRoomTileFilterPatch
     {
         private static void Postfix(
             Room room,
@@ -318,23 +428,14 @@ namespace HospitalTrafficControl.Patches
             int threshold,
             ref Vector2i __result)
         {
+            // Once a NIGHT-deferred hospitalization room has genuinely become
+            // the last fallback and was selected, let vanilla finish cleaning
+            // it coherently. Only the independent bathroom protection remains.
             __result = JanitorCleaningManager.FilterDirtiestBathroomTile(
                 room,
                 bloodOnly,
                 threshold,
                 __result);
-
-            if (__result == Vector2i.ZERO_VECTOR ||
-                !JanitorCleaningManager.ShouldDeferOrdinaryCleaning(room))
-            {
-                return;
-            }
-
-            Floor floor = Hospital.Instance.m_floors[room.GetFloorIndex()];
-            if (MapScriptInterface.Instance.GetDirtType(__result, floor.m_floorIndex) != DirtType.BLOOD)
-            {
-                __result = Vector2i.ZERO_VECTOR;
-            }
         }
     }
 
@@ -342,7 +443,7 @@ namespace HospitalTrafficControl.Patches
         typeof(MapScriptInterface),
         nameof(MapScriptInterface.FindClosestDirtyTileInARoom),
         new Type[] { typeof(Room), typeof(Vector2i) })]
-    internal static class JanitorClosestRoomNightPriorityPatch
+    internal static class JanitorClosestRoomTileFilterPatch
     {
         private static void Postfix(
             Room room,
@@ -353,18 +454,6 @@ namespace HospitalTrafficControl.Patches
                 room,
                 characterPosition,
                 __result);
-
-            if (__result == Vector2i.ZERO_VECTOR ||
-                !JanitorCleaningManager.ShouldDeferOrdinaryCleaning(room))
-            {
-                return;
-            }
-
-            Floor floor = Hospital.Instance.m_floors[room.GetFloorIndex()];
-            if (MapScriptInterface.Instance.GetDirtType(__result, floor.m_floorIndex) != DirtType.BLOOD)
-            {
-                __result = Vector2i.ZERO_VECTOR;
-            }
         }
     }
 }

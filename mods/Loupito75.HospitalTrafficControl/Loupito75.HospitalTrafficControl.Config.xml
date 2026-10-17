@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <HospitalTrafficControl>
   <RoomTransit>
-    <!-- false = vanilla routing; true = discourage shortcuts through functional rooms. -->
+    <!-- Boolean true/false. Default: false. false preserves vanilla routing; true discourages shortcuts through functional rooms. -->
     <AvoidRoomShortcuts>false</AvoidRoomShortcuts>
 
-    <!-- Extra movement cost applied to shortcut room tiles. Higher values favor corridors more strongly. -->
+    <!-- Number 0-1000 using "." as decimal separator. Default: 8. Extra movement cost applied only when AvoidRoomShortcuts=true. -->
     <RoomTransitPenalty>8</RoomTransitPenalty>
 
-    <!-- These room types keep their vanilla movement cost. Outdoor, unzoned, start and destination rooms are always exempt. -->
+    <!-- Each Room requires a non-empty ID and Enabled=true/false. Defaults: corridor, waiting and reception enabled. Enabled rooms keep vanilla movement cost; outdoor, unzoned, start and destination rooms are always exempt. -->
     <Exceptions>
       <Room ID="ROOM_TYPE_CORRIDOR" Enabled="true" />
       <Room ID="ROOM_TYPE_WAITING" Enabled="true" />
@@ -16,47 +16,44 @@
   </RoomTransit>
 
   <JanitorCleaning>
-    <!-- false = vanilla cleaning; true = give patients priority in short clinical rooms: block native procedure ownership/reservations and keep outpatient/procedure rooms blocked while a patient is physically inside. Hospitalization rooms remain cleanable; operating rooms are protected when reserved or active. -->
+    <!-- Boolean true/false. Default: false (vanilla cleaning). true gives patients priority in short clinical rooms; hospitalization rooms remain cleanable and operating rooms stay protected when reserved or active. -->
     <AvoidCleaningActiveProcedureRooms>false</AvoidCleaningActiveProcedureRooms>
 
-    <!-- false = vanilla cleaning; true = janitors do not select or enter an occupied WC compartment. Single-WC rooms are treated as one exclusive sanitary space while their bathroom flow is active. -->
+    <!-- Boolean true/false. Default: false (vanilla cleaning). true prevents janitors from selecting or entering an occupied WC compartment; a single-WC room is treated as one exclusive sanitary space while its bathroom flow is active. -->
     <AvoidCleaningOccupiedBathrooms>false</AvoidCleaningOccupiedBathrooms>
 
-    <!-- Chance 0-100 percent to wait outside a dirty clinical room occupied by a patient. Normal free-room work in the janitor's department remains prioritary. An admissible HTC wait in that department is considered before vanilla's floor-wide indoor-tile fallback. A room becoming occupied during a normal trip can also trigger a roll. Never take native room ownership while waiting. -->
+    <!-- Integer 0-100 percent. Default: 30. Chance to wait outside a dirty clinical room occupied by a patient after normal free-room work in the janitor's department fails and before vanilla's floor-wide indoor-tile fallback. -->
     <JanitorOccupiedRoomWaitChance>30</JanitorOccupiedRoomWaitChance>
 
-    <!-- Cooldown in in-game minutes AFTER a real exterior wait ENDS (including early resumption or timeout). A refused decision remains remembered for the same janitor, room and occupant; an approach that fails before any wait does not consume this cooldown. Range 0-240, default 30. Existing XML is never overwritten; missing tag uses the built-in value. -->
+    <!-- Integer 0-240 in-game minutes. Default: 30. Cooldown starts after a real exterior wait ends; a refused decision remains remembered for the same janitor, room and occupant, and a failed approach does not consume the cooldown. -->
     <JanitorOccupiedRoomWaitCooldownMinutes>30</JanitorOccupiedRoomWaitCooldownMinutes>
 
-    <!-- Maximum in-game minutes a janitor waits outside a protected clinical room before abandoning that attempt and putting the room back later in the cleaning flow. The room is rechecked continuously and cleaning resumes immediately if it becomes free. Accepted range: 0-240. Default: 15. Set to 0 to skip the stationary wait. -->
+    <!-- Integer 0-240 in-game minutes. Default: 15. Maximum exterior wait; the room is rechecked and cleaning resumes early if it becomes free. 0 skips the stationary wait. -->
     <JanitorOccupiedRoomWaitMinutes>15</JanitorOccupiedRoomWaitMinutes>
 
-    <!-- Random plus/minus variation chosen once when the wait starts. Accepted range: 0-60. Default: 3. With the defaults, the wait lasts 12-18 in-game minutes. -->
+    <!-- Integer 0-60 in-game minutes. Default: 3. Plus/minus variation chosen once when the wait starts; defaults produce a 12-18 minute wait. -->
     <JanitorOccupiedRoomWaitRandomnessMinutes>3</JanitorOccupiedRoomWaitRandomnessMinutes>
 
-    <!-- false = vanilla hospitalization-room priority; true = at night, prefer other work before ordinary cleaning in occupied hospitalization rooms; blood remains urgent. -->
+    <!-- Boolean true/false. Default: false (vanilla hospitalization-room priority). true strongly deprioritizes ordinary cleaning in occupied hospitalization rooms during NIGHT; blood remains urgent. -->
     <ReduceOccupiedHospitalizationCleaningAtNight>false</ReduceOccupiedHospitalizationCleaningAtNight>
   </JanitorCleaning>
 
   <BathroomFlow>
-    <!-- false = vanilla owner lifetime; true = release a toilet's ProcedureScript owner after physical use in shared/multi-WC rooms. A room containing exactly one WC stays exclusive (WC + sink + dryer) until the bathroom flow ends; a collapsed/lying patient physically inside also keeps that single-WC room unavailable until leaving. -->
+    <!-- Boolean true/false. Default: false (vanilla owner lifetime). true releases a toilet ProcedureScript owner after physical use in shared/multi-WC rooms; single-WC rooms remain exclusive through WC + sink + dryer, including collapse protection. -->
     <ReleaseToiletOwnerAfterUse>false</ReleaseToiletOwnerAfterUse>
   </BathroomFlow>
 
   <Debug>
-    <!-- false = production logging; true = log final NoPath jobs and the inaccessible transitions tested by that final PathfinderJob. -->
+    <!-- Boolean true/false. Default: false. true logs final NoPath jobs and the inaccessible transitions tested by the final PathfinderJob. -->
     <PathfindingDebug>false</PathfindingDebug>
 
-    <!-- Focused janitor/cart route diagnostics. Logs only meaningful state, destination, room and cart changes; independent of verbose pathfinding logs. -->
+    <!-- Boolean true/false. Default: false. true logs focused janitor/cart state, destination, room and cart changes, including nighttime-priority decisions. -->
     <JanitorCartDebug>false</JanitorCartDebug>
 
-    <!-- Lightweight navigation timing every 20 seconds plus rebuild timing; independent of verbose pathfinding logs. -->
-    <GraphPerformanceDebug>false</GraphPerformanceDebug>
-
-    <!-- false = production logging; true = log Shift+click door selection/group data and the exact OneWay arrow destination/render coordinates. -->
+    <!-- Boolean true/false. Default: false. true logs Shift+click door selection/group data and OneWay arrow destination/render coordinates. -->
     <DoorDebug>false</DoorDebug>
 
-    <!-- false = production logging; true = audit WC locks and trace lavabo/dryer handoffs. -->
+    <!-- Boolean true/false. Default: false. true audits WC locks and lavabo/dryer handoffs. -->
     <BathroomFlowDebug>false</BathroomFlowDebug>
   </Debug>
 </HospitalTrafficControl>

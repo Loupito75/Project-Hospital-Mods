@@ -15,7 +15,6 @@ namespace HospitalTrafficControl
             OneWayPathfinderTracker.Reset();
             OneWayWalkValidationContext.Reset();
             PathfindingDebugManager.Reset();
-            WaitingRoomDiagnostics.Reset();
 
             OneWayPersistenceManager.Reset();
             OneWayManager.Reset();
@@ -30,7 +29,6 @@ namespace HospitalTrafficControl
             BathroomFixtureHandoff.Reset();
             SingleToiletBathroomLockManager.Reset();
             BathroomFlowDiagnostics.Reset();
-            BathroomAvailabilityAudit.Reset();
         }
     }
 }

@@ -21,7 +21,6 @@ namespace HospitalTrafficControl
         private const bool DefaultReleaseToiletOwnerAfterUse = false;
         private const bool DefaultPathfindingDebug = false;
         private const bool DefaultJanitorCartDebug = false;
-        private const bool DefaultGraphPerformanceDebug = false;
         private const bool DefaultDoorDebug = false;
         private const bool DefaultBathroomFlowDebug = false;
 
@@ -63,7 +62,6 @@ namespace HospitalTrafficControl
         internal static bool ReleaseToiletOwnerAfterUse { get; private set; }
         internal static bool PathfindingDebug { get; private set; }
         internal static bool JanitorCartDebug { get; private set; }
-        internal static bool GraphPerformanceDebug { get; private set; }
         internal static bool DoorDebug { get; private set; }
         internal static bool BathroomFlowDebug { get; private set; }
         internal static int TransitExceptionCount => _transitExceptionRoomTypeIds.Count;
@@ -287,19 +285,6 @@ namespace HospitalTrafficControl
                 JanitorCartDebug = parsedJanitorCartDebug;
             }
 
-            string graphPerformanceDebugText =
-                GetElementValue(xml, "GraphPerformanceDebug");
-            if (!string.IsNullOrEmpty(graphPerformanceDebugText))
-            {
-                bool enabled;
-                if (!bool.TryParse(graphPerformanceDebugText.Trim(), out enabled))
-                {
-                    throw new FormatException("GraphPerformanceDebug must be true or false.");
-                }
-
-                GraphPerformanceDebug = enabled;
-            }
-
             string doorDebugText = GetElementValue(xml, "DoorDebug");
             if (!string.IsNullOrEmpty(doorDebugText))
             {
@@ -450,7 +435,6 @@ namespace HospitalTrafficControl
             ReleaseToiletOwnerAfterUse = DefaultReleaseToiletOwnerAfterUse;
             PathfindingDebug = DefaultPathfindingDebug;
             JanitorCartDebug = DefaultJanitorCartDebug;
-            GraphPerformanceDebug = DefaultGraphPerformanceDebug;
             DoorDebug = DefaultDoorDebug;
             BathroomFlowDebug = DefaultBathroomFlowDebug;
             _transitExceptionRoomTypeIds = CreateDefaultExceptionSet();

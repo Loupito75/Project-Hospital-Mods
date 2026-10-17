@@ -935,9 +935,6 @@ namespace HospitalTrafficControl.Patches
                 " | hasWcTag=" + hasWcTag +
                 " | reservationPortraitsEnabled=" + indicatorEnabled);
 
-            BathroomAvailabilityAudit.LogHospitalizedSelectionSnapshot(
-                character,
-                toilet);
         }
 
         internal static void LogReserveObjectAnomalies(UseComponent useComponent, TileObject tileObject)

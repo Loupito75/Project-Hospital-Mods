@@ -63,7 +63,6 @@ namespace HospitalTrafficControl.Patches
                 return;
             }
 
-            long perfStart = GraphPerformanceDiagnostics.BeginSample();
             AccessRights[,] combinedAccess =
                 CombineAccessRights(logisticsAccess, roomAccess);
 
@@ -89,12 +88,6 @@ namespace HospitalTrafficControl.Patches
                     floorIndex > 0,
                     elevatorSeeds);
             }
-
-            GraphPerformanceDiagnostics.RecordRebuild(
-                perfStart,
-                "EXTRA",
-                floorIndex,
-                AdditionalGraphRights.Length);
 
             if (TrafficControlConfig.PathfindingDebug)
             {
@@ -124,18 +117,12 @@ namespace HospitalTrafficControl.Patches
                 return -1;
             }
 
-            long perfStart = GraphPerformanceDiagnostics.BeginSample();
             int affectedMask = accessChange.GetAffectedGraphMask(AllGraphRights);
 
             // Avoid creating elevator seeds and a full matrix when no graph
             // changes passability at the selected access levels.
             if (affectedMask == 0)
             {
-                GraphPerformanceDiagnostics.RecordRebuild(
-                    perfStart,
-                    "TARGETED_SKIPPED",
-                    floor.m_floorIndex,
-                    0);
                 return 0;
             }
 
@@ -214,12 +201,6 @@ namespace HospitalTrafficControl.Patches
                 }
                 rebuiltGraphs += access.ToString();
             }
-
-            GraphPerformanceDiagnostics.RecordRebuild(
-                perfStart,
-                "TARGETED",
-                floor.m_floorIndex,
-                rebuiltCount);
 
             if (rebuiltCount > 0 && TrafficControlConfig.PathfindingDebug)
             {
@@ -584,7 +565,6 @@ namespace HospitalTrafficControl.Patches
                 NavigationAccessPolicy.GetMovementAccess(__instance);
             int currentFloor = __instance.Floor.m_floorIndex;
             int destinationFloor = __instance.m_state.m_destinationFloor;
-            long perfStart = GraphPerformanceDiagnostics.BeginSample();
 
             try
             {
@@ -644,6 +624,19 @@ namespace HospitalTrafficControl.Patches
                         " cost=" + waypoints.Value + ".");
                 }
 
+                if (TrafficControlConfig.PathfindingDebug &&
+                    currentFloor != destinationFloor &&
+                    !hasMidpoints &&
+                    invalidCost)
+                {
+                    LogCrossFloorGraphComparison(
+                        __instance,
+                        entity,
+                        actualAccess,
+                        currentFloor,
+                        destinationFloor);
+                }
+
                 return false;
             }
             catch (Exception exception)
@@ -657,12 +650,464 @@ namespace HospitalTrafficControl.Patches
 
                 return true;
             }
-            finally
+        }
+
+        private static void LogCrossFloorGraphComparison(
+            WalkComponent walk,
+            Entity entity,
+            AccessRights accessRights,
+            int currentFloor,
+            int destinationFloor)
+        {
+            try
             {
-                GraphPerformanceDiagnostics.RecordRoute(
-                    perfStart,
-                    currentFloor != destinationFloor);
+                GridMap gridMap = GridMap.GetInstance();
+                if (gridMap == null ||
+                    Hospital.Instance == null ||
+                    Hospital.Instance.m_floors == null ||
+                    currentFloor < 0 ||
+                    destinationFloor < 0 ||
+                    currentFloor >= Hospital.Instance.m_floors.Count ||
+                    destinationFloor >= Hospital.Instance.m_floors.Count)
+                {
+                    return;
+                }
+
+                Floor originFloor = Hospital.Instance.m_floors[currentFloor];
+                Floor destinationFloorObject =
+                    Hospital.Instance.m_floors[destinationFloor];
+                if (originFloor == null || destinationFloorObject == null)
+                {
+                    return;
+                }
+
+                Vector2i origin = walk.GetCurrentTileSafe();
+                Vector2i destination = walk.GetDestinationTile();
+
+                RoomGraph exactOriginGraph;
+                RoomGraph exactDestinationGraph;
+                RoomGraph compatibilityOriginGraph;
+                RoomGraph compatibilityDestinationGraph;
+
+                ExactAccessGraphManager.TryGetExactGraph(
+                    gridMap,
+                    currentFloor,
+                    accessRights,
+                    out exactOriginGraph);
+                ExactAccessGraphManager.TryGetExactGraph(
+                    gridMap,
+                    destinationFloor,
+                    accessRights,
+                    out exactDestinationGraph);
+                ExactAccessGraphManager.TryGetCompatibilityGrid(
+                    gridMap,
+                    currentFloor,
+                    out compatibilityOriginGraph);
+                ExactAccessGraphManager.TryGetCompatibilityGrid(
+                    gridMap,
+                    destinationFloor,
+                    out compatibilityDestinationGraph);
+
+                Dictionary<GridRectangle, float> exactOriginElevators =
+                    GetElevatorDistances(exactOriginGraph, origin);
+                Dictionary<GridRectangle, float> exactDestinationElevators =
+                    GetElevatorDistances(exactDestinationGraph, destination);
+                Dictionary<GridRectangle, float> compatibilityOriginElevators =
+                    GetElevatorDistances(compatibilityOriginGraph, origin);
+                Dictionary<GridRectangle, float> compatibilityDestinationElevators =
+                    GetElevatorDistances(
+                        compatibilityDestinationGraph,
+                        destination);
+
+                KeyValuePair<List<WalkMidpoint>, float> exactWaypoints =
+                    gridMap.GetWaypoints(
+                        currentFloor,
+                        origin,
+                        destinationFloor,
+                        destination,
+                        accessRights);
+                KeyValuePair<List<WalkMidpoint>, float> compatibilityWaypoints =
+                    gridMap.GetWaypoints(
+                        currentFloor,
+                        origin,
+                        destinationFloor,
+                        destination,
+                        AccessRights.STAFF_ONLY);
+
+                int exactCommonElevators =
+                    CountCommonElevators(
+                        exactOriginElevators,
+                        exactDestinationElevators);
+                int compatibilityCommonElevators =
+                    CountCommonElevators(
+                        compatibilityOriginElevators,
+                        compatibilityDestinationElevators);
+
+                string characterName =
+                    entity == null
+                        ? "<unknown>"
+                        : (entity.Name ?? string.Empty).Trim();
+
+                Plugin.Log?.LogInfo(
+                    "[PathDebug] ACCESS_GRAPH_COMPARE entity='" +
+                    characterName +
+                    "' route=F" + currentFloor + " " + origin +
+                    " -> F" + destinationFloor + " " + destination +
+                    " access=" + FormatAccessRights(accessRights) +
+                    " exactMidpoints=" + GetMidpointCount(exactWaypoints.Key) +
+                    " exactCost=" + exactWaypoints.Value +
+                    " compatibilityMidpoints=" +
+                    GetMidpointCount(compatibilityWaypoints.Key) +
+                    " compatibilityCost=" + compatibilityWaypoints.Value +
+                    " exactCommonElevators=" + exactCommonElevators +
+                    " compatibilityCommonElevators=" +
+                    compatibilityCommonElevators +
+                    " reason=" +
+                    DescribeNoMidpointReason(
+                        currentFloor,
+                        destinationFloor,
+                        exactOriginElevators,
+                        exactDestinationElevators,
+                        exactCommonElevators) +
+                    ".");
+
+                Plugin.Log?.LogInfo(
+                    "[PathDebug]   ORIGIN " +
+                    DescribeTileAccess(originFloor, origin) +
+                    " exactGraph={" +
+                    DescribeGraphEndpoint(exactOriginGraph, origin) +
+                    "} compatibilityGraph={" +
+                    DescribeGraphEndpoint(compatibilityOriginGraph, origin) +
+                    "} exactElevators={" +
+                    DescribeElevators(exactOriginElevators) +
+                    "} compatibilityElevators={" +
+                    DescribeElevators(compatibilityOriginElevators) +
+                    "} endpointBridges={" +
+                    DescribeOriginEndpointBridges(
+                        originFloor,
+                        exactOriginGraph,
+                        origin,
+                        accessRights) +
+                    "}.");
+
+                Plugin.Log?.LogInfo(
+                    "[PathDebug]   DESTINATION " +
+                    DescribeTileAccess(destinationFloorObject, destination) +
+                    " exactGraph={" +
+                    DescribeGraphEndpoint(exactDestinationGraph, destination) +
+                    "} compatibilityGraph={" +
+                    DescribeGraphEndpoint(
+                        compatibilityDestinationGraph,
+                        destination) +
+                    "} exactElevators={" +
+                    DescribeElevators(exactDestinationElevators) +
+                    "} compatibilityElevators={" +
+                    DescribeElevators(compatibilityDestinationElevators) +
+                    "}.");
             }
+            catch (Exception exception)
+            {
+                Plugin.Log?.LogInfo(
+                    "[PathDebug] ACCESS_GRAPH_COMPARE diagnostic failed: " +
+                    exception.GetType().Name + ": " + exception.Message);
+            }
+        }
+
+        private static Dictionary<GridRectangle, float> GetElevatorDistances(
+            RoomGraph graph,
+            Vector2i position)
+        {
+            if (graph == null)
+            {
+                return new Dictionary<GridRectangle, float>();
+            }
+
+            return graph.GetAllElevatorDistances(position);
+        }
+
+        private static int CountCommonElevators(
+            Dictionary<GridRectangle, float> originElevators,
+            Dictionary<GridRectangle, float> destinationElevators)
+        {
+            int count = 0;
+            foreach (
+                KeyValuePair<GridRectangle, float> originElevator
+                in originElevators)
+            {
+                foreach (
+                    KeyValuePair<GridRectangle, float> destinationElevator
+                    in destinationElevators)
+                {
+                    if (originElevator.Key != null &&
+                        destinationElevator.Key != null &&
+                        originElevator.Key.m_bottom ==
+                            destinationElevator.Key.m_bottom)
+                    {
+                        count++;
+                        break;
+                    }
+                }
+            }
+
+            return count;
+        }
+
+        private static string DescribeNoMidpointReason(
+            int currentFloor,
+            int destinationFloor,
+            Dictionary<GridRectangle, float> originElevators,
+            Dictionary<GridRectangle, float> destinationElevators,
+            int commonElevators)
+        {
+            if (originElevators.Count == 0 &&
+                destinationElevators.Count == 0)
+            {
+                return "no-exact-elevator-both-sides";
+            }
+
+            if (originElevators.Count == 0)
+            {
+                return "no-exact-elevator-from-origin";
+            }
+
+            if (destinationElevators.Count == 0)
+            {
+                return "no-exact-elevator-from-destination";
+            }
+
+            if (commonElevators > 0)
+            {
+                return "unexpected-common-elevator-without-midpoint";
+            }
+
+            if (currentFloor == 0 || destinationFloor == 0)
+            {
+                return "no-common-exact-elevator-with-ground-floor-endpoint";
+            }
+
+            return "unexpected-no-midpoint-despite-reachable-elevators";
+        }
+
+        private static string DescribeTileAccess(
+            Floor floor,
+            Vector2i position)
+        {
+            if (floor == null ||
+                floor.m_roomAccessRights == null ||
+                floor.m_mapPersistentData == null ||
+                floor.m_mapPersistentData.m_mapLogisticsLayer == null ||
+                floor.m_mapPersistentData.m_mapLogisticsLayer.m_accessRights ==
+                    null ||
+                position.m_x < 0 ||
+                position.m_y < 0 ||
+                position.m_x >= floor.Size.m_x ||
+                position.m_y >= floor.Size.m_y)
+            {
+                return "tile=" + position + " access=<unavailable>";
+            }
+
+            AccessRights roomAccess =
+                floor.m_roomAccessRights[position.m_x, position.m_y];
+            AccessRights logisticsAccess =
+                floor.m_mapPersistentData.m_mapLogisticsLayer.m_accessRights[
+                    position.m_x,
+                    position.m_y];
+
+            return
+                "tile=" + position +
+                " roomAccess=" + FormatAccessRights(roomAccess) +
+                " logisticsAccess=" + FormatAccessRights(logisticsAccess) +
+                " requiredAccess=" +
+                NavigationAccessPolicy.GetRequiredTileAccess(
+                    floor,
+                    position);
+        }
+
+        private static string DescribeGraphEndpoint(
+            RoomGraph graph,
+            Vector2i position)
+        {
+            if (graph == null)
+            {
+                return "graph=<missing>";
+            }
+
+            bool inGrid = graph.IsInGrid(position);
+            GridRectangle rectangle = FindRectangle(graph, position);
+
+            if (rectangle == null)
+            {
+                return "inGrid=" + inGrid + " rectangle=<none>";
+            }
+
+            return
+                "inGrid=" + inGrid +
+                " rectangle=" + rectangle.m_bottom +
+                ".." + rectangle.m_top +
+                " rectangleAccess=" +
+                FormatAccessRights(rectangle.m_accessRights) +
+                " exits=" +
+                (rectangle.m_exits == null ? 0 : rectangle.m_exits.Count);
+        }
+
+        private static GridRectangle FindRectangle(
+            RoomGraph graph,
+            Vector2i position)
+        {
+            if (graph == null || graph.m_allRectangles == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < graph.m_allRectangles.Count; i++)
+            {
+                GridRectangle rectangle = graph.m_allRectangles[i];
+                if (rectangle != null &&
+                    position.m_x >= rectangle.m_bottom.m_x &&
+                    position.m_x <= rectangle.m_top.m_x &&
+                    position.m_y >= rectangle.m_bottom.m_y &&
+                    position.m_y <= rectangle.m_top.m_y)
+                {
+                    return rectangle;
+                }
+            }
+
+            return null;
+        }
+
+        private static string DescribeElevators(
+            Dictionary<GridRectangle, float> elevators)
+        {
+            if (elevators == null || elevators.Count == 0)
+            {
+                return "count=0";
+            }
+
+            const int maxDetails = 24;
+            List<string> details = new List<string>();
+
+            foreach (
+                KeyValuePair<GridRectangle, float> elevator
+                in elevators)
+            {
+                if (elevator.Key == null)
+                {
+                    continue;
+                }
+
+                details.Add(
+                    elevator.Key.m_bottom +
+                    ":" + elevator.Value);
+            }
+
+            details.Sort();
+
+            int detailsToWrite =
+                Math.Min(details.Count, maxDetails);
+            string result = "count=" + elevators.Count + " reachable=";
+            for (int i = 0; i < detailsToWrite; i++)
+            {
+                if (i > 0)
+                {
+                    result += ",";
+                }
+
+                result += details[i];
+            }
+
+            if (details.Count > maxDetails)
+            {
+                result += ",...";
+            }
+
+            return result;
+        }
+
+        private static string DescribeOriginEndpointBridges(
+            Floor floor,
+            RoomGraph exactGraph,
+            Vector2i origin,
+            AccessRights accessRights)
+        {
+            if (floor == null || exactGraph == null)
+            {
+                return "unavailable";
+            }
+
+            Vector2i[] neighbors =
+            {
+                new Vector2i(origin.m_x - 1, origin.m_y),
+                new Vector2i(origin.m_x + 1, origin.m_y),
+                new Vector2i(origin.m_x, origin.m_y - 1),
+                new Vector2i(origin.m_x, origin.m_y + 1)
+            };
+
+            List<string> bridges = new List<string>();
+            for (int i = 0; i < neighbors.Length; i++)
+            {
+                Vector2i neighbor = neighbors[i];
+                if (neighbor.m_x < 0 ||
+                    neighbor.m_y < 0 ||
+                    neighbor.m_x >= floor.Size.m_x ||
+                    neighbor.m_y >= floor.Size.m_y)
+                {
+                    continue;
+                }
+
+                // PathfinderJob searches backwards from the requested destination.
+                // Its final expansion into the real movement origin therefore checks
+                // the neighbor's access rights, not the origin's. Reproduce only that
+                // vanilla endpoint edge here; OneWay remains intentionally outside
+                // GridMap/RoomGraph semantics.
+                if (!floor.IsAccessible(
+                        neighbor,
+                        origin,
+                        origin,
+                        origin,
+                        (int)accessRights,
+                        true,
+                        false))
+                {
+                    continue;
+                }
+
+                Dictionary<GridRectangle, float> elevatorDistances =
+                    exactGraph.GetAllElevatorDistances(neighbor);
+                bridges.Add(
+                    neighbor +
+                    ":elevators=" + elevatorDistances.Count);
+            }
+
+            if (bridges.Count == 0)
+            {
+                return "count=0";
+            }
+
+            bridges.Sort();
+            string result = "count=" + bridges.Count + " candidates=";
+            for (int i = 0; i < bridges.Count; i++)
+            {
+                if (i > 0)
+                {
+                    result += ",";
+                }
+
+                result += bridges[i];
+            }
+
+            return result;
+        }
+
+        private static int GetMidpointCount(
+            List<WalkMidpoint> waypoints)
+        {
+            return waypoints == null ? 0 : waypoints.Count;
+        }
+
+        private static string FormatAccessRights(
+            AccessRights accessRights)
+        {
+            return accessRights + "(" + (int)accessRights + ")";
         }
 
         private static void ApplyWaypoints(
