@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Database>
+  <GameDBNotification ID="L75_HFO_NOTIF_OBSERVATION_EQUIPMENT_CAPACITY">
+    <TextLocID>L75_HFO_NOTIF_OBSERVATION_EQUIPMENT_CAPACITY_TEXT</TextLocID>
+    <DefaultMessageLevel>POPUP</DefaultMessageLevel>
+    <PopupButtonActionA>POPUP_HIDDEN_BUTTON</PopupButtonActionA>
+    <PopupButtonActionB>POPUP_HIDDEN_BUTTON</PopupButtonActionB>
+    <PopupButtonActionC>POPUP_OK</PopupButtonActionC>
+    <DefaultColorRef>NOTIF_COLOR_YELLOW</DefaultColorRef>
+  </GameDBNotification>
+</Database>

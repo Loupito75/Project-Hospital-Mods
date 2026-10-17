@@ -1,0 +1,701 @@
+using System;
+using System.Globalization;
+using GLib;
+using HarmonyLib;
+using Lopital;
+using UnityEngine;
+
+namespace HospitalFlowOptimizer.Patches
+{
+    [HarmonyPatch(typeof(ProcedureSceneFactory))]
+    internal static class SmartStaffNeedResourcePatch
+    {
+        private const string StaffLunchProcedureId = "CONTROL_PROCEDURE_STAFF_LUNCH";
+        private const string StaffHungerNeedId = "NEED_HUNGER_STAFF";
+        private const string BladderNeedId = "NEED_BLADDER";
+        private const string CafeteriaRoomTag = "cafeteria";
+
+        [HarmonyPostfix]
+        [HarmonyPatch(
+            "CreateProcedureScene",
+            new Type[]
+            {
+                typeof(GameDBProcedure),
+                typeof(Entity),
+                typeof(Department),
+                typeof(Room),
+                typeof(AccessRights),
+                typeof(ProcedureSceneType),
+                typeof(EquipmentListRules),
+                typeof(StaffSelectionRules)
+            })]
+        private static void CreateProcedureScenePostfix(
+            GameDBProcedure procedure,
+            Entity patient,
+            Department department,
+            AccessRights accessRights,
+            ProcedureSceneType procedureSceneType,
+            EquipmentListRules equipmentListRules,
+            ProcedureScene __result)
+        {
+            if (!FlowOptimizerConfig.SmartStaffNeedResourceSelection ||
+                procedure == null ||
+                patient == null ||
+                department == null ||
+                __result == null ||
+                equipmentListRules != EquipmentListRules.ONLY_FREE_SAME_FLOOR_PREFER_DPT ||
+                __result.m_availability != ProcedureSceneAvailability.AVAILABLE ||
+                __result.m_equipment == null ||
+                __result.m_equipment.Length == 0)
+            {
+                return;
+            }
+
+            WalkComponent walk = patient.GetComponent<WalkComponent>();
+            EmployeeComponent employee = patient.GetComponent<EmployeeComponent>();
+            if (walk == null || employee == null)
+            {
+                return;
+            }
+
+            ResourceKind resourceKind = GetResourceKind(procedure);
+            if (resourceKind == ResourceKind.None)
+            {
+                return;
+            }
+
+            TileObject vanilla = __result.m_equipment[0] == null
+                ? null
+                : __result.m_equipment[0].GetEntity();
+            if (vanilla == null)
+            {
+                return;
+            }
+
+            TileObject selected = resourceKind == ResourceKind.Toilet
+                ? SelectToilet(procedure, patient, accessRights, vanilla)
+                : SelectMeal(
+                    procedure,
+                    patient,
+                    accessRights,
+                    procedureSceneType,
+                    vanilla);
+
+            if (selected == null || selected == vanilla)
+            {
+                return;
+            }
+
+            __result.m_equipment[0] = selected;
+
+            if (FlowOptimizerConfig.StaffNeedsDiagnosticLogging)
+            {
+                Plugin.Log.LogInfo(
+                    "[Diagnostic][StaffResource] kind=" + resourceKind +
+                    "; phase=" + procedureSceneType +
+                    "; vanilla=" + Describe(vanilla, patient, accessRights) +
+                    "; selected=" + Describe(selected, patient, accessRights));
+            }
+        }
+
+        private static ResourceKind GetResourceKind(GameDBProcedure procedure)
+        {
+            GameDBProcedure staffLunch =
+                Database.Instance.GetEntry<GameDBProcedure>(StaffLunchProcedureId);
+            if (staffLunch != null && object.ReferenceEquals(procedure, staffLunch))
+            {
+                return ResourceKind.Meal;
+            }
+
+            GameDBNeed hunger = Database.Instance.GetEntry<GameDBNeed>(StaffHungerNeedId);
+            if (hunger != null &&
+                hunger.Procedure != null &&
+                object.ReferenceEquals(procedure, hunger.Procedure))
+            {
+                return ResourceKind.Meal;
+            }
+
+            GameDBNeed bladder = Database.Instance.GetEntry<GameDBNeed>(BladderNeedId);
+            if (bladder != null &&
+                bladder.Procedure != null &&
+                object.ReferenceEquals(procedure, bladder.Procedure))
+            {
+                return ResourceKind.Toilet;
+            }
+
+            return ResourceKind.None;
+        }
+
+        private static TileObject SelectToilet(
+            GameDBProcedure procedure,
+            Entity character,
+            AccessRights accessRights,
+            TileObject vanilla)
+        {
+            RequiredEquipment required = GetPrimaryEquipment(procedure);
+            if (required == null)
+            {
+                return vanilla;
+            }
+
+            WalkComponent walk = character.GetComponent<WalkComponent>();
+            if (walk == null)
+            {
+                return vanilla;
+            }
+
+            TileObject local = FindClosestSameFloor(
+                walk,
+                required.Tag,
+                accessRights,
+                procedure.RequiredRoomTags,
+                null,
+                null);
+
+            bool vanillaApiAvailable;
+            bool vanillaAllowed =
+                HtcCompatibility.IsBathroomAllowedForCharacter(
+                    character,
+                    vanilla,
+                    out vanillaApiAvailable);
+
+            bool localApiAvailable = false;
+            bool localAllowed = true;
+            if (local != null)
+            {
+                if (object.ReferenceEquals(local, vanilla))
+                {
+                    localAllowed = vanillaAllowed;
+                    localApiAvailable = vanillaApiAvailable;
+                }
+                else
+                {
+                    localAllowed =
+                        HtcCompatibility.IsBathroomAllowedForCharacter(
+                            character,
+                            local,
+                            out localApiAvailable);
+                }
+            }
+
+            bool fallbackApiAvailable = false;
+            if ((local == null || !localAllowed) &&
+                (vanillaApiAvailable || localApiAvailable))
+            {
+                TileObject allowedFallback =
+                    HtcCompatibility.FindAllowedBathroomForCharacter(
+                        character,
+                        procedure,
+                        accessRights,
+                        out fallbackApiAvailable);
+
+                if (fallbackApiAvailable && allowedFallback != null)
+                {
+                    local = allowedFallback;
+                    localAllowed = true;
+                }
+            }
+
+            bool htcApiAvailable =
+                vanillaApiAvailable || localApiAvailable;
+
+            if (local == null)
+            {
+                if (!vanillaAllowed)
+                {
+                    LogToiletChoice(
+                        fallbackApiAvailable
+                            ? "defer-htc-no-allowed-fallback"
+                            : "defer-htc-private-fallback-api-unavailable",
+                        character,
+                        accessRights,
+                        vanilla,
+                        null,
+                        vanillaAllowed,
+                        localAllowed,
+                        htcApiAvailable);
+                }
+
+                return vanilla;
+            }
+
+            if (!localAllowed)
+            {
+                LogToiletChoice(
+                    vanillaAllowed
+                        ? "keep-vanilla-htc-rejected-local"
+                        : fallbackApiAvailable
+                            ? "defer-htc-no-allowed-fallback"
+                            : "defer-htc-private-fallback-api-unavailable",
+                    character,
+                    accessRights,
+                    vanilla,
+                    local,
+                    vanillaAllowed,
+                    localAllowed,
+                    htcApiAvailable);
+                return vanilla;
+            }
+
+            if (local == vanilla)
+            {
+                if (!vanillaAllowed)
+                {
+                    LogToiletChoice(
+                        fallbackApiAvailable
+                            ? "defer-htc-no-allowed-fallback"
+                            : "defer-htc-private-fallback-api-unavailable",
+                        character,
+                        accessRights,
+                        vanilla,
+                        local,
+                        vanillaAllowed,
+                        localAllowed,
+                        htcApiAvailable);
+                }
+
+                return vanilla;
+            }
+
+            int localDistance =
+                GetComparableRouteDistance(
+                    character,
+                    local,
+                    accessRights);
+            if (localDistance < 0)
+            {
+                LogToiletChoice(
+                    "keep-vanilla-local-unreachable",
+                    character,
+                    accessRights,
+                    vanilla,
+                    local,
+                    vanillaAllowed,
+                    localAllowed,
+                    htcApiAvailable);
+                return vanilla;
+            }
+
+            if (!vanillaAllowed)
+            {
+                LogToiletChoice(
+                    "replace-htc-private-vanilla",
+                    character,
+                    accessRights,
+                    vanilla,
+                    local,
+                    vanillaAllowed,
+                    localAllowed,
+                    htcApiAvailable);
+                return local;
+            }
+
+            if (vanilla.GetFloorIndex() != walk.GetFloorIndex())
+            {
+                LogToiletChoice(
+                    "avoid-floor-change",
+                    character,
+                    accessRights,
+                    vanilla,
+                    local,
+                    vanillaAllowed,
+                    localAllowed,
+                    htcApiAvailable);
+                return local;
+            }
+
+            int vanillaDistance =
+                GetComparableRouteDistance(
+                    character,
+                    vanilla,
+                    accessRights);
+
+            if (vanillaDistance < 0 || localDistance < vanillaDistance)
+            {
+                LogToiletChoice(
+                    "closer-local",
+                    character,
+                    accessRights,
+                    vanilla,
+                    local,
+                    vanillaAllowed,
+                    localAllowed,
+                    htcApiAvailable);
+                return local;
+            }
+
+            LogToiletChoice(
+                "keep-vanilla-same-floor",
+                character,
+                accessRights,
+                vanilla,
+                local,
+                vanillaAllowed,
+                localAllowed,
+                htcApiAvailable);
+            return vanilla;
+        }
+
+        private static TileObject SelectMeal(
+            GameDBProcedure procedure,
+            Entity character,
+            AccessRights accessRights,
+            ProcedureSceneType procedureSceneType,
+            TileObject vanilla)
+        {
+            RequiredEquipment required = GetPrimaryEquipment(procedure);
+            if (required == null)
+            {
+                return vanilla;
+            }
+
+            WalkComponent walk = character.GetComponent<WalkComponent>();
+            TileObject local = FindClosestSameFloor(
+                walk,
+                required.Tag,
+                accessRights,
+                procedure.RequiredRoomTags,
+                null,
+                null);
+
+            TileObject cafeteria = FindVanillaCafeteriaCandidate(
+                walk,
+                required.Tag,
+                accessRights,
+                procedure);
+
+            if (local == null)
+            {
+                return cafeteria ?? vanilla;
+            }
+
+            if (cafeteria == null || cafeteria == local)
+            {
+                return local;
+            }
+
+            int localDistance = GetRouteDistance(character, local, accessRights);
+            int cafeteriaDistance = GetRouteDistance(character, cafeteria, accessRights);
+            int chance = GetCafeteriaChancePercent(
+                walk.GetFloorIndex(),
+                cafeteria.GetFloorIndex(),
+                localDistance,
+                cafeteriaDistance);
+
+            // QUERY and INSTANTIATION must resolve to the same resource.
+            // A second random roll here can validate one destination and then
+            // execute another a few frames later.
+            int roll = GetStableMealRoll(character, procedure);
+            TileObject selected = roll < chance ? cafeteria : local;
+
+            if (FlowOptimizerConfig.StaffNeedsDiagnosticLogging)
+            {
+                Plugin.Log.LogInfo(
+                    "[Diagnostic][StaffMealChoice] phase=" +
+                    procedureSceneType +
+                    "; local=" +
+                    Describe(local, character, accessRights) +
+                    "; cafeteria=" +
+                    Describe(cafeteria, character, accessRights) +
+                    "; cafeteriaChance=" + chance +
+                    "; roll=" + roll +
+                    "; selectedType=" +
+                    (selected == cafeteria ? "CAFETERIA" : "LOCAL") +
+                    "; selected=" +
+                    Describe(selected, character, accessRights));
+            }
+
+            return selected;
+        }
+
+        private static TileObject FindClosestSameFloor(
+            WalkComponent walk,
+            string tag,
+            AccessRights accessRights,
+            string[] roomTags,
+            Department preferredDepartment,
+            string ignoreDepartmentForRoomTag)
+        {
+            if (walk == null)
+            {
+                return null;
+            }
+
+            TileObject result =
+                MapScriptInterface.Instance.FindClosestCenterObjectWithTagShortestPath(
+                    walk.GetCurrentTile(),
+                    walk.GetFloorIndex(),
+                    tag,
+                    accessRights,
+                    roomTags,
+                    false,
+                    true,
+                    preferredDepartment,
+                    ignoreDepartmentForRoomTag);
+
+            if (result == null && accessRights == AccessRights.STAFF_ONLY)
+            {
+                result =
+                    MapScriptInterface.Instance.FindClosestCenterObjectWithTagShortestPath(
+                        walk.GetCurrentTile(),
+                        walk.GetFloorIndex(),
+                        tag,
+                        AccessRights.STAFF,
+                        roomTags,
+                        false,
+                        true,
+                        preferredDepartment,
+                        ignoreDepartmentForRoomTag);
+            }
+
+            return result;
+        }
+
+        private static TileObject FindVanillaCafeteriaCandidate(
+            WalkComponent walk,
+            string tag,
+            AccessRights accessRights,
+            GameDBProcedure procedure)
+        {
+            if (walk == null ||
+                string.IsNullOrEmpty(procedure.IgnoreDepratmentForRoom) ||
+                Database.Instance.GetEntry<GameDBTweakableInt>("DLC_ADMIN_PATHOLOGY_ENABLED") == null)
+            {
+                return null;
+            }
+
+            Department administrative = MapScriptInterface.Instance.GetDepartmentOfType(
+                Database.Instance.GetEntry<GameDBDepartment>("DLC_DPT_ADMINISTRATIVE"));
+            if (administrative == null)
+            {
+                return null;
+            }
+
+            return MapScriptInterface.Instance.FindClosestObjectWithTag(
+                walk.GetCurrentTile(),
+                walk.GetFloorIndex(),
+                administrative,
+                tag,
+                accessRights,
+                new string[] { procedure.IgnoreDepratmentForRoom });
+        }
+
+        private static int GetStableMealRoll(
+            Entity character,
+            GameDBProcedure procedure)
+        {
+            unchecked
+            {
+                uint hash = 2166136261u;
+                MixMealRollHash(
+                    ref hash,
+                    character == null
+                        ? 0u
+                        : character.GetEntityID());
+                MixMealRollHash(
+                    ref hash,
+                    procedure == null
+                        ? string.Empty
+                        : procedure.DatabaseID.ToString());
+                MixMealRollHash(
+                    ref hash,
+                    DayTime.Instance == null
+                        ? 0u
+                        : (uint)DayTime.Instance.GetDay());
+
+                return (int)(hash % 100u);
+            }
+        }
+
+        private static void MixMealRollHash(
+            ref uint hash,
+            uint value)
+        {
+            unchecked
+            {
+                hash ^= value;
+                hash *= 16777619u;
+            }
+        }
+
+        private static void MixMealRollHash(
+            ref uint hash,
+            string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                MixMealRollHash(ref hash, 0u);
+                return;
+            }
+
+            unchecked
+            {
+                for (int i = 0; i < value.Length; i++)
+                {
+                    hash ^= value[i];
+                    hash *= 16777619u;
+                }
+            }
+        }
+
+        private static int GetCafeteriaChancePercent(
+            int originFloor,
+            int cafeteriaFloor,
+            int localDistance,
+            int cafeteriaDistance)
+        {
+            int chance;
+
+            if (originFloor != cafeteriaFloor)
+            {
+                int floorDifference = Math.Abs(cafeteriaFloor - originFloor);
+                chance = 12;
+                for (int i = 1; i < floorDifference; i++)
+                {
+                    chance /= 2;
+                }
+
+                return Math.Max(3, chance);
+            }
+
+            if (localDistance < 0 || cafeteriaDistance < 0)
+            {
+                return 20;
+            }
+
+            if (cafeteriaDistance <= localDistance + 4)
+            {
+                return 75;
+            }
+
+            if (cafeteriaDistance <= localDistance + 12)
+            {
+                return 50;
+            }
+
+            if (cafeteriaDistance <= localDistance + 30)
+            {
+                return 25;
+            }
+
+            return 8;
+        }
+
+        private static int GetRouteDistance(
+            Entity character,
+            TileObject target,
+            AccessRights accessRights)
+        {
+            WalkComponent walk = character == null ? null : character.GetComponent<WalkComponent>();
+            if (walk == null || target == null)
+            {
+                return -1;
+            }
+
+            if (walk.GetFloorIndex() != target.GetFloorIndex())
+            {
+                return -1;
+            }
+
+            return (int)GridMap.GetInstance().GetDistance(
+                walk.GetFloorIndex(),
+                walk.GetCurrentTile(),
+                target.GetFloorIndex(),
+                target.m_state.m_position,
+                accessRights);
+        }
+
+        private static int GetComparableRouteDistance(
+            Entity character,
+            TileObject target,
+            AccessRights accessRights)
+        {
+            int distance = GetRouteDistance(character, target, accessRights);
+
+            if (distance < 0 && accessRights == AccessRights.STAFF_ONLY)
+            {
+                distance = GetRouteDistance(
+                    character,
+                    target,
+                    AccessRights.STAFF);
+            }
+
+            return distance;
+        }
+
+        private static void LogToiletChoice(
+            string reason,
+            Entity character,
+            AccessRights accessRights,
+            TileObject vanilla,
+            TileObject local,
+            bool vanillaHtcAllowed,
+            bool localHtcAllowed,
+            bool htcApiAvailable)
+        {
+            if (!FlowOptimizerConfig.StaffNeedsDiagnosticLogging ||
+                Plugin.Log == null)
+            {
+                return;
+            }
+
+            int vanillaDistance =
+                GetComparableRouteDistance(
+                    character,
+                    vanilla,
+                    accessRights);
+            int localDistance =
+                GetComparableRouteDistance(
+                    character,
+                    local,
+                    accessRights);
+
+            Plugin.Log.LogInfo(
+                "[Diagnostic][StaffToiletChoice] reason=" + reason +
+                "; htcApiAvailable=" + htcApiAvailable +
+                "; vanilla=" +
+                    Describe(vanilla, character, accessRights) +
+                "; vanillaComparableDistance=" + vanillaDistance +
+                "; vanillaHtcAllowed=" + vanillaHtcAllowed +
+                "; local=" +
+                    Describe(local, character, accessRights) +
+                "; localComparableDistance=" + localDistance +
+                "; localHtcAllowed=" + localHtcAllowed);
+        }
+
+        private static RequiredEquipment GetPrimaryEquipment(GameDBProcedure procedure)
+        {
+            if (procedure == null ||
+                procedure.RequiredEquipment == null ||
+                procedure.RequiredEquipment.Length == 0)
+            {
+                return null;
+            }
+
+            return procedure.RequiredEquipment[0];
+        }
+
+        private static string Describe(
+            TileObject target,
+            Entity character,
+            AccessRights accessRights)
+        {
+            if (target == null)
+            {
+                return "none";
+            }
+
+            int distance = GetRouteDistance(character, target, accessRights);
+            return target.m_state.m_gameDBObject.Entry.DatabaseID +
+                   "@F" + target.GetFloorIndex().ToString(CultureInfo.InvariantCulture) +
+                   ":distance=" + distance.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private enum ResourceKind
+        {
+            None,
+            Toilet,
+            Meal
+        }
+    }
+}
