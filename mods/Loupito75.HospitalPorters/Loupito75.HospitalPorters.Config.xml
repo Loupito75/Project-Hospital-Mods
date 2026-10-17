@@ -15,6 +15,17 @@
   <!-- In-game minutes between patient-transport fallback retries. Accepted range: 1-60. Default: 2. -->
   <PatientFallbackRetryMinutes>2</PatientFallbackRetryMinutes>
 
+  <!-- Patient foreign help is only considered after all local Patient Porters fail. Each Porter + Patient/destination/vehicle roll is stable across scans. Defaults are configurable below. -->
+  <PatientCrossDepartmentHelp>true</PatientCrossDepartmentHelp>
+  <!-- Base chance, 0-100. Default: 70. -->
+  <PatientCrossDepartmentHelpBaseChance>70</PatientCrossDepartmentHelpBaseChance>
+  <!-- Bonus when the helper's Porter Station is on the patient's floor, 0-50. Default: 10. -->
+  <PatientCrossDepartmentStationFloorBonus>10</PatientCrossDepartmentStationFloorBonus>
+  <!-- Bonus when the helper is currently on the patient's floor. This is a preference, not a hard floor restriction. Accepted range: 0-50. Default: 20. -->
+  <PatientCrossDepartmentCurrentFloorBonus>20</PatientCrossDepartmentCurrentFloorBonus>
+  <!-- Bonus when the transport has reached an HPO Patient fallback retry, 0-50. Default: 20. -->
+  <PatientCrossDepartmentWaitingBonus>20</PatientCrossDepartmentWaitingBonus>
+
   <!-- Maximum number of physical sample bundles carried in one Porter tour. Lab procedures from the same patient and the same source room count as one sample, even when stored on different furniture. Accepted range: 1-10. Default: 5. Set to 1 for single-sample trips. -->
   <SampleTourMaxSamples>5</SampleTourMaxSamples>
 

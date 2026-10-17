@@ -10,10 +10,10 @@
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.1.1</Version>
-    <AssemblyVersion>1.1.1</AssemblyVersion>
-    <FileVersion>1.1.1</FileVersion>
-    <InformationalVersion>1.1.1</InformationalVersion>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0</AssemblyVersion>
+    <FileVersion>1.2.0</FileVersion>
+    <InformationalVersion>1.2.0</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Porters</Product>
@@ -34,12 +34,15 @@
     <Compile Include="PorterCustomAssetPatches.cs" />
     <Compile Include="LocalizationManager.cs" />
     <Compile Include="PorterPatches.cs" />
+    <Compile Include="PorterPatientHelp.cs" />
+    <Compile Include="PorterPatientContinuationPatches.cs" />
     <Compile Include="PorterSampleTransportPatches.cs" />
     <Compile Include="HospitalPortersApi.cs" />
     <Compile Include="PorterSampleCartPatches.cs" />
     <Compile Include="PorterSamplePersistencePatches.cs" />
     <Compile Include="PorterSampleStatusPatches.cs" />
     <Compile Include="PorterIdlePatches.cs" />
+    <Compile Include="PorterNeedsPatches.cs" />
     <Compile Include="PorterStaffTooltipPatches.cs" />
     <Compile Include="PorterStationPatches.cs" />
     <Compile Include="PorterLogisticsPatches.cs" />

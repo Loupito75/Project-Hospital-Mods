@@ -29,6 +29,12 @@ namespace HospitalPorters
             "HPO_SAMPLE_PORTER_CAPACITY_REPORTED_V1";
         private const string PatientFallbackStateHeader =
             "HPO_PATIENT_FALLBACK_STATE_V1";
+        private const string PatientVehicleContinuationHeader =
+            "HPO_PATIENT_VEHICLE_CONTINUATION_V1";
+        private const string PatientStationReturnHeader =
+            "HPO_PATIENT_STATION_RETURN_V2";
+        private const string PatientStationReturnLegacyHeader =
+            "HPO_PATIENT_STATION_RETURN_V1";
         private const string PatientPorterCapacityHistoryHeader =
             "HPO_PATIENT_PORTER_CAPACITY_HISTORY_V1";
         private const string PatientPorterCapacityReportedHeader =
@@ -74,10 +80,18 @@ namespace HospitalPorters
                 capacityNotifications =
                     PorterSampleTransportRuntime
                         .GetSamplePorterCapacityNotificationsSnapshot();
+            List<PorterPatientStationReturnSnapshot>
+                patientStationReturns =
+                    PorterPatientContinuationRuntime
+                        .GetStationReturnSnapshot();
             List<PorterPatientFallbackSnapshot>
                 patientFallbackStates =
                     StretcherDestinationPatch
                         .GetPatientFallbackStateSnapshot();
+            List<PorterPatientVehicleContinuationSnapshot>
+                patientVehicleContinuations =
+                    PorterPatientContinuationRuntime
+                        .GetActiveVehicleContinuationSnapshot();
             List<KeyValuePair<Department, int>>
                 patientCapacityFallbackHistory =
                     StretcherDestinationPatch
@@ -99,9 +113,15 @@ namespace HospitalPorters
             bool hasCapacityNotifications =
                 capacityNotifications != null &&
                 capacityNotifications.Count > 0;
+            bool hasPatientStationReturns =
+                patientStationReturns != null &&
+                patientStationReturns.Count > 0;
             bool hasPatientFallbackStates =
                 patientFallbackStates != null &&
                 patientFallbackStates.Count > 0;
+            bool hasPatientVehicleContinuations =
+                patientVehicleContinuations != null &&
+                patientVehicleContinuations.Count > 0;
             bool hasPatientCapacityFallbackHistory =
                 patientCapacityFallbackHistory != null &&
                 patientCapacityFallbackHistory.Count > 0;
@@ -129,6 +149,8 @@ namespace HospitalPorters
                 !hasCapacityFallbackHistory &&
                 !hasCapacityNotifications &&
                 !hasPatientFallbackStates &&
+                !hasPatientVehicleContinuations &&
+                !hasPatientStationReturns &&
                 !hasPatientCapacityFallbackHistory &&
                 !hasPatientCapacityNotifications)
             {
@@ -139,6 +161,34 @@ namespace HospitalPorters
             {
                 save.m_entityListEvents =
                     new EntityListSave();
+            }
+
+            if (hasPatientStationReturns)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializePatientStationReturns(patientStationReturns);
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+            }
+
+            if (hasPatientVehicleContinuations)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializePatientVehicleContinuations(
+                        patientVehicleContinuations);
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+
+                PorterDiagnostics.Log(
+                    "save: activePatientVehicleContinuations=" +
+                    patientVehicleContinuations.Count +
+                    ".");
             }
 
             if (hasJobs)
@@ -383,6 +433,26 @@ namespace HospitalPorters
             }
 
             if (data.m_state.StartsWith(
+                    PatientStationReturnHeader,
+                    StringComparison.Ordinal) ||
+                data.m_state.StartsWith(
+                    PatientStationReturnLegacyHeader,
+                    StringComparison.Ordinal))
+            {
+                RestorePatientStationReturns(data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
+                    PatientVehicleContinuationHeader,
+                    StringComparison.Ordinal))
+            {
+                RestorePatientVehicleContinuations(
+                    data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
                     PatientFallbackStateHeader,
                     StringComparison.Ordinal))
             {
@@ -558,6 +628,194 @@ namespace HospitalPorters
 
             PorterDiagnostics.Log(
                 "load: restoredSamplePorterCapacityReported=" +
+                restored + ".");
+        }
+
+        private static string SerializePatientStationReturns(
+            List<PorterPatientStationReturnSnapshot> returns)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(PatientStationReturnHeader);
+            builder.Append('\n');
+            for (int i = 0; i < returns.Count; i++)
+            {
+                PorterPatientStationReturnSnapshot snapshot =
+                    returns[i];
+                if (snapshot == null || snapshot.Porter == null)
+                {
+                    continue;
+                }
+                builder.Append(snapshot.Porter.GetEntityID());
+                builder.Append('|');
+                builder.Append(snapshot.ContinuationDeclined ? 1 : 0);
+                builder.Append('\n');
+            }
+            return builder.ToString();
+        }
+
+        private static void RestorePatientStationReturns(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                (lines[0] != PatientStationReturnHeader &&
+                 lines[0] != PatientStationReturnLegacyHeader))
+            {
+                return;
+            }
+
+            EntityManager manager = EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(
+                    new char[] { '|' },
+                    StringSplitOptions.None);
+                uint porterId;
+                int declined = 0;
+                if ((parts.Length != 1 && parts.Length != 2) ||
+                    !uint.TryParse(parts[0], out porterId) ||
+                    (parts.Length == 2 &&
+                     (!int.TryParse(parts[1], out declined) ||
+                      (declined != 0 && declined != 1))))
+                {
+                    continue;
+                }
+
+                if (PorterPatientContinuationRuntime.RestoreStationReturn(
+                        manager.GetEntity(porterId),
+                        declined == 1))
+                {
+                    restored++;
+                }
+            }
+            PorterDiagnostics.Log(
+                "load: restoredPatientStationReturns=" +
+                restored + ".");
+        }
+
+        private static string SerializePatientVehicleContinuations(
+            List<PorterPatientVehicleContinuationSnapshot> entries)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(PatientVehicleContinuationHeader);
+            builder.Append('\n');
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                PorterPatientVehicleContinuationSnapshot entry =
+                    entries[i];
+                if (entry == null ||
+                    entry.Porter == null ||
+                    entry.Patient == null ||
+                    entry.Destination == null)
+                {
+                    continue;
+                }
+
+                builder.Append(entry.Porter.GetEntityID());
+                builder.Append('|');
+                builder.Append(entry.Patient.GetEntityID());
+                builder.Append('|');
+                builder.Append(entry.Destination.GetEntityID());
+                builder.Append('|');
+                builder.Append((int)entry.LyingState);
+                builder.Append('|');
+                builder.Append((int)entry.StretcherUse);
+                builder.Append('|');
+                builder.Append((int)entry.BedReservation);
+                builder.Append('|');
+                builder.Append((int)entry.MovementType);
+                builder.Append('|');
+                builder.Append((int)entry.RequestedVehicle);
+                builder.Append('|');
+                builder.Append(entry.AwaitingNativeReplay ? 1 : 0);
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestorePatientVehicleContinuations(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] != PatientVehicleContinuationHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(
+                    new char[] { '|' },
+                    StringSplitOptions.None);
+                uint porterId;
+                uint patientId;
+                uint destinationId;
+                int lyingState;
+                int stretcherUse;
+                int bedReservation;
+                int movementType;
+                int requestedVehicle;
+                int awaitingNativeReplay;
+                if (parts.Length != 9 ||
+                    !uint.TryParse(parts[0], out porterId) ||
+                    !uint.TryParse(parts[1], out patientId) ||
+                    !uint.TryParse(parts[2], out destinationId) ||
+                    !int.TryParse(parts[3], out lyingState) ||
+                    !int.TryParse(parts[4], out stretcherUse) ||
+                    !int.TryParse(parts[5], out bedReservation) ||
+                    !int.TryParse(parts[6], out movementType) ||
+                    !int.TryParse(parts[7], out requestedVehicle) ||
+                    !int.TryParse(parts[8], out awaitingNativeReplay) ||
+                    (awaitingNativeReplay != 0 &&
+                     awaitingNativeReplay != 1) ||
+                    !Enum.IsDefined(
+                        typeof(LyingState), lyingState) ||
+                    !Enum.IsDefined(
+                        typeof(StretcherUse), stretcherUse) ||
+                    !Enum.IsDefined(
+                        typeof(BedReservation), bedReservation) ||
+                    !Enum.IsDefined(
+                        typeof(MovementType), movementType) ||
+                    !Enum.IsDefined(
+                        typeof(Vehicle), requestedVehicle))
+                {
+                    continue;
+                }
+
+                Entity porter = manager.GetEntity(porterId);
+                Entity patient = manager.GetEntity(patientId);
+                TileObject destination =
+                    manager.GetEntity(destinationId)
+                        as TileObject;
+                if (PorterPatientContinuationRuntime
+                    .RestoreActiveVehicleContinuation(
+                        porter,
+                        patient,
+                        destination,
+                        (LyingState)lyingState,
+                        (StretcherUse)stretcherUse,
+                        (BedReservation)bedReservation,
+                        (MovementType)movementType,
+                        (Vehicle)requestedVehicle,
+                        awaitingNativeReplay == 1))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredPatientVehicleContinuations=" +
                 restored + ".");
         }
 
@@ -1102,6 +1360,9 @@ namespace HospitalPorters
                 builder.Append('|');
                 builder.Append(
                     job.PostDeliveryReturn ? 1 : 0);
+                builder.Append('|');
+                builder.Append(
+                    job.ContinuationDeclined ? 1 : 0);
                 builder.Append('\n');
             }
 
@@ -1297,7 +1558,8 @@ namespace HospitalPorters
             if (parts.Length != 12 &&
                 parts.Length != 13 &&
                 parts.Length != 14 &&
-                parts.Length != 15)
+                parts.Length != 15 &&
+                parts.Length != 16)
             {
                 return false;
             }
@@ -1316,6 +1578,7 @@ namespace HospitalPorters
             int sampleRoomWaitDeadlineMinute = 0;
             int sampleRoomStagingDeadlineMinute = 0;
             int postDeliveryReturn = 0;
+            int continuationDeclined = 0;
 
             if (!uint.TryParse(parts[0], out porterId) ||
                 !uint.TryParse(parts[1], out cartId) ||
@@ -1354,12 +1617,22 @@ namespace HospitalPorters
                 return false;
             }
 
-            if (parts.Length == 15 &&
+            if (parts.Length >= 15 &&
                 (!int.TryParse(
                     parts[14],
                     out postDeliveryReturn) ||
                  (postDeliveryReturn != 0 &&
                   postDeliveryReturn != 1)))
+            {
+                return false;
+            }
+
+            if (parts.Length == 16 &&
+                (!int.TryParse(
+                    parts[15],
+                    out continuationDeclined) ||
+                 (continuationDeclined != 0 &&
+                  continuationDeclined != 1)))
             {
                 return false;
             }
@@ -1416,6 +1689,8 @@ namespace HospitalPorters
                         sampleRoomStagingDeadlineMinute,
                     PostDeliveryReturn =
                         postDeliveryReturn != 0,
+                    ContinuationDeclined =
+                        continuationDeclined != 0,
                     Phase =
                         (PorterSampleTransportPhase)
                             phaseValue

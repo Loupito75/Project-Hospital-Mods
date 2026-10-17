@@ -65,6 +65,7 @@ namespace HospitalPorters
         internal bool ShowingSampleRoomWaitingBubble;
         internal bool FridgeDepositSoundPlayed;
         internal bool PostDeliveryReturn;
+        internal bool ContinuationDeclined;
         // WalkComponent builds seated routes from the chair's physical tile,
         // not from the character's actual use position. If the cart use tile
         // matches that chair tile, vanilla can produce a one-node route and
@@ -267,6 +268,7 @@ namespace HospitalPorters
                 Jobs.TryGetValue(porter, out job) &&
                 job != null &&
                 job.PostDeliveryReturn &&
+                !job.ContinuationDeclined &&
                 (job.Phase ==
                     PorterSampleTransportPhase.ReturningCart ||
                  job.Phase ==
@@ -299,6 +301,23 @@ namespace HospitalPorters
             return CollectSampleContinuationCandidates(
                 porter,
                 blockedOnly: true).ToArray();
+        }
+
+        internal static bool FinishSampleContinuationWindow(
+            Entity porter)
+        {
+            PorterSampleTransportJob job;
+            if (!IsSampleContinuationWindowOpen(porter) ||
+                !Jobs.TryGetValue(porter, out job) ||
+                job == null)
+            {
+                return false;
+            }
+
+            // Keep the current cart/station return untouched. This flag only
+            // closes API continuation for this post-delivery obligation.
+            job.ContinuationDeclined = true;
+            return true;
         }
 
         private static List<LabProcedure>
@@ -508,6 +527,7 @@ namespace HospitalPorters
             job.StatLab = statLab;
             job.NativeTimeout = false;
             job.PostDeliveryReturn = false;
+            job.ContinuationDeclined = false;
             job.RouteRecoveryAttempts = 0;
             job.CartRestoreRetryCount = 0;
             job.NextCartRestoreRetryAt = 0f;
@@ -7153,6 +7173,7 @@ namespace HospitalPorters
         {
             bool busy = IsBusy(porter);
             if (!PorterIdentity.IsPorter(porter) ||
+                PorterPatientContinuationRuntime.IsBusy(porter) ||
                 (busy &&
                  !(allowPostDeliveryReturn &&
                    IsSampleContinuationWindowOpen(porter))) ||
@@ -9295,6 +9316,9 @@ namespace HospitalPorters
             }
 
             job.PostDeliveryReturn = true;
+            // A completed delivery creates a new return obligation. Never
+            // carry a decline decision from an older continuation window.
+            job.ContinuationDeclined = false;
             job.NativeTimeout = timedOut;
             job.Procedure = null;
             job.CollectedProcedures.Clear();
@@ -9952,7 +9976,9 @@ namespace HospitalPorters
             BehaviorNurse __instance,
             ref bool __state)
         {
-            __state = PorterSampleTransportRuntime.UpdateActiveMission(__instance);
+            __state =
+                PorterPatientContinuationRuntime.UpdateActiveReturn(__instance) ||
+                PorterSampleTransportRuntime.UpdateActiveMission(__instance);
             return !__state;
         }
 
@@ -9960,9 +9986,17 @@ namespace HospitalPorters
             BehaviorNurse __instance,
             bool __state)
         {
+            PorterPatientContinuationRuntime.OnNurseUpdated(__instance);
             if (!__state)
             {
-                PorterSampleTransportRuntime.TryAssignFromIdlePorter(__instance);
+                if (PorterNeedsRuntime.TryStartNativeIdleActivity(
+                        __instance))
+                {
+                    return;
+                }
+
+                PorterSampleTransportRuntime.TryAssignFromIdlePorter(
+                    __instance);
             }
         }
     }
