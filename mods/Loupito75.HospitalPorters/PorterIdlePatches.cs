@@ -85,7 +85,8 @@ namespace HospitalPorters
             Room station)
         {
             if (nurse == null || porter == null || employee == null || station == null ||
-                PorterSampleTransportRuntime.IsBusy(porter))
+                (PorterSampleTransportRuntime.IsBusy(porter) ||
+                 PorterPatientContinuationRuntime.IsBusy(porter)))
             {
                 return false;
             }
@@ -305,7 +306,8 @@ namespace HospitalPorters
             // Sample transport owns the Porter's movement/seat transition.
             // Do not let the idle workstation visual layer requeue a seated
             // PC animation while WalkComponent is standing the Porter up.
-            if (PorterSampleTransportRuntime.IsBusy(porter))
+            if (PorterSampleTransportRuntime.IsBusy(porter) ||
+                PorterPatientContinuationRuntime.IsBusy(porter))
             {
                 Deactivate(porter);
                 return;

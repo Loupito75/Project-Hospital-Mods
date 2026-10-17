@@ -23,6 +23,12 @@ namespace HospitalPorters
         private const int DefaultSampleOccupiedRoomPreAssignmentWaitChance = 30;
         private const int DefaultSampleOccupiedRoomRetryCooldownMinMinutes = 15;
         private const int DefaultSampleOccupiedRoomRetryCooldownMaxMinutes = 30;
+        private const bool DefaultPatientCrossDepartmentHelp = true;
+        // Keep these defaults optional so existing configs remain compatible.
+        private const int DefaultPatientCrossDepartmentHelpBaseChance = 70;
+        private const int DefaultPatientCrossDepartmentStationFloorBonus = 10;
+        private const int DefaultPatientCrossDepartmentCurrentFloorBonus = 20;
+        private const int DefaultPatientCrossDepartmentWaitingBonus = 20;
         private const bool DefaultSampleCrossDepartmentHelp = true;
         private const int DefaultSampleCrossDepartmentHelpBaseChance = 30;
         private const int DefaultSampleCrossDepartmentStationFloorBonus = 20;
@@ -42,6 +48,11 @@ namespace HospitalPorters
         internal static int SampleOccupiedRoomPreAssignmentWaitChance { get; private set; }
         internal static int SampleOccupiedRoomRetryCooldownMinMinutes { get; private set; }
         internal static int SampleOccupiedRoomRetryCooldownMaxMinutes { get; private set; }
+        internal static bool PatientCrossDepartmentHelp { get; private set; }
+        internal static int PatientCrossDepartmentHelpBaseChance { get; private set; }
+        internal static int PatientCrossDepartmentStationFloorBonus { get; private set; }
+        internal static int PatientCrossDepartmentCurrentFloorBonus { get; private set; }
+        internal static int PatientCrossDepartmentWaitingBonus { get; private set; }
         internal static bool SampleCrossDepartmentHelp { get; private set; }
         internal static int SampleCrossDepartmentHelpBaseChance { get; private set; }
         internal static int SampleCrossDepartmentStationFloorBonus { get; private set; }
@@ -183,6 +194,30 @@ namespace HospitalPorters
                     throw new FormatException(
                         "The occupied-room retry cooldown maximum must be >= its minimum.");
                 }
+                PatientCrossDepartmentHelp = ReadOptionalBool(
+                    settings,
+                    "PatientCrossDepartmentHelp",
+                    DefaultPatientCrossDepartmentHelp);
+                PatientCrossDepartmentHelpBaseChance = ReadOptionalInt(
+                    settings,
+                    "PatientCrossDepartmentHelpBaseChance",
+                    DefaultPatientCrossDepartmentHelpBaseChance,
+                    0, 100);
+                PatientCrossDepartmentStationFloorBonus = ReadOptionalInt(
+                    settings,
+                    "PatientCrossDepartmentStationFloorBonus",
+                    DefaultPatientCrossDepartmentStationFloorBonus,
+                    0, 50);
+                PatientCrossDepartmentCurrentFloorBonus = ReadOptionalInt(
+                    settings,
+                    "PatientCrossDepartmentCurrentFloorBonus",
+                    DefaultPatientCrossDepartmentCurrentFloorBonus,
+                    0, 50);
+                PatientCrossDepartmentWaitingBonus = ReadOptionalInt(
+                    settings,
+                    "PatientCrossDepartmentWaitingBonus",
+                    DefaultPatientCrossDepartmentWaitingBonus,
+                    0, 50);
                 SampleCrossDepartmentHelp = ReadOptionalBool(
                     settings,
                     "SampleCrossDepartmentHelp",
@@ -256,6 +291,16 @@ namespace HospitalPorters
                 DefaultSampleOccupiedRoomRetryCooldownMinMinutes;
             SampleOccupiedRoomRetryCooldownMaxMinutes =
                 DefaultSampleOccupiedRoomRetryCooldownMaxMinutes;
+            PatientCrossDepartmentHelp =
+                DefaultPatientCrossDepartmentHelp;
+            PatientCrossDepartmentHelpBaseChance =
+                DefaultPatientCrossDepartmentHelpBaseChance;
+            PatientCrossDepartmentStationFloorBonus =
+                DefaultPatientCrossDepartmentStationFloorBonus;
+            PatientCrossDepartmentCurrentFloorBonus =
+                DefaultPatientCrossDepartmentCurrentFloorBonus;
+            PatientCrossDepartmentWaitingBonus =
+                DefaultPatientCrossDepartmentWaitingBonus;
             SampleCrossDepartmentHelp =
                 DefaultSampleCrossDepartmentHelp;
             SampleCrossDepartmentHelpBaseChance =
@@ -285,6 +330,11 @@ namespace HospitalPorters
                 name == "SampleOccupiedRoomPreAssignmentWaitChance" ||
                 name == "SampleOccupiedRoomRetryCooldownMinMinutes" ||
                 name == "SampleOccupiedRoomRetryCooldownMaxMinutes" ||
+                name == "PatientCrossDepartmentHelp" ||
+                name == "PatientCrossDepartmentHelpBaseChance" ||
+                name == "PatientCrossDepartmentStationFloorBonus" ||
+                name == "PatientCrossDepartmentCurrentFloorBonus" ||
+                name == "PatientCrossDepartmentWaitingBonus" ||
                 name == "SampleCrossDepartmentHelp" ||
                 name == "SampleCrossDepartmentHelpBaseChance" ||
                 name == "SampleCrossDepartmentStationFloorBonus" ||
@@ -435,6 +485,16 @@ namespace HospitalPorters
                 "; sampleRoomRetryCooldownMinutes=" +
                 SampleOccupiedRoomRetryCooldownMinMinutes + "-" +
                 SampleOccupiedRoomRetryCooldownMaxMinutes +
+                "; patientCrossDepartmentHelp=" +
+                PatientCrossDepartmentHelp +
+                "; patientCrossDepartmentBaseChance=" +
+                PatientCrossDepartmentHelpBaseChance +
+                "; patientCrossDepartmentStationFloorBonus=" +
+                PatientCrossDepartmentStationFloorBonus +
+                "; patientCrossDepartmentCurrentFloorBonus=" +
+                PatientCrossDepartmentCurrentFloorBonus +
+                "; patientCrossDepartmentWaitingBonus=" +
+                PatientCrossDepartmentWaitingBonus +
                 "; sampleCrossDepartmentHelp=" +
                 SampleCrossDepartmentHelp +
                 "; sampleCrossDepartmentBaseChance=" +

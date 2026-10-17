@@ -10,7 +10,7 @@ namespace HospitalPorters
     {
         public const string PluginGuid = "loupito75.HospitalPorters";
         public const string PluginName = "Hospital Porters";
-        public const string PluginVersion = "1.1.1";
+        public const string PluginVersion = "1.2.0";
         public const string PluginAuthor = "Loupito75";
         public const string HarmonyId = "Loupito75:HospitalPorters";
 
