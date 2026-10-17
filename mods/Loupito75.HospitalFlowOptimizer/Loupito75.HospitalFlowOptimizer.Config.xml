@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalFlowOptimizer>
+  <!-- Boolean values accept true or false. Numeric optimization weights accept 0 to 5. -->
+
+  <SmartDoctor>
+    <!-- true/false. Default: true. -->
+    <Enabled>true</Enabled>
+    <!-- 0-5. Inpatient workload balancing weight. Default: 1.0. -->
+    <WorkloadWeight>1.0</WorkloadWeight>
+    <!-- 0-5. Clinical-fit weight. Default: 0.4. -->
+    <ClinicalFitWeight>0.4</ClinicalFitWeight>
+    <!-- true/false. Preserve surgery-capable doctors while surgery is waiting. Default: true. -->
+    <ProtectSurgicalCapacity>true</ProtectSurgicalCapacity>
+  </SmartDoctor>
+
+  <SmartClinicDoctor>
+    <!-- true/false. Default: true. -->
+    <Enabled>true</Enabled>
+    <!-- 0-5. Current assignment and recent room-load weight. Default: 1.0. -->
+    <LoadBalancingWeight>1.0</LoadBalancingWeight>
+    <!-- 0-5. Distance weight. Default: 0.3. -->
+    <DistanceWeight>0.3</DistanceWeight>
+    <!-- 0-5. Optional clinical-fit weight; 0 keeps clinic routing flow-focused. Default: 0.0. -->
+    <ClinicalFitWeight>0.0</ClinicalFitWeight>
+  </SmartClinicDoctor>
+
+  <SmartRoomSelection>
+    <!-- true/false. Optimize only among immediately valid diagnostic rooms. Default: true. -->
+    <Enabled>true</Enabled>
+    <!-- 0-5. Recent native room-workload weight. Default: 1.0. -->
+    <WorkloadWeight>1.0</WorkloadWeight>
+    <!-- 0-5. Native route-distance weight. Default: 0.3. -->
+    <DistanceWeight>0.3</DistanceWeight>
+  </SmartRoomSelection>
+
+  <SmartStaffNeeds>
+    <!-- true/false. Improve staff WC and meal destination selection. Default: true. -->
+    <Enabled>true</Enabled>
+  </SmartStaffNeeds>
+
+  <LabOptimization>
+    <!-- true/false. Balance new work between compatible stat labs. Default: true. -->
+    <QueueBalancing>true</QueueBalancing>
+    <!-- true/false. Reorder already-valid lab work by waiting time and workflow progress. Default: true. -->
+    <SmartTaskAssignment>true</SmartTaskAssignment>
+    <!-- 0-240 in-game minutes. Main workflow priority advantage. Default: 30. -->
+    <TaskPriorityTimeMinutes>30</TaskPriorityTimeMinutes>
+    <!-- 0-120 in-game minutes. Stable +/- priority variation. Default: 5. -->
+    <TaskPriorityRandomnessMinutes>5</TaskPriorityRandomnessMinutes>
+    <!-- 0-100 percent. Chance to reroute an outpatient to the selected lab waiting room. Default: 70. -->
+    <WaitingRoomRerouteChance>70</WaitingRoomRerouteChance>
+  </LabOptimization>
+
+  <FollowUpQueue>
+    <!-- true/false. Give eligible outpatient follow-up returns a bounded queue advantage. Default: true. -->
+    <Enabled>true</Enabled>
+    <!-- 0-240 in-game minutes. Main follow-up waiting-time advantage. Default: 20. -->
+    <PriorityTimeMinutes>20</PriorityTimeMinutes>
+    <!-- 0-120 in-game minutes. Stable +/- follow-up variation. Default: 8. -->
+    <PriorityRandomnessMinutes>8</PriorityRandomnessMinutes>
+  </FollowUpQueue>
+
+  <SmartTransport>
+    <!-- true/false. Keep a compatible transporter/equipment nearby during short examinations. Default: true. -->
+    <WaitEnabled>true</WaitEnabled>
+    <!-- 0-100 percent. Applied only after wait validity and safety checks. Default: 65. -->
+    <WaitChance>65</WaitChance>
+    <!-- 1-240 in-game minutes. Base retained-wait limit. Default: 16. -->
+    <WaitMaxProcedureMinutes>16</WaitMaxProcedureMinutes>
+    <!-- 0-120 in-game minutes. Stable +/- variation around the wait limit. Default: 4. -->
+    <WaitMaxProcedureVariationMinutes>4</WaitMaxProcedureVariationMinutes>
+
+    <!-- true/false. Release retained transport capacity for another valid patient mission. Default: true. -->
+    <PressureRescueEnabled>true</PressureRescueEnabled>
+    <!-- 0-100 percent. Single Pressure Rescue gate. Default: 70. -->
+    <PressureRescueChance>70</PressureRescueChance>
+
+    <!-- true/false. Continue to another valid patient transport when possible. Default: true. -->
+    <ContinuationEnabled>true</ContinuationEnabled>
+    <!-- 0-100 percent. One roll after a real continuation candidate exists. Default: 65. -->
+    <ContinuationChance>65</ContinuationChance>
+
+    <!-- true/false. Continue to another HPO-admissible sample mission after delivery. Default: true. -->
+    <SampleContinuationEnabled>true</SampleContinuationEnabled>
+    <!-- 0-100 percent. One roll per HPO sample continuation window. Default: 75. -->
+    <SampleContinuationChance>75</SampleContinuationChance>
+  </SmartTransport>
+
+  <TraumaCenterProtection>
+    <!-- true/false. Prefer Observation for compatible non-critical examinations. Default: true. -->
+    <Enabled>true</Enabled>
+    <!-- 0-10 retries before vanilla fallback is released. Default: 2. -->
+    <FallbackRetries>2</FallbackRetries>
+    <!-- 1-60 in-game minutes between retries. Default: 5. -->
+    <RetryMinutes>5</RetryMinutes>
+  </TraumaCenterProtection>
+
+  <!-- Troubleshooting only. All diagnostics are disabled by default. -->
+  <Diagnostics>
+    <Doctor>false</Doctor>
+    <StaffNeeds>false</StaffNeeds>
+    <Lab>false</Lab>
+    <Transport>false</Transport>
+    <TraumaCenter>false</TraumaCenter>
+  </Diagnostics>
+</HospitalFlowOptimizer>
