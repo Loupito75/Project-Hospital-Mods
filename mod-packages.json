@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 4,
-  "updatedUtc": "2026-10-17T06:10:19Z",
-  "expiresUtc": "2027-01-15T06:10:19Z",
+  "manifestRevision": 5,
+  "updatedUtc": "2026-10-17T18:00:31Z",
+  "expiresUtc": "2027-01-15T18:00:31Z",
   "packages": [
     {
       "guid": "loupito75.HospitalModUpdateChecker",
@@ -94,6 +94,29 @@
         "Textures/UI/porter_station_locked.png",
         "Textures/UI/porter_workspace_empty.png",
         "Textures/UI/sample_cart.png"
+      ],
+      "removeFiles": []
+    },
+    {
+      "guid": "loupito75.HospitalTrafficControl",
+      "name": "Hospital Traffic Control",
+      "version": "1.5.1",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalTrafficControl-v1.5.1/Loupito75.HospitalTrafficControl-v1.5.1.zip",
+      "sha256": "78f23a834ca817358181f4abb4a4a2babfb1af1784f78eddc69d99a027ecdde8",
+      "packageBytes": 444922,
+      "maximumUnpackedBytes": 605342,
+      "installDirectory": "Loupito75.HospitalTrafficControl",
+      "archiveRoot": "Loupito75.HospitalTrafficControl",
+      "pluginFile": "Loupito75.HospitalTrafficControl.dll",
+      "configFile": "Loupito75.HospitalTrafficControl.Config.xml",
+      "runtimeDirectories": [],
+      "runtimeFiles": [
+        "Database/Loupito75.HospitalTrafficControl.xml",
+        "Database/ModAddon.xml",
+        "Database/ModStringTableEn.xml",
+        "Loupito75.HospitalTrafficControl.dll",
+        "preview.png",
+        "README_NEVER_MISS_AN_UPDATE.txt"
       ],
       "removeFiles": []
     }
