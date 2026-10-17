@@ -1,27 +1,22 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 164238,
-  "updatedUtc": "2026-10-17T06:12:42Z",
+  "manifestRevision": 164239,
+  "updatedUtc": "2026-10-17T18:06:19Z",
   "items": [
     {
       "id": 20,
-      "title": "2026-10-10 ★ HTC - Update",
-      "text": "→ Safer recovery when access restrictions change during movement.\n→ Janitors can now wait outside occupied clinical rooms.\n→ Improved bathroom handling for individual stalls, shared facilities and collapsed patients."
-    },
-    {
-      "id": 19,
-      "title": "2026-10-12 ★ HPO - Update",
-      "text": "→ Porters can now help other departments across floors while keeping local work priority.\n→ Safer sample pickup around occupied procedure rooms, with outside waiting and improved sample-cart handling.\n→ Smarter patient and sample fallback retries, with staffing alerts when more Porters may be needed."
-    },
-    {
-      "id": 18,
       "title": "2026-10-14 ★ HMUC - New features",
       "text": "→ You can now update supported mods DIRECTLY from the main menu.\n→ Update HMUC manually one last time, then enjoy much easier updates for your other supported mods."
     },
     {
-      "id": 17,
+      "id": 19,
       "title": "2026-10-17 ★ HPO - New features",
       "text": "→ Cross-department Patient transport.\n→ Native Porter needs and breaks restored.\n→ More natural post-transport return flow."
+    },
+    {
+      "id": 18,
+      "title": "2026-10-17 ★ HTC - Fixes (check XML settings)",
+      "text": "→ Better bucket cart parking.\n→ Safer janitor behavior around occupied rooms.\n→ Improved nighttime cleaning priorities."
     }
   ]
 }
