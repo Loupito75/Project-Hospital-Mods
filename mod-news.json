@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 164240,
-  "updatedUtc": "2026-10-17T18:49:46Z",
+  "manifestRevision": 164241,
+  "updatedUtc": "2026-10-17T18:53:00Z",
   "items": [
     {
       "id": 20,
@@ -20,7 +20,7 @@
     },
     {
       "id": 17,
-      "title": "2026-10-17 ★ HFO - [[NEW MOD]]",
+      "title": "2026-10-17 ★ Hospital Flow Optimizer - [[ -- NEW MOD -- ]]",
       "text": "→ Smarter doctor, room and laboratory workload distribution.\n→ Better follow-up and patient transport flow.\n→ Helps keep Trauma Center capacity available for critical patients."
     }
   ]
