@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731451,
-  "updatedUtc": "2026-10-17T18:00:31Z",
+  "manifestRevision": 731452,
+  "updatedUtc": "2026-10-17T18:47:36Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -62,6 +62,12 @@
       "name": "HMUC Test Mod",
       "author": "Loupito75",
       "version": "1.0.1"
+    },
+    {
+      "guid": "loupito75.HospitalFlowOptimizer",
+      "name": "Hospital Flow Optimizer",
+      "author": "Loupito75",
+      "version": "1.0.0"
     }
   ]
 }
