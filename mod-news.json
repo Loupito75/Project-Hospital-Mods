@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 164239,
-  "updatedUtc": "2026-10-17T18:06:19Z",
+  "manifestRevision": 164240,
+  "updatedUtc": "2026-10-17T18:49:46Z",
   "items": [
     {
       "id": 20,
@@ -17,6 +17,11 @@
       "id": 18,
       "title": "2026-10-17 ★ HTC - Fixes (check XML settings)",
       "text": "→ Better bucket cart parking.\n→ Safer janitor behavior around occupied rooms.\n→ Improved nighttime cleaning priorities."
+    },
+    {
+      "id": 17,
+      "title": "2026-10-17 ★ HFO - [[NEW MOD]]",
+      "text": "→ Smarter doctor, room and laboratory workload distribution.\n→ Better follow-up and patient transport flow.\n→ Helps keep Trauma Center capacity available for critical patients."
     }
   ]
 }
