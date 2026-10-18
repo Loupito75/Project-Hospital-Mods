@@ -14,16 +14,19 @@ namespace HospitalModUpdateChecker
         private const bool DefaultCheckEveryLaunch = false;
         private const bool DefaultShowNews = true;
         private const bool DefaultDebug = false;
+        private const bool DefaultShowTestModInRecommendations = false;
 
         internal static bool CheckEveryLaunch { get; private set; }
         internal static bool ShowNews { get; private set; }
         internal static bool Debug { get; private set; }
+        internal static bool ShowTestModInRecommendations { get; private set; }
 
         internal static void Load()
         {
             CheckEveryLaunch = DefaultCheckEveryLaunch;
             ShowNews = DefaultShowNews;
             Debug = DefaultDebug;
+            ShowTestModInRecommendations = DefaultShowTestModInRecommendations;
 
             try
             {
@@ -80,11 +83,12 @@ namespace HospitalModUpdateChecker
                         element.Attributes.Count != 0 ||
                         (element.Name != "CheckEveryLaunch" &&
                          element.Name != "ShowNews" &&
-                         element.Name != "Debug") ||
+                         element.Name != "Debug" &&
+                         element.Name != "ShowTestModInRecommendations") ||
                         settings.ContainsKey(element.Name))
                     {
                         throw new FormatException(
-                            "Only one CheckEveryLaunch, ShowNews and Debug setting is allowed.");
+                            "Only one CheckEveryLaunch, ShowNews, Debug and ShowTestModInRecommendations setting is allowed.");
                     }
 
                     settings.Add(element.Name, element);
@@ -125,12 +129,24 @@ namespace HospitalModUpdateChecker
                     : ParseBooleanSetting(
                         debugElement,
                         "Debug");
+
+                XmlElement showTestModElement;
+                settings.TryGetValue(
+                    "ShowTestModInRecommendations",
+                    out showTestModElement);
+
+                ShowTestModInRecommendations = showTestModElement == null
+                    ? DefaultShowTestModInRecommendations
+                    : ParseBooleanSetting(
+                        showTestModElement,
+                        "ShowTestModInRecommendations");
             }
             catch (Exception exception)
             {
                 CheckEveryLaunch = DefaultCheckEveryLaunch;
                 ShowNews = DefaultShowNews;
                 Debug = DefaultDebug;
+                ShowTestModInRecommendations = DefaultShowTestModInRecommendations;
 
                 Plugin.Log.LogWarning(
                     "Could not load " + ConfigFileName +

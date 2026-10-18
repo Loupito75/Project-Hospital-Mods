@@ -202,6 +202,9 @@ namespace HospitalModUpdateChecker
 
     internal static class PackageUpdateManager
     {
+        // GUID from tools/modtest.ps1; no other packages are classified by name.
+        private const string TestPackageGuid =
+            "loupito75.HospitalModUpdateTest";
         private const string PackageManifestUrl =
             "https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/mod-packages.json";
 
@@ -346,13 +349,8 @@ namespace HospitalModUpdateChecker
         {
             _packages.Clear();
 
-            if (UpdateChecker.AvailableUpdates.Count == 0)
-            {
-                CatalogState =
-                    PackageCatalogState.NotLoaded;
-                yield break;
-            }
-
+            // The signed catalog also provides first-time installs, even when
+            // there are no updates for currently loaded plugins.
             if (UpdateCheckerConfig.Debug)
             {
                 CatalogState =
@@ -784,6 +782,117 @@ namespace HospitalModUpdateChecker
                     entry);
         }
 
+        internal static List<PackageManifestEntry> GetInstallablePackages()
+        {
+            List<PackageManifestEntry> candidates =
+                new List<PackageManifestEntry>();
+
+            if (CatalogState != PackageCatalogState.Ready ||
+                !_bootstrapReady || UpdateCheckerConfig.Debug)
+                return candidates;
+
+            foreach (PackageManifestEntry entry in _packages.Values)
+            {
+                if (IsSafeNewInstallDestination(entry))
+                    candidates.Add(entry);
+            }
+
+            candidates.Sort(delegate(PackageManifestEntry left,
+                PackageManifestEntry right)
+            {
+                int order = string.Compare(left.Name, right.Name,
+                    StringComparison.CurrentCultureIgnoreCase);
+                return order != 0 ? order :
+                    string.Compare(left.Guid, right.Guid,
+                        StringComparison.OrdinalIgnoreCase);
+            });
+            return candidates;
+        }
+
+        // Fail closed for disabled or differently installed plugins, too.
+        private static bool IsSafeNewInstallDestination(
+            PackageManifestEntry package)
+        {
+            if (package == null || package.Version == null ||
+                Chainloader.PluginInfos.ContainsKey(package.Guid))
+                return false;
+
+            // Hide the official HMUC test package unless explicitly opted in.
+            // This guard is shared by recommendation discovery and StartInstall.
+            if (!UpdateCheckerConfig.ShowTestModInRecommendations &&
+                string.Equals(package.Guid, TestPackageGuid,
+                    StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            try
+            {
+                string canonicalRoot = GetCanonicalPluginRoot();
+                if (!string.Equals(
+                    canonicalRoot, Path.GetFullPath(Paths.PluginPath),
+                    StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (!Directory.Exists(canonicalRoot))
+                    return false;
+
+                string destination = Path.GetFullPath(Path.Combine(
+                    canonicalRoot, package.InstallDirectory));
+                string parent = Path.GetDirectoryName(destination);
+                if (!string.Equals(parent, canonicalRoot,
+                    StringComparison.OrdinalIgnoreCase) ||
+                    Directory.Exists(destination) || File.Exists(destination))
+                    return false;
+
+                // Detect an inactive duplicate in another plugin subfolder
+                // without opening or changing any of those files.
+                string fileName = Path.GetFileName(package.PluginFile);
+                if (string.IsNullOrEmpty(fileName))
+                    return false;
+
+                return Directory.GetFiles(canonicalRoot, fileName,
+                    SearchOption.AllDirectories).Length == 0;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.LogWarning(
+                    "HMUC cannot verify a new install destination: " +
+                    exception.Message);
+                return false;
+            }
+        }
+
+        internal static void StartInstall(string guid)
+        {
+            if (string.IsNullOrEmpty(guid) || Plugin.Instance == null ||
+                CatalogState != PackageCatalogState.Ready || !_bootstrapReady ||
+                UpdateCheckerConfig.Debug)
+                return;
+
+            PackageManifestEntry package;
+            if (!_packages.TryGetValue(guid, out package) ||
+                !IsSafeNewInstallDestination(package) ||
+                IsAnotherOperationRunning(guid))
+                return;
+
+            PackageOperation existing = GetOperation(guid);
+            if (existing != null &&
+                existing.State == PackageOperationState.Downloading)
+            {
+                existing.CancelRequested = true;
+                if (existing.Request != null)
+                    existing.Request.Abort();
+                return;
+            }
+            if (existing != null &&
+                (existing.State == PackageOperationState.Verifying ||
+                 existing.State == PackageOperationState.Extracting ||
+                 existing.State == PackageOperationState.PendingRestart))
+                return;
+
+            Plugin.Instance.StartCoroutine(
+                DownloadAndStage(guid, package, true));
+        }
+
         private static bool IsExpectedInstalledLocation(
             AvailableUpdate update,
             PackageManifestEntry package)
@@ -941,8 +1050,9 @@ namespace HospitalModUpdateChecker
 
             Plugin.Instance.StartCoroutine(
                 DownloadAndStage(
-                    update,
-                    package));
+                    update.Guid,
+                    package,
+                    false));
         }
 
         private static IEnumerator RetryCatalogAndStart(
@@ -985,8 +1095,9 @@ namespace HospitalModUpdateChecker
 
             IEnumerator download =
                 DownloadAndStage(
-                    update,
-                    package);
+                    update.Guid,
+                    package,
+                    false);
 
             while (download.MoveNext())
             {
@@ -995,13 +1106,15 @@ namespace HospitalModUpdateChecker
         }
 
         private static IEnumerator DownloadAndStage(
-            AvailableUpdate update,
-            PackageManifestEntry package)
+            string guid,
+            PackageManifestEntry package,
+            bool freshInstall)
         {
             IEnumerator core =
                 DownloadAndStageCore(
-                    update,
-                    package);
+                    guid,
+                    package,
+                    freshInstall);
 
             try
             {
@@ -1040,9 +1153,9 @@ namespace HospitalModUpdateChecker
 
                         PackageOperation operation;
 
-                        if (update != null &&
+                        if (!string.IsNullOrEmpty(guid) &&
                             _operations.TryGetValue(
-                                update.Guid,
+                                guid,
                                 out operation) &&
                             operation != null)
                         {
@@ -1076,22 +1189,23 @@ namespace HospitalModUpdateChecker
         }
 
         private static IEnumerator DownloadAndStageCore(
-            AvailableUpdate update,
-            PackageManifestEntry package)
+            string guid,
+            PackageManifestEntry package,
+            bool freshInstall)
         {
             PackageOperation operation =
                 new PackageOperation();
 
-            operation.Guid = update.Guid;
+            operation.Guid = guid;
             operation.State =
                 PackageOperationState.Downloading;
             operation.Progress = 0f;
 
-            _operations[update.Guid] =
+            _operations[guid] =
                 operation;
 
             _activeGuid =
-                update.Guid;
+                guid;
 
             string cacheRoot =
                 GetCacheRoot();
@@ -1396,9 +1510,19 @@ namespace HospitalModUpdateChecker
                         cacheRoot,
                         stagingDirectory);
 
+                if (freshInstall &&
+                    !IsSafeNewInstallDestination(package))
+                {
+                    Fail(operation,
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.InstallPreparationErrorId));
+                    yield break;
+                }
+
                 PendingInstallQueue.Queue(
                     package,
-                    relativeStaging);
+                    relativeStaging,
+                    freshInstall);
 
                 operation.State =
                     PackageOperationState.PendingRestart;
@@ -1412,7 +1536,7 @@ namespace HospitalModUpdateChecker
 
                 if (string.Equals(
                         _activeGuid,
-                        update.Guid,
+                        guid,
                         StringComparison.OrdinalIgnoreCase))
                 {
                     _activeGuid = null;
@@ -2278,7 +2402,8 @@ namespace HospitalModUpdateChecker
 
         internal static void Queue(
             PackageManifestEntry package,
-            string stagingDirectory)
+            string stagingDirectory,
+            bool freshInstall)
         {
             string cacheRoot =
                 Path.Combine(
@@ -2386,6 +2511,10 @@ namespace HospitalModUpdateChecker
             operation.SetAttribute(
                 "configFile",
                 package.ConfigFile);
+
+            operation.SetAttribute(
+                "mode",
+                freshInstall ? "install" : "update");
 
             operation.SetAttribute(
                 "stagingDirectory",
