@@ -27,6 +27,10 @@ README_TIMEZONE = ZoneInfo("America/Toronto")
 TEST_MOD_TECHNICAL_NAME = "HospitalModUpdateTest"
 TEST_MOD_DISPLAY_NAME = "HMUC Test Mod"
 
+TEMPORARY_EXCLUDED_PACKAGE_GUIDS = {
+    "loupito75.HospitalRadio",
+}
+
 PACKAGE_FORMAT_VERSION = 1
 PACKAGE_VALIDITY_DAYS = 90
 PACKAGE_MAX_ENTRIES = 256
@@ -2070,6 +2074,16 @@ def rebuild_package_catalog():
                     "instead of replacing an "
                     "existing release asset."
                 )
+
+        if (
+            package["guid"].lower()
+            in TEMPORARY_EXCLUDED_PACKAGE_GUIDS
+        ):
+            print(
+                "Skipping temporarily excluded package: "
+                + package["guid"]
+            )
+            continue
 
         rebuilt_packages.append(package)
 
