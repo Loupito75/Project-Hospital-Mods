@@ -28,7 +28,7 @@ TEST_MOD_TECHNICAL_NAME = "HospitalModUpdateTest"
 TEST_MOD_DISPLAY_NAME = "HMUC Test Mod"
 
 TEMPORARY_EXCLUDED_PACKAGE_GUIDS = {
-    "loupito75.HospitalRadio",
+    "loupito75.hospitalradio",
 }
 
 PACKAGE_FORMAT_VERSION = 1
