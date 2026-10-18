@@ -1801,6 +1801,335 @@ def seal_package_manifest(manifest):
     )
 
 
+def read_public_package_targets():
+    text = README_PATH.read_text(
+        encoding="utf-8"
+    )
+
+    lines = text.splitlines()
+
+    mods_heading = None
+
+    for index, line in enumerate(lines):
+        if line.strip().lower() == "## mods":
+            mods_heading = index
+            break
+
+    if mods_heading is None:
+        raise RuntimeError(
+            "Could not find the '## Mods' "
+            "section in README.md."
+        )
+
+    targets = []
+    seen = set()
+
+    for line in lines[
+        mods_heading + 1:
+    ]:
+        if line.startswith("## "):
+            break
+
+        if not line.strip().startswith("|"):
+            continue
+
+        cells = split_row(line)
+
+        if len(cells) < 2:
+            continue
+
+        technical_mod_name = (
+            get_technical_mod_name_from_cell(
+                cells[0]
+            )
+        )
+
+        if not technical_mod_name:
+            continue
+
+        display_name = get_mod_name_from_cell(
+            cells[0]
+        )
+
+        latest_cell = cells[1]
+
+        match = re.search(
+            r"\[(\d+\.\d+\.\d+)\]"
+            r"\("
+            r"https://github\.com/"
+            r"Loupito75/Project-Hospital-Mods/"
+            r"releases/tag/([^)]+)"
+            r"\)",
+            latest_cell,
+        )
+
+        if not match:
+            raise RuntimeError(
+                "Could not determine the latest "
+                "public release for "
+                + technical_mod_name
+                + " from README.md."
+            )
+
+        version = match.group(1)
+        tag = match.group(2)
+
+        expected_tag = (
+            technical_mod_name
+            + "-v"
+            + version
+        )
+
+        if tag not in (
+            expected_tag,
+            expected_tag + "-republished",
+        ):
+            raise RuntimeError(
+                "Unexpected release tag for "
+                + technical_mod_name
+                + ": "
+                + tag
+            )
+
+        key = technical_mod_name.lower()
+
+        if key in seen:
+            raise RuntimeError(
+                "README.md contains duplicate "
+                "mod entries for "
+                + technical_mod_name
+            )
+
+        seen.add(key)
+
+        targets.append(
+            {
+                "technicalName":
+                    technical_mod_name,
+
+                "displayName":
+                    display_name,
+
+                "version":
+                    version,
+
+                "tag":
+                    tag,
+            }
+        )
+
+    if not targets:
+        raise RuntimeError(
+            "No public mods were found "
+            "in README.md."
+        )
+
+    return targets
+
+
+def rebuild_package_catalog():
+    repository = os.environ.get(
+        "GITHUB_REPOSITORY",
+        "",
+    ).strip()
+
+    if not repository:
+        raise RuntimeError(
+            "GITHUB_REPOSITORY is not available."
+        )
+
+    existing_manifest = (
+        load_package_manifest(
+            create_if_missing=True
+        )
+    )
+
+    existing_by_guid = {}
+
+    for package in existing_manifest[
+        "packages"
+    ]:
+        guid = (
+            package.get("guid")
+            or ""
+        ).lower()
+
+        if guid:
+            existing_by_guid[guid] = package
+
+    targets = read_public_package_targets()
+
+    rebuilt_packages = []
+
+    for target in targets:
+        technical_mod_name = (
+            target["technicalName"]
+        )
+
+        display_name = (
+            target["displayName"]
+        )
+
+        version = target["version"]
+        tag = target["tag"]
+
+        print(
+            "Rebuilding package metadata for "
+            + display_name
+            + " "
+            + version
+            + " from "
+            + tag
+        )
+
+        release = fetch_release_by_tag(
+            repository,
+            tag,
+        )
+
+        if release.get("draft"):
+            raise RuntimeError(
+                "README.md points to a draft "
+                "release: "
+                + tag
+            )
+
+        if release.get("prerelease"):
+            raise RuntimeError(
+                "README.md points to a prerelease: "
+                + tag
+            )
+
+        asset = find_release_asset(
+            release,
+            technical_mod_name,
+            version,
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="hmuc-rebuild-"
+        ) as temporary_directory:
+
+            zip_path = (
+                Path(temporary_directory)
+                / asset["name"]
+            )
+
+            (
+                sha256,
+                package_bytes,
+            ) = download_release_asset(
+                asset,
+                zip_path,
+            )
+
+            package = inspect_release_zip(
+                zip_path=zip_path,
+                technical_mod_name=
+                    technical_mod_name,
+                display_name=
+                    display_name,
+                version=
+                    version,
+                download_url=
+                    asset[
+                        "browser_download_url"
+                    ],
+                sha256=
+                    sha256,
+                package_bytes=
+                    package_bytes,
+            )
+
+        existing = existing_by_guid.get(
+            package["guid"].lower()
+        )
+
+        if existing is not None:
+            # Deletions are explicit metadata and
+            # cannot be reconstructed from a ZIP.
+            package["removeFiles"] = list(
+                existing.get(
+                    "removeFiles",
+                    [],
+                )
+            )
+
+            if (
+                existing.get("version")
+                == package["version"]
+                and existing != package
+            ):
+                raise RuntimeError(
+                    "Rebuild detected changed "
+                    "metadata for already published "
+                    + package["guid"]
+                    + " "
+                    + package["version"]
+                    + ". Publish a new version "
+                    "instead of replacing an "
+                    "existing release asset."
+                )
+
+        rebuilt_packages.append(package)
+
+    # Keep the HMUC test package if it already
+    # exists. It is intentionally not listed
+    # in the public README Mods table.
+    test_guid = (
+        MANIFEST_GUID_PREFIX
+        + TEST_MOD_TECHNICAL_NAME
+    ).lower()
+
+    existing_test = existing_by_guid.get(
+        test_guid
+    )
+
+    if existing_test is not None:
+        rebuilt_packages.append(
+            existing_test
+        )
+
+    rebuilt_manifest = {
+        "formatVersion":
+            PACKAGE_FORMAT_VERSION,
+
+        # seal_package_manifest increments
+        # this exactly once.
+        "manifestRevision":
+            existing_manifest.get(
+                "manifestRevision",
+                0,
+            ),
+
+        "updatedUtc":
+            existing_manifest.get(
+                "updatedUtc",
+                "",
+            ),
+
+        "expiresUtc":
+            existing_manifest.get(
+                "expiresUtc",
+                "",
+            ),
+
+        "packages":
+            rebuilt_packages,
+    }
+
+    seal_package_manifest(
+        rebuilt_manifest
+    )
+
+    print(
+        "Full HMUC package catalog rebuild "
+        "completed with "
+        + str(len(rebuilt_packages))
+        + " package entries."
+    )
+
+
 def process_release(event):
     release, parsed = load_release(
         event
@@ -1940,6 +2269,29 @@ def main():
     if event_name == "schedule":
         refresh_package_catalog()
         return
+
+    if event_name == "workflow_dispatch":
+        inputs = event.get(
+            "inputs"
+        ) or {}
+
+        mode = (
+            inputs.get("mode")
+            or "single-release"
+        ).strip()
+
+        if (
+            mode
+            == "rebuild-package-catalog"
+        ):
+            rebuild_package_catalog()
+            return
+
+        if mode != "single-release":
+            raise RuntimeError(
+                "Unsupported manual mode: "
+                + mode
+            )
 
     process_release(event)
 
