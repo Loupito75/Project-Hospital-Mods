@@ -3,9 +3,18 @@ name: Update latest release
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release tag to update"
+      mode:
+        description: "Manual action"
         required: true
+        default: "single-release"
+        type: choice
+        options:
+          - single-release
+          - rebuild-package-catalog
+
+      tag:
+        description: "Release tag (required only for single-release)"
+        required: false
         type: string
 
   release:
