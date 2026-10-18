@@ -4,17 +4,32 @@
     false: normal behavior; update and News checks use their independent 24-hour caches.
     true: force update and News checks online every time Project Hospital starts (testing only).
   -->
+  <!-- @HMUC:set label="Check every launch" control="checkbox" -->
+  <!-- @HMUC:desc Force online update and news checks every launch (testing only). -->
   <CheckEveryLaunch>false</CheckEveryLaunch>
 
   <!--
     true: show the News block on the HMUC title-screen dashboard.
     false: hide the News block completely.
   -->
+  <!-- @HMUC:set label="Show news" control="checkbox" -->
+  <!-- @HMUC:desc Display the news block in the HMUC title-screen dashboard. -->
   <ShowNews>true</ShowNews>
 
   <!--
     true: use built-in HMUC test content for updates, news and status rendering.
     false: use normal live data.
   -->
+  <!-- @HMUC:set label="Debug mode" control="checkbox" -->
+  <!-- @HMUC:desc Use built-in HMUC test data rather than live news and updates. -->
   <Debug>false</Debug>
+
+  <!--
+    false: hide HMUC Test Mod from suggested installations (default).
+    true: allow HMUC Test Mod to appear in the installable mods list.
+    This setting does not enable Debug mode.
+  -->
+  <!-- @HMUC:set label="Show test mod for installation" control="checkbox" -->
+  <!-- @HMUC:desc Show the official HMUC Test Mod in the installable mods list. For installation testing only. -->
+  <ShowTestModInRecommendations>false</ShowTestModInRecommendations>
 </HospitalModUpdateChecker>

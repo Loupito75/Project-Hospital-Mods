@@ -60,7 +60,13 @@ namespace HospitalModUpdateChecker.Bootstrap
                         ResultsFileName));
 
                 RecoverInterruptedInstall(cacheRoot);
+                // Recover any incomplete XML swap before package updates.
+                PendingConfigApplier.Recover();
                 ApplyPendingOperations(cacheRoot);
+                // Never apply settings while a package rollback is unresolved.
+                if (!File.Exists(Path.Combine(cacheRoot, RecoveryFileName)) &&
+                    !File.Exists(Path.Combine(cacheRoot, PendingFileName)))
+                    PendingConfigApplier.Apply();
             }
             catch (Exception exception)
             {
@@ -252,6 +258,19 @@ namespace HospitalModUpdateChecker.Bootstrap
                 {
                     DeleteDirectorySafe(
                         record.CandidateDirectory);
+                }
+                else if (string.Equals(
+                        record.Phase,
+                        "install-ready",
+                        StringComparison.Ordinal))
+                {
+                    // The new installation has no previous folder to restore.
+                    // If its target appears unexpectedly, retain it and the
+                    // recovery record for manual inspection.
+                    if (Directory.Exists(target) || File.Exists(target))
+                        throw new IOException(
+                            "Interrupted initial install needs manual inspection.");
+                    DeleteDirectorySafe(record.CandidateDirectory);
                 }
                 else if (string.Equals(
                         record.Phase,
@@ -570,6 +589,10 @@ namespace HospitalModUpdateChecker.Bootstrap
 
             try
             {
+                if (operation.FreshInstall &&
+                    (Directory.Exists(target) || File.Exists(target)))
+                    throw new IOException("Fresh install destination already exists.");
+
                 DeleteDirectorySafe(candidate);
                 DeleteDirectorySafe(backup);
 
@@ -707,13 +730,18 @@ namespace HospitalModUpdateChecker.Bootstrap
                     recoveryPath,
                     cacheRoot);
 
+                if (operation.FreshInstall &&
+                    (Directory.Exists(target) || File.Exists(target)))
+                    throw new IOException("Fresh install target became occupied.");
+
                 if (Directory.Exists(target))
                 {
                     Directory.Move(target, backup);
                     targetMoved = true;
                 }
 
-                record.Phase = "backup-moved";
+                record.Phase = operation.FreshInstall
+                    ? "install-ready" : "backup-moved";
                 record.Save(
                     recoveryPath,
                     cacheRoot);
@@ -933,10 +961,15 @@ namespace HospitalModUpdateChecker.Bootstrap
                     string.Empty,
                     addedSettings);
 
-                if (addedSettings.Count == 0)
-                {
+                // Copy new HMUC comments to existing settings without touching
+                // user values, existing descriptions or unrelated comments.
+                bool metadataAdded = MergeHmucMetadata(
+                    current,
+                    current.DocumentElement,
+                    defaults.DocumentElement);
+
+                if (addedSettings.Count == 0 && !metadataAdded)
                     return;
-                }
 
                 string temporary =
                     destination + ".hmuc-new";
@@ -1060,6 +1093,113 @@ namespace HospitalModUpdateChecker.Bootstrap
                         addedSettings);
                 }
             }
+        }
+
+        private static bool MergeHmucMetadata(
+            XmlDocument owner, XmlElement current, XmlElement defaults)
+        {
+            bool changed = false;
+            Dictionary<string, XmlElement> currentChildren =
+                GetUniqueElementChildren(current);
+            Dictionary<string, XmlElement> defaultChildren =
+                GetUniqueElementChildren(defaults);
+
+            foreach (KeyValuePair<string, XmlElement> pair in defaultChildren)
+            {
+                XmlElement existing;
+                if (!currentChildren.TryGetValue(pair.Key, out existing))
+                    continue; // The missing option was already imported.
+
+                if (HasElementChildren(pair.Value))
+                {
+                    if (HasElementChildren(existing))
+                        changed |= MergeHmucMetadata(owner, existing, pair.Value);
+                    continue;
+                }
+
+                Dictionary<string, bool> present =
+                    new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                XmlNode prev = existing.PreviousSibling;
+                while (prev != null && prev.NodeType != XmlNodeType.Element)
+                {
+                    if (prev.NodeType == XmlNodeType.Comment)
+                    {
+                        string marker = HmucCommentKind(prev.Value);
+                        if (marker != null)
+                            present[marker] = true;
+                    }
+                    prev = prev.PreviousSibling;
+                }
+
+                Dictionary<string, XmlComment> existingMetadata =
+                    new Dictionary<string, XmlComment>(StringComparer.OrdinalIgnoreCase);
+                prev = existing.PreviousSibling;
+                while (prev != null && prev.NodeType != XmlNodeType.Element)
+                {
+                    XmlComment comment = prev as XmlComment;
+                    if (comment != null)
+                    {
+                        string marker = HmucCommentKind(comment.Value);
+                        if (marker != null && !existingMetadata.ContainsKey(marker))
+                            existingMetadata.Add(marker, comment);
+                    }
+                    prev = prev.PreviousSibling;
+                }
+
+                List<XmlNode> toAdd = new List<XmlNode>();
+                prev = pair.Value.PreviousSibling;
+                while (prev != null && prev.NodeType != XmlNodeType.Element)
+                {
+                    XmlComment comment = prev as XmlComment;
+                    if (comment != null)
+                    {
+                        string marker = HmucCommentKind(comment.Value);
+                        if (marker != null)
+                        {
+                            XmlComment oldComment;
+                            if (existingMetadata.TryGetValue(marker, out oldComment))
+                            {
+                                if (oldComment.Value != comment.Value)
+                                {
+                                    oldComment.Value = comment.Value;
+                                    changed = true;
+                                }
+                            }
+                            else if (!present.ContainsKey(marker))
+                            {
+                                toAdd.Insert(0, comment);
+                                present[marker] = true;
+                            }
+                        }
+                    }
+                    prev = prev.PreviousSibling;
+                }
+
+                XmlNode indentation = existing.PreviousSibling;
+                if (indentation != null &&
+                    !IsWhitespaceNode(indentation))
+                    indentation = FindChildIndentationWhitespace(current);
+                foreach (XmlNode comment in toAdd)
+                {
+                    current.InsertBefore(
+                        owner.ImportNode(comment, true), existing);
+                    if (indentation != null)
+                        current.InsertBefore(
+                            owner.ImportNode(indentation, true), existing);
+                    changed = true;
+                }
+            }
+            return changed;
+        }
+
+        private static string HmucCommentKind(string value)
+        {
+            string text = (value ?? string.Empty).Trim();
+            if (text.StartsWith("@HMUC:set", StringComparison.OrdinalIgnoreCase))
+                return "set";
+            if (text.StartsWith("@HMUC:desc", StringComparison.OrdinalIgnoreCase))
+                return "desc";
+            return null;
         }
 
         private static void AppendImportedElement(
@@ -1674,6 +1814,7 @@ namespace HospitalModUpdateChecker.Bootstrap
         internal string InstallDirectory;
         internal string PluginFile;
         internal string ConfigFile;
+        internal bool FreshInstall;
         internal string StagingDirectory;
         internal readonly List<string> RuntimeDirectories =
             new List<string>();
@@ -1753,6 +1894,10 @@ namespace HospitalModUpdateChecker.Bootstrap
                     RequireSafeSegment(
                         element,
                         "configFile");
+                string mode = element.GetAttribute("mode");
+                if (mode.Length > 0 && mode != "update" && mode != "install")
+                    throw new FormatException("Unsupported pending install mode.");
+                operation.FreshInstall = mode == "install";
 
                 string stagingRelative =
                     RequireAttribute(

@@ -9,6 +9,11 @@ namespace HospitalModUpdateChecker
         internal const string NewsTitleId = "L75_HMUC_NEWS_TITLE";
         internal const string UpdatesTitleId = "L75_HMUC_UPDATES_TITLE";
         internal const string PluginsTitleId = "L75_HMUC_PLUGINS_TITLE";
+        internal const string ConfigureTooltipId = "L75_HMUC_CONFIGURE_TOOLTIP";
+        internal const string ConfigureActionId = "L75_HMUC_CONFIGURE_ACTION";
+        internal const string RecommendedTitleId = "L75_HMUC_RECOMMENDED_TITLE";
+        internal const string RecommendedInstallId = "L75_HMUC_RECOMMENDED_INSTALL";
+        internal const string RecommendedEmptyId = "L75_HMUC_RECOMMENDED_EMPTY";
         internal const string LoadingId = "L75_HMUC_LOADING";
         internal const string NoNewsId = "L75_HMUC_NO_NEWS";
         internal const string NewsErrorId = "L75_HMUC_NEWS_ERROR";
@@ -42,6 +47,16 @@ namespace HospitalModUpdateChecker
         internal const string InstallFailedId = "L75_HMUC_INSTALL_FAILED";
         internal const string ConfigAddedId = "L75_HMUC_CONFIG_ADDED";
         internal const string ConfigWarningId = "L75_HMUC_CONFIG_WARNING";
+        internal const string ConfigHoverHelpId = "L75_HMUC_CONFIG_HOVER_HELP";
+        internal const string ConfigListHelpId = "L75_HMUC_CONFIG_LIST_HELP";
+        internal const string ConfigRestartId = "L75_HMUC_CONFIG_RESTART";
+        internal const string ConfigInfoId = "L75_HMUC_CONFIG_INFO";
+        internal const string ConfigSaveId = "L75_HMUC_CONFIG_SAVE";
+        internal const string ConfigCloseId = "L75_HMUC_CONFIG_CLOSE";
+        internal const string ConfigDiscardConfirmId = "L75_HMUC_CONFIG_DISCARD_CONFIRM";
+        internal const string ConfigErrorId = "L75_HMUC_CONFIG_ERROR";
+        internal const string ConfigNoEditableId = "L75_HMUC_CONFIG_NO_EDITABLE";
+        internal const string ConfigProcessingErrorId = "L75_HMUC_CONFIG_PROCESSING_ERROR";
 
         private sealed class Translation
         {
@@ -96,6 +111,430 @@ namespace HospitalModUpdateChecker
             }
         }
 
+        // Tooltip text is resolved at hover time so changing the title-screen
+        // language does not require recreating every mod row.
+        private static readonly Dictionary<string, string> ConfigureTooltipTranslations =
+            CreateConfigureTooltipTranslations();
+
+        private static Dictionary<string, string> CreateConfigureTooltipTranslations()
+        {
+            Dictionary<string, string> values =
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            values["en"] = "Configure this mod";
+            values["cs"] = "Nastavit tento mod";
+            values["da"] = "Konfigurer denne mod";
+            values["de"] = "Diesen Mod konfigurieren";
+            values["es"] = "Configurar este mod";
+            values["es-419"] = "Configurar este mod";
+            values["fr"] = "Configurer ce mod";
+            values["hu"] = "Mod beállítása";
+            values["it"] = "Configura questa mod";
+            values["ja"] = "このMODを設定";
+            values["ko"] = "이 모드 설정";
+            values["nl"] = "Deze mod configureren";
+            values["pl"] = "Skonfiguruj ten mod";
+            values["pt-br"] = "Configurar este mod";
+            values["ru"] = "Настроить этот мод";
+            values["sv"] = "Konfigurera denna mod";
+            values["tr"] = "Bu modu yapılandır";
+            values["uk"] = "Налаштувати цей мод";
+            values["zh-cn"] = "配置此模组";
+            values["zh-tw"] = "設定此模組";
+            return values;
+        }
+
+        private static readonly Dictionary<string, string> ConfigureActionTranslations =
+            CreateConfigureActionTranslations();
+
+        private static Dictionary<string, string> CreateConfigureActionTranslations()
+        {
+            Dictionary<string, string> values =
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            values["en"] = "Configure";
+            values["cs"] = "Nastavit";
+            values["da"] = "Indstil";
+            values["de"] = "Konfig.";
+            values["es"] = "Configurar";
+            values["es-419"] = "Configurar";
+            values["fr"] = "Configurer";
+            values["hu"] = "Beállítás";
+            values["it"] = "Configura";
+            values["ja"] = "設定";
+            values["ko"] = "설정";
+            values["nl"] = "Instellen";
+            values["pl"] = "Ustaw";
+            values["pt-br"] = "Configurar";
+            values["ru"] = "Настроить";
+            values["sv"] = "Konfigurera";
+            values["tr"] = "Yapılandır";
+            values["uk"] = "Налаштувати";
+            values["zh-cn"] = "配置";
+            values["zh-tw"] = "設定";
+            return values;
+        }
+
+        private static readonly Dictionary<string, string[]> RecommendedTranslations =
+            CreateRecommendedTranslations();
+
+        private static Dictionary<string, string[]> CreateRecommendedTranslations()
+        {
+            Dictionary<string, string[]> items =
+                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+            items["en"] = new string[] { "Mods you might like", "Install", "No other mods available." };
+            items["cs"] = new string[] { "Mody, které by vás mohly zajímat", "Instalovat", "Žádné další mody nejsou k dispozici." };
+            items["da"] = new string[] { "Mods, du måske vil synes om", "Installer", "Ingen andre mods tilgængelige." };
+            items["de"] = new string[] { "Mods, die dir gefallen könnten", "Installieren", "Keine weiteren Mods verfügbar." };
+            items["es"] = new string[] { "Mods que podrían interesarte", "Instalar", "No hay más mods disponibles." };
+            items["es-419"] = new string[] { "Mods que podrían interesarte", "Instalar", "No hay más mods disponibles." };
+            items["fr"] = new string[] { "D'autres mods qui pourraient vous intéresser", "Installer", "Aucun autre mod disponible." };
+            items["hu"] = new string[] { "Modok, amelyek érdekelhetnek", "Telepítés", "Nincs több elérhető mod." };
+            items["it"] = new string[] { "Mod che potrebbero interessarti", "Installa", "Nessun altro mod disponibile." };
+            items["ja"] = new string[] { "おすすめのMOD", "インストール", "ほかに利用可能なMODはありません。" };
+            items["ko"] = new string[] { "관심 있을 만한 모드", "설치", "사용 가능한 다른 모드가 없습니다." };
+            items["nl"] = new string[] { "Mods die je misschien leuk vindt", "Installeren", "Geen andere mods beschikbaar." };
+            items["pl"] = new string[] { "Mody, które mogą Cię zainteresować", "Zainstaluj", "Brak innych dostępnych modów." };
+            items["pt-br"] = new string[] { "Mods que podem interessar a você", "Instalar", "Nenhum outro mod disponível." };
+            items["ru"] = new string[] { "Моды, которые могут вас заинтересовать", "Установить", "Других доступных модов нет." };
+            items["sv"] = new string[] { "Mods du kanske gillar", "Installera", "Inga andra mods tillgängliga." };
+            items["tr"] = new string[] { "İlginizi çekebilecek modlar", "Yükle", "Başka kullanılabilir mod yok." };
+            items["uk"] = new string[] { "Моди, які можуть вас зацікавити", "Встановити", "Інших доступних модів немає." };
+            items["zh-cn"] = new string[] { "您可能感兴趣的模组", "安装", "没有其他可用模组。" };
+            items["zh-tw"] = new string[] { "您可能感興趣的模組", "安裝", "沒有其他可用模組。" };
+            return items;
+        }
+
+        private static readonly string[] ConfigEditorStringIds =
+            new string[]
+            {
+                ConfigHoverHelpId,
+                ConfigListHelpId,
+                ConfigRestartId,
+                ConfigInfoId,
+                ConfigSaveId,
+                ConfigCloseId,
+                ConfigDiscardConfirmId,
+                ConfigErrorId,
+                ConfigNoEditableId,
+                ConfigProcessingErrorId
+            };
+
+        private static readonly Dictionary<string, string[]>
+            ConfigEditorTranslations =
+                CreateConfigEditorTranslations();
+
+        private static Dictionary<string, string[]> CreateConfigEditorTranslations()
+        {
+            Dictionary<string, string[]> values =
+                new Dictionary<string, string[]>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            values["en"] = new string[]
+            {
+                "Hover over an option to view its full name and description.",
+                "One value per line. A listed value is included; remove it to exclude it.",
+                "Once saved, changes will take effect after restarting the game.",
+                "Info",
+                "Save",
+                "Close",
+                "Settings have been changed. Click again to close without saving.",
+                "Error",
+                "There are no editable settings in this configuration.",
+                "The configuration could not be processed safely. See the BepInEx log."
+            };
+            values["cs"] = new string[]
+            {
+                "Umístěte kurzor na možnost, chcete-li zobrazit její úplný název a popis.",
+                "Jedna hodnota na řádek. Uvedená hodnota je zahrnuta; odeberte ji, chcete-li ji vyloučit.",
+                "Po uložení se změny projeví po restartování hry.",
+                "Informace",
+                "Uložit",
+                "Zavřít",
+                "Nastavení byla změněna. Kliknutím znovu zavřete bez uložení.",
+                "Chyba",
+                "V této konfiguraci nejsou žádná upravitelná nastavení.",
+                "Konfiguraci se nepodařilo bezpečně zpracovat. Viz protokol BepInEx."
+            };
+            values["da"] = new string[]
+            {
+                "Hold markøren over en indstilling for at se dens fulde navn og beskrivelse.",
+                "Én værdi pr. linje. En værdi på listen er medtaget; fjern den for at udelukke den.",
+                "Når ændringerne er gemt, træder de i kraft efter genstart af spillet.",
+                "Info",
+                "Gem",
+                "Luk",
+                "Indstillingerne er ændret. Klik igen for at lukke uden at gemme.",
+                "Fejl",
+                "Der er ingen redigerbare indstillinger i denne konfiguration.",
+                "Konfigurationen kunne ikke behandles sikkert. Se BepInEx-loggen."
+            };
+            values["de"] = new string[]
+            {
+                "Bewege den Mauszeiger über eine Option, um den vollständigen Namen und die Beschreibung anzuzeigen.",
+                "Ein Wert pro Zeile. Ein aufgeführter Wert ist enthalten; entferne ihn, um ihn auszuschließen.",
+                "Nach dem Speichern werden die Änderungen nach einem Neustart des Spiels wirksam.",
+                "Info",
+                "Speichern",
+                "Schließen",
+                "Einstellungen wurden geändert. Klicke erneut, um ohne Speichern zu schließen.",
+                "Fehler",
+                "Diese Konfiguration enthält keine bearbeitbaren Einstellungen.",
+                "Die Konfiguration konnte nicht sicher verarbeitet werden. Siehe BepInEx-Log."
+            };
+            values["es"] = new string[]
+            {
+                "Pasa el cursor sobre una opción para ver su nombre completo y su descripción.",
+                "Un valor por línea. Un valor incluido en la lista está activo; elimínalo para excluirlo.",
+                "Una vez guardados, los cambios se aplicarán después de reiniciar el juego.",
+                "Información",
+                "Guardar",
+                "Cerrar",
+                "La configuración ha cambiado. Vuelve a hacer clic para cerrar sin guardar.",
+                "Error",
+                "No hay ajustes editables en esta configuración.",
+                "No se pudo procesar la configuración de forma segura. Consulta el registro de BepInEx."
+            };
+            values["es-419"] = new string[]
+            {
+                "Pasa el cursor sobre una opción para ver su nombre completo y su descripción.",
+                "Un valor por línea. Un valor incluido en la lista está activo; elimínalo para excluirlo.",
+                "Una vez guardados, los cambios se aplicarán después de reiniciar el juego.",
+                "Información",
+                "Guardar",
+                "Cerrar",
+                "La configuración ha cambiado. Vuelve a hacer clic para cerrar sin guardar.",
+                "Error",
+                "No hay ajustes editables en esta configuración.",
+                "No se pudo procesar la configuración de forma segura. Consulta el registro de BepInEx."
+            };
+            values["fr"] = new string[]
+            {
+                "Survolez une option pour afficher son nom complet et sa description.",
+                "Une valeur par ligne. Une valeur présente est incluse; retirez-la pour l'exclure.",
+                "Une fois enregistrées, les options seront prises en compte au prochain démarrage.",
+                "Info",
+                "Enregistrer",
+                "Fermer",
+                "Des réglages ont été modifiés. Cliquez à nouveau pour fermer sans enregistrer.",
+                "Erreur",
+                "Aucun paramètre modifiable dans cette configuration.",
+                "La configuration n'a pas pu être traitée en toute sécurité. Voir le journal BepInEx."
+            };
+            values["hu"] = new string[]
+            {
+                "Vidd az egérmutatót egy beállítás fölé a teljes név és leírás megtekintéséhez.",
+                "Soronként egy érték. A felsorolt érték szerepel; töröld a kizárásához.",
+                "Mentés után a módosítások a játék újraindításakor lépnek életbe.",
+                "Információ",
+                "Mentés",
+                "Bezárás",
+                "A beállítások módosultak. Kattints újra a mentés nélküli bezáráshoz.",
+                "Hiba",
+                "Ebben a konfigurációban nincs szerkeszthető beállítás.",
+                "A konfigurációt nem sikerült biztonságosan feldolgozni. Lásd a BepInEx naplót."
+            };
+            values["it"] = new string[]
+            {
+                "Passa il puntatore su un'opzione per visualizzarne il nome completo e la descrizione.",
+                "Un valore per riga. Un valore elencato è incluso; rimuovilo per escluderlo.",
+                "Dopo il salvataggio, le modifiche avranno effetto al riavvio del gioco.",
+                "Info",
+                "Salva",
+                "Chiudi",
+                "Le impostazioni sono state modificate. Fai di nuovo clic per chiudere senza salvare.",
+                "Errore",
+                "Non ci sono impostazioni modificabili in questa configurazione.",
+                "Non è stato possibile elaborare la configurazione in modo sicuro. Consulta il log di BepInEx."
+            };
+            values["ja"] = new string[]
+            {
+                "オプションにカーソルを合わせると、完全な名前と説明が表示されます。",
+                "1 行に 1 つの値を入力します。記載された値は含まれます。除外するには削除してください。",
+                "保存した変更は、ゲームの再起動後に反映されます。",
+                "情報",
+                "保存",
+                "閉じる",
+                "設定が変更されています。保存せずに閉じるには、もう一度クリックしてください。",
+                "エラー",
+                "この設定には編集可能な項目がありません。",
+                "設定を安全に処理できませんでした。BepInEx ログを確認してください。"
+            };
+            values["ko"] = new string[]
+            {
+                "옵션 위에 마우스를 올리면 전체 이름과 설명을 볼 수 있습니다.",
+                "한 줄에 값 하나를 입력합니다. 목록에 있는 값은 포함되며, 제외하려면 삭제하세요.",
+                "저장한 변경 사항은 게임을 다시 시작한 후 적용됩니다.",
+                "정보",
+                "저장",
+                "닫기",
+                "설정이 변경되었습니다. 저장하지 않고 닫으려면 다시 클릭하세요.",
+                "오류",
+                "이 구성에는 편집 가능한 설정이 없습니다.",
+                "구성을 안전하게 처리하지 못했습니다. BepInEx 로그를 확인하세요."
+            };
+            values["nl"] = new string[]
+            {
+                "Plaats de muisaanwijzer op een optie om de volledige naam en beschrijving te bekijken.",
+                "Eén waarde per regel. Een vermelde waarde is opgenomen; verwijder deze om hem uit te sluiten.",
+                "Na het opslaan worden de wijzigingen toegepast nadat het spel opnieuw is gestart.",
+                "Info",
+                "Opslaan",
+                "Sluiten",
+                "De instellingen zijn gewijzigd. Klik opnieuw om te sluiten zonder op te slaan.",
+                "Fout",
+                "Deze configuratie bevat geen bewerkbare instellingen.",
+                "De configuratie kon niet veilig worden verwerkt. Zie het BepInEx-logboek."
+            };
+            values["pl"] = new string[]
+            {
+                "Najedź kursorem na opcję, aby zobaczyć jej pełną nazwę i opis.",
+                "Jedna wartość w każdym wierszu. Wartość na liście jest uwzględniona; usuń ją, aby ją wykluczyć.",
+                "Po zapisaniu zmiany zostaną zastosowane po ponownym uruchomieniu gry.",
+                "Informacja",
+                "Zapisz",
+                "Zamknij",
+                "Ustawienia zostały zmienione. Kliknij ponownie, aby zamknąć bez zapisywania.",
+                "Błąd",
+                "W tej konfiguracji nie ma ustawień, które można edytować.",
+                "Nie udało się bezpiecznie przetworzyć konfiguracji. Zobacz dziennik BepInEx."
+            };
+            values["pt-br"] = new string[]
+            {
+                "Passe o cursor sobre uma opção para ver o nome completo e a descrição.",
+                "Um valor por linha. Um valor listado está incluído; remova-o para excluí-lo.",
+                "Depois de salvar, as alterações serão aplicadas ao reiniciar o jogo.",
+                "Informações",
+                "Salvar",
+                "Fechar",
+                "As configurações foram alteradas. Clique novamente para fechar sem salvar.",
+                "Erro",
+                "Não há configurações editáveis nesta configuração.",
+                "Não foi possível processar a configuração com segurança. Consulte o log do BepInEx."
+            };
+            values["ru"] = new string[]
+            {
+                "Наведите указатель на параметр, чтобы увидеть его полное название и описание.",
+                "Одно значение в строке. Значение в списке включено; удалите его, чтобы исключить.",
+                "После сохранения изменения вступят в силу после перезапуска игры.",
+                "Информация",
+                "Сохранить",
+                "Закрыть",
+                "Настройки изменены. Нажмите ещё раз, чтобы закрыть без сохранения.",
+                "Ошибка",
+                "В этой конфигурации нет редактируемых параметров.",
+                "Не удалось безопасно обработать конфигурацию. См. журнал BepInEx."
+            };
+            values["sv"] = new string[]
+            {
+                "Håll pekaren över ett alternativ för att visa dess fullständiga namn och beskrivning.",
+                "Ett värde per rad. Ett listat värde ingår; ta bort det för att utesluta det.",
+                "När ändringarna har sparats börjar de gälla efter att spelet har startats om.",
+                "Info",
+                "Spara",
+                "Stäng",
+                "Inställningarna har ändrats. Klicka igen för att stänga utan att spara.",
+                "Fel",
+                "Det finns inga redigerbara inställningar i den här konfigurationen.",
+                "Konfigurationen kunde inte behandlas säkert. Se BepInEx-loggen."
+            };
+            values["tr"] = new string[]
+            {
+                "Tam adını ve açıklamasını görmek için bir seçeneğin üzerine gelin.",
+                "Her satıra bir değer. Listelenen değer dahildir; hariç tutmak için kaldırın.",
+                "Kaydedildikten sonra değişiklikler oyun yeniden başlatıldığında uygulanır.",
+                "Bilgi",
+                "Kaydet",
+                "Kapat",
+                "Ayarlar değiştirildi. Kaydetmeden kapatmak için tekrar tıklayın.",
+                "Hata",
+                "Bu yapılandırmada düzenlenebilir ayar yok.",
+                "Yapılandırma güvenli şekilde işlenemedi. BepInEx günlüğüne bakın."
+            };
+            values["uk"] = new string[]
+            {
+                "Наведіть вказівник на параметр, щоб переглянути його повну назву й опис.",
+                "Одне значення на рядок. Значення у списку включено; видаліть його, щоб виключити.",
+                "Після збереження зміни набудуть чинності після перезапуску гри.",
+                "Інформація",
+                "Зберегти",
+                "Закрити",
+                "Налаштування змінено. Натисніть ще раз, щоб закрити без збереження.",
+                "Помилка",
+                "У цій конфігурації немає параметрів, які можна редагувати.",
+                "Не вдалося безпечно обробити конфігурацію. Див. журнал BepInEx."
+            };
+            values["zh-cn"] = new string[]
+            {
+                "将鼠标悬停在选项上可查看完整名称和说明。",
+                "每行一个值。列出的值会被包含；删除该值可将其排除。",
+                "保存后，更改将在重新启动游戏后生效。",
+                "信息",
+                "保存",
+                "关闭",
+                "设置已更改。再次点击可在不保存的情况下关闭。",
+                "错误",
+                "此配置中没有可编辑的设置。",
+                "无法安全处理配置。请查看 BepInEx 日志。"
+            };
+            values["zh-tw"] = new string[]
+            {
+                "將滑鼠游標停在選項上可查看完整名稱和說明。",
+                "每行一個值。列出的值會被包含；刪除該值可將其排除。",
+                "儲存後，變更將在重新啟動遊戲後生效。",
+                "資訊",
+                "儲存",
+                "關閉",
+                "設定已變更。再次點擊可在不儲存的情況下關閉。",
+                "錯誤",
+                "此設定中沒有可編輯的項目。",
+                "無法安全處理設定。請查看 BepInEx 記錄。"
+            };
+
+            return values;
+        }
+
+        private static bool TryGetConfigEditorString(
+            string language,
+            string stringId,
+            out string value)
+        {
+            value = null;
+            int index = -1;
+
+            for (int i = 0; i < ConfigEditorStringIds.Length; i++)
+            {
+                if (string.Equals(
+                        ConfigEditorStringIds[i],
+                        stringId,
+                        StringComparison.Ordinal))
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index < 0)
+            {
+                return false;
+            }
+
+            string[] strings;
+            if (!ConfigEditorTranslations.TryGetValue(
+                    language,
+                    out strings))
+            {
+                strings = ConfigEditorTranslations["en"];
+            }
+
+            if (strings == null ||
+                strings.Length != ConfigEditorStringIds.Length)
+            {
+                strings = ConfigEditorTranslations["en"];
+            }
+
+            value = strings[index];
+            return true;
+        }
+
         private static readonly Translation English =
             new Translation(
                 "HMUC - BepInEx Mod Center",
@@ -131,6 +570,42 @@ namespace HospitalModUpdateChecker
         {
             string language =
                 NormalizeLanguageCode(GetCurrentLanguage());
+
+            if (stringId == RecommendedTitleId ||
+                stringId == RecommendedInstallId ||
+                stringId == RecommendedEmptyId)
+            {
+                string[] labels;
+                if (!RecommendedTranslations.TryGetValue(language, out labels))
+                    labels = RecommendedTranslations["en"];
+                return labels[stringId == RecommendedTitleId ? 0 :
+                    stringId == RecommendedInstallId ? 1 : 2];
+            }
+
+            if (stringId == ConfigureActionId)
+            {
+                string caption;
+                if (ConfigureActionTranslations.TryGetValue(language, out caption))
+                    return caption;
+                return ConfigureActionTranslations["en"];
+            }
+
+            if (stringId == ConfigureTooltipId)
+            {
+                string caption;
+                if (ConfigureTooltipTranslations.TryGetValue(language, out caption))
+                    return caption;
+                return ConfigureTooltipTranslations["en"];
+            }
+
+            string configEditorValue;
+            if (TryGetConfigEditorString(
+                    language,
+                    stringId,
+                    out configEditorValue))
+            {
+                return configEditorValue;
+            }
 
             Translation translation;
             if (!Translations.TryGetValue(

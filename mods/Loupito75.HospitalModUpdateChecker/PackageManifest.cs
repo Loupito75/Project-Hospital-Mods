@@ -8,6 +8,7 @@ namespace HospitalModUpdateChecker
     {
         internal const int SupportedFormatVersion = 1;
         internal const int MaximumEntries = 256;
+        internal const int MaximumPathEntries = 4096;
         internal const long MaximumPackageBytes = 536870912L;
         internal const long MaximumUnpackedBytes = 1073741824L;
 
@@ -330,7 +331,8 @@ namespace HospitalModUpdateChecker
             }
 
             List<object> items = raw as List<object>;
-            if (items == null || items.Count > 64)
+            if (items == null ||
+                items.Count > MaximumPathEntries)
             {
                 return false;
             }

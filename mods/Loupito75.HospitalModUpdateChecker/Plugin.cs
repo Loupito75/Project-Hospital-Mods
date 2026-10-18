@@ -11,7 +11,7 @@ namespace HospitalModUpdateChecker
             "loupito75.HospitalModUpdateChecker";
         public const string PluginName =
             "Hospital Mod Update Checker";
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "1.3.0";
         public const string PluginAuthor = "Loupito75";
         public const string HarmonyId =
             "Loupito75:HospitalModUpdateChecker";

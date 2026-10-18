@@ -11,9 +11,9 @@ namespace HospitalModUpdateChecker
 {
     internal static class TitleScreenUpdatePanel
     {
-        private const float PanelWidth = 620f;
-        private const float PanelHeightWithNews = 700f;
-        private const float PanelHeightWithoutNews = 510f;
+        private const float PanelWidth = 725f;
+        private const float PanelHeightWithNews = 875f;
+        private const float PanelHeightWithoutNews = 637.5f;
         private const float HeaderHeight = 44f;
         private const float OuterPadding = 14f;
         private const float SectionGap = 12f;
@@ -22,9 +22,9 @@ namespace HospitalModUpdateChecker
         private const float ScrollbarWidth = 16f;
         private const float ContentPadding = 8f;
 
-        private const float NewsSectionHeight = 180f;
-        private const float UpdatesSectionHeight = 210f;
-        private const float PluginsSectionHeight = 210f;
+        private const float NewsSectionHeight = 230f;
+        private const float UpdatesSectionHeight = 272f;
+        private const float PluginsSectionHeight = 272f;
 
         private const float UpdateRowHeight = 88f;
         private const float UpdateRowGap = 8f;
@@ -58,7 +58,15 @@ namespace HospitalModUpdateChecker
             internal string Author;
             internal Version Version;
             internal PluginLogStatus Status;
+            internal PluginInfo Plugin;
         }
+
+        private static readonly List<LoadedPluginDisplayEntry> _pluginEntries =
+            new List<LoadedPluginDisplayEntry>();
+        private static readonly List<GameObject> _pluginRows =
+            new List<GameObject>();
+        private static GameObject _configGearTooltip;
+        private static Text _configGearTooltipText;
 
         private static TitleScreenController _controller;
         private static GameObject _panel;
@@ -111,6 +119,7 @@ namespace HospitalModUpdateChecker
             SetSectionText(
                 _pluginsSection,
                 BuildLoadedPluginsText());
+            RefreshPluginRows();
 
             _panel.SetActive(true);
         }
@@ -135,6 +144,7 @@ namespace HospitalModUpdateChecker
                         row.Update);
                 }
             }
+            RecommendedModsPanel.UpdateState();
         }
 
         private static bool EnsurePanel()
@@ -380,14 +390,16 @@ namespace HospitalModUpdateChecker
             viewportRect.anchorMin = new Vector2(0f, 1f);
             viewportRect.anchorMax = new Vector2(1f, 1f);
             viewportRect.pivot = new Vector2(0.5f, 1f);
+            // Keep the content axis aligned with the section title while
+            // preserving the existing gap before the scrollbar.
             viewportRect.anchoredPosition =
                 new Vector2(
-                    -ScrollbarWidth * 0.5f,
+                    -ScrollbarWidth * 0.5f + ContentPadding * 0.5f,
                     -(SectionHeaderHeight + SectionContentGap));
 
             viewportRect.sizeDelta =
                 new Vector2(
-                    -ScrollbarWidth - ContentPadding * 2f,
+                    -ScrollbarWidth - ContentPadding * 3f,
                     height -
                     SectionHeaderHeight -
                     SectionContentGap -
@@ -561,56 +573,49 @@ namespace HospitalModUpdateChecker
         private static void RefreshUpdatesSection()
         {
             DestroyUpdateRows();
+            RecommendedModsPanel.Destroy();
 
             if (_updatesSection == null)
-            {
                 return;
-            }
 
-            IList<AvailableUpdate> updates =
-                UpdateChecker.AvailableUpdates;
+            IList<AvailableUpdate> updates = UpdateChecker.AvailableUpdates;
+            bool hasUpdates =
+                UpdateChecker.UpdateState == RemoteContentState.Ready &&
+                updates.Count > 0;
 
-            if (UpdateChecker.UpdateState !=
-                    RemoteContentState.Ready ||
-                updates.Count == 0)
-            {
-                SetSectionText(
-                    _updatesSection,
-                    BuildUpdatesText());
-                return;
-            }
+            string summary = hasUpdates
+                ? BuildInstallResultsText()
+                : BuildUpdatesText();
 
-            string summary =
-                BuildInstallResultsText();
-
-            _updatesSection.Content.text =
-                summary;
-
+            _updatesSection.Content.text = summary ?? string.Empty;
             Canvas.ForceUpdateCanvases();
 
             float summaryHeight =
-                string.IsNullOrEmpty(summary)
-                    ? 0f
-                    : _updatesSection.Content.preferredHeight + 8f;
+                string.IsNullOrEmpty(summary) ? 0f
+                : _updatesSection.Content.preferredHeight + 8f;
 
-            float rowsHeight =
-                updates.Count *
-                (UpdateRowHeight + UpdateRowGap);
+            float rowsHeight = hasUpdates
+                ? updates.Count * (UpdateRowHeight + UpdateRowGap)
+                : 0f;
 
-            float height =
-                Math.Max(
-                    _updatesSection.Viewport.rect.height,
-                    summaryHeight + rowsHeight);
+            // The recommendations are part of the existing Updates scroll
+            // area, below the regular update rows or the empty-state text.
+            float recommendationsTop = summaryHeight + rowsHeight + 6f;
+            float recommendedHeight = RecommendedModsPanel.Create(
+                _sourceText, _updatesSection.ContentRect,
+                _updatesSection.Viewport, recommendationsTop);
 
             _updatesSection.ContentRect.sizeDelta =
-                new Vector2(0f, height);
+                new Vector2(0f, Math.Max(
+                    _updatesSection.Viewport.rect.height,
+                    recommendationsTop + recommendedHeight + 8f));
 
-            for (int i = 0; i < updates.Count; i++)
+            if (hasUpdates)
             {
-                CreateUpdateRow(
-                    updates[i],
-                    summaryHeight +
-                    i * (UpdateRowHeight + UpdateRowGap));
+                for (int i = 0; i < updates.Count; i++)
+                    CreateUpdateRow(updates[i],
+                        summaryHeight +
+                        i * (UpdateRowHeight + UpdateRowGap));
             }
 
             _updatesSection.ScrollRect.verticalNormalizedPosition = 1f;
@@ -664,17 +669,18 @@ namespace HospitalModUpdateChecker
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
             textRect.pivot = new Vector2(0.5f, 0.5f);
+            float textLeftInset = 0f;
             float textRightInset =
                 ActionButtonWidth +
                 ContentPadding * 2f;
 
             textRect.anchoredPosition =
                 new Vector2(
-                    (ContentPadding - textRightInset) * 0.5f,
+                    (textLeftInset - textRightInset) * 0.5f,
                     ProgressBarHeight * 0.5f);
             textRect.sizeDelta =
                 new Vector2(
-                    -(ContentPadding + textRightInset),
+                    -(textLeftInset + textRightInset),
                     -(ProgressBarHeight + 8f));
 
             text.alignment = TextAnchor.UpperLeft;
@@ -1241,44 +1247,54 @@ namespace HospitalModUpdateChecker
             if (UpdateChecker.UpdateState ==
                 RemoteContentState.Loading)
             {
+                builder.Append("<i>");
                 builder.Append(
                     UpdatePanelLocalization.Get(
                         UpdatePanelLocalization.LoadingId));
+                builder.Append("</i>");
                 return builder.ToString();
             }
 
             if (UpdateChecker.UpdateState ==
                 RemoteContentState.Error)
             {
+                builder.Append("<i>");
                 builder.Append(
                     UpdatePanelLocalization.Get(
                         UpdatePanelLocalization.UpdateErrorId));
+                builder.Append("</i>");
                 return builder.ToString();
             }
 
             if (UpdateChecker.UpdateState ==
                 RemoteContentState.Empty)
             {
+                builder.Append("<i>");
                 builder.Append(
                     UpdatePanelLocalization.Get(
                         UpdatePanelLocalization.NoUpdatesId));
+                builder.Append("</i>");
                 return builder.ToString();
             }
 
             if (UpdateChecker.UpdateState ==
                 RemoteContentState.Cached)
             {
+                builder.Append("<i>");
                 builder.Append(
                     UpdatePanelLocalization.Get(
                         UpdatePanelLocalization.NoUpdatesCachedId));
+                builder.Append("</i>");
                 return builder.ToString();
             }
 
             if (builder.Length == 0)
             {
+                builder.Append("<i>");
                 builder.Append(
                     UpdatePanelLocalization.Get(
                         UpdatePanelLocalization.NoUpdatesId));
+                builder.Append("</i>");
             }
 
             return builder.ToString();
@@ -1325,6 +1341,7 @@ namespace HospitalModUpdateChecker
                     {
                         Name = plugin.Metadata.Name,
                         Author = GetPluginAuthor(plugin),
+                        Plugin = plugin,
                         Version = plugin.Metadata.Version,
                         Status =
                             PluginLogStatusTracker.GetStatus(plugin)
@@ -1362,6 +1379,9 @@ namespace HospitalModUpdateChecker
                     StringComparison.OrdinalIgnoreCase);
             });
 
+            _pluginEntries.Clear();
+            _pluginEntries.AddRange(entries);
+
             StringBuilder builder =
                 new StringBuilder();
 
@@ -1382,6 +1402,214 @@ namespace HospitalModUpdateChecker
                 ? UpdatePanelLocalization.Get(
                     UpdatePanelLocalization.NoPluginsId)
                 : builder.ToString();
+        }
+
+        private static void RefreshPluginRows()
+        {
+            for (int i = 0; i < _pluginRows.Count; i++)
+                if (_pluginRows[i] != null)
+                    UnityEngine.Object.Destroy(_pluginRows[i]);
+            _pluginRows.Clear();
+
+            if (_pluginsSection == null || _sourceText == null ||
+                _pluginEntries.Count == 0)
+                return;
+
+            // One stable UI row per plugin, independent of text line wrapping.
+            _pluginsSection.Content.text = string.Empty;
+            const float rowHeight = 57f;
+            const float gap = 5f;
+            float height = Math.Max(
+                _pluginsSection.Viewport.rect.height,
+                _pluginEntries.Count * (rowHeight + gap));
+            _pluginsSection.ContentRect.sizeDelta =
+                new Vector2(0f, height);
+
+            for (int i = 0; i < _pluginEntries.Count; i++)
+            {
+                LoadedPluginDisplayEntry entry = _pluginEntries[i];
+                GameObject row = new GameObject("Plugin_" + i);
+                row.transform.SetParent(_pluginsSection.ContentRect, false);
+                RectTransform rect = row.AddComponent<RectTransform>();
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(1f, 1f);
+                rect.pivot = new Vector2(.5f, 1f);
+                rect.anchoredPosition =
+                    new Vector2(0f, -i * (rowHeight + gap));
+                rect.sizeDelta = new Vector2(0f, rowHeight);
+                Image background = row.AddComponent<Image>();
+                Color rowColor = GetHeadingColor();
+                rowColor.a = .23f;
+                background.color = rowColor;
+                background.raycastTarget = false;
+
+                string configPath;
+                bool configurable = entry.Plugin != null &&
+                    ConfigEditorData.TryFindConfig(
+                        entry.Plugin, out configPath);
+                Text description = CreateTextClone(
+                    _sourceText, "PluginDescription", row.transform);
+                RectTransform textRect = description.rectTransform;
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.offsetMin = new Vector2(0f, 2f);
+                textRect.offsetMax =
+                    new Vector2(configurable ? -118f : -8f, -2f);
+                description.alignment = TextAnchor.MiddleLeft;
+                description.supportRichText = true;
+                description.fontSize = Math.Max(
+                    _sourceText.fontSize, 12);
+                description.raycastTarget = false;
+
+                StringBuilder text = new StringBuilder();
+                AppendLoadedPluginLine(text, entry.Name, entry.Author,
+                    entry.Version, entry.Status);
+                description.text = text.ToString();
+
+                if (configurable)
+                {
+                    GameObject buttonRoot =
+                        new GameObject("Configure");
+                    buttonRoot.transform.SetParent(row.transform, false);
+                    RectTransform buttonRect =
+                        buttonRoot.AddComponent<RectTransform>();
+                    buttonRect.anchorMin =
+                        buttonRect.anchorMax = new Vector2(1f, .5f);
+                    buttonRect.pivot = new Vector2(1f, .5f);
+                    buttonRect.anchoredPosition = new Vector2(-7f, 0f);
+                    buttonRect.sizeDelta = new Vector2(104f, 30f);
+                    Image image = buttonRoot.AddComponent<Image>();
+                    image.color = GetSectionHeaderColor();
+                    Button button = buttonRoot.AddComponent<Button>();
+                    button.targetGraphic = image;
+                    // Native delay is safe on the title-screen; the tooltip
+                    // itself uses the HMUC canvas rather than a gameplay prefab.
+                    buttonRoot.AddComponent<HoverTooltipDelay>();
+                    buttonRoot.AddComponent<ConfigGearTooltipHover>();
+                    PluginInfo selected = entry.Plugin;
+                    button.onClick.AddListener(delegate
+                    {
+                        HideConfigGearTooltip();
+                        ConfigEditorPanel.Open(selected,
+                            _controller.m_canvas.transform,
+                            _sourceText);
+                    });
+                    Text caption = CreateTextClone(
+                        _sourceText, "ConfigLabel", buttonRoot.transform);
+                    RectTransform captionRect = caption.rectTransform;
+                    captionRect.anchorMin = Vector2.zero;
+                    captionRect.anchorMax = Vector2.one;
+                    captionRect.offsetMin = captionRect.offsetMax =
+                        Vector2.zero;
+                    caption.text = UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.ConfigureActionId);
+                    caption.alignment = TextAnchor.MiddleCenter;
+                    caption.fontSize = Math.Max(_sourceText.fontSize, 13);
+                    caption.raycastTarget = false;
+                }
+                _pluginRows.Add(row);
+            }
+
+            _pluginsSection.ScrollRect.verticalNormalizedPosition = 1f;
+        }
+
+        internal static void ShowConfigGearTooltip()
+        {
+            if (_panel == null || !_panel.activeSelf ||
+                _sourceText == null || _controller == null ||
+                _controller.m_canvas == null || ConfigEditorPanel.IsOpen)
+            {
+                HideConfigGearTooltip();
+                return;
+            }
+
+            if (_configGearTooltip == null)
+            {
+                _configGearTooltip = new GameObject("ConfigGearTooltip");
+                _configGearTooltip.transform.SetParent(_panel.transform, false);
+
+                RectTransform root =
+                    _configGearTooltip.AddComponent<RectTransform>();
+                root.anchorMin = new Vector2(.5f, .5f);
+                root.anchorMax = new Vector2(.5f, .5f);
+                root.pivot = new Vector2(.5f, .5f);
+                root.sizeDelta = new Vector2(200f, 36f);
+
+                Image image = _configGearTooltip.AddComponent<Image>();
+                image.color = GetHeadingColor();
+                image.raycastTarget = false;
+
+                _configGearTooltipText = CreateTextClone(
+                    _sourceText, "TooltipText", _configGearTooltip.transform);
+                RectTransform textRect =
+                    _configGearTooltipText.GetComponent<RectTransform>();
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.pivot = new Vector2(.5f, .5f);
+                textRect.offsetMin = new Vector2(10f, 5f);
+                textRect.offsetMax = new Vector2(-10f, -5f);
+                _configGearTooltipText.alignment = TextAnchor.MiddleCenter;
+                _configGearTooltipText.fontSize =
+                    Math.Max(_sourceText.fontSize, 13);
+                _configGearTooltipText.supportRichText = false;
+                _configGearTooltipText.horizontalOverflow =
+                    HorizontalWrapMode.Wrap;
+                _configGearTooltipText.verticalOverflow =
+                    VerticalWrapMode.Overflow;
+                _configGearTooltipText.raycastTarget = false;
+            }
+
+            string label = UpdatePanelLocalization.Get(
+                UpdatePanelLocalization.ConfigureTooltipId);
+
+            RectTransform tooltipRect =
+                _configGearTooltip.GetComponent<RectTransform>();
+            if (_configGearTooltipText.text != label)
+            {
+                _configGearTooltipText.text = label;
+                float width = Mathf.Clamp(
+                    _configGearTooltipText.preferredWidth + 24f,
+                    160f, PanelWidth - 24f);
+                tooltipRect.sizeDelta = new Vector2(width, 36f);
+                float height = Mathf.Max(
+                    36f, _configGearTooltipText.preferredHeight + 14f);
+                tooltipRect.sizeDelta = new Vector2(width, height);
+            }
+
+            Canvas canvas = _controller.m_canvas.GetComponent<Canvas>();
+            Camera camera = canvas != null &&
+                canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                    ? canvas.worldCamera
+                    : null;
+
+            RectTransform panelRect =
+                _panel.GetComponent<RectTransform>();
+            Vector2 pointer;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                panelRect, Input.mousePosition, camera, out pointer))
+            {
+                float halfWidth = panelRect.rect.width * .5f;
+                float halfHeight = panelRect.rect.height * .5f;
+                float tooltipHalfWidth = tooltipRect.rect.width * .5f;
+                float tooltipHalfHeight = tooltipRect.rect.height * .5f;
+
+                tooltipRect.anchoredPosition = new Vector2(
+                    Mathf.Clamp(pointer.x,
+                        -halfWidth + tooltipHalfWidth + 6f,
+                        halfWidth - tooltipHalfWidth - 6f),
+                    Mathf.Clamp(pointer.y + tooltipHalfHeight + 18f,
+                        -halfHeight + tooltipHalfHeight + 6f,
+                        halfHeight - tooltipHalfHeight - 6f));
+            }
+
+            _configGearTooltip.SetActive(true);
+            _configGearTooltip.transform.SetAsLastSibling();
+        }
+
+        internal static void HideConfigGearTooltip()
+        {
+            if (_configGearTooltip != null)
+                _configGearTooltip.SetActive(false);
         }
 
         private static int GetStatusSortOrder(
@@ -1593,6 +1821,7 @@ namespace HospitalModUpdateChecker
             button.onClick.AddListener(delegate
             {
                 _dismissedForSession = true;
+                ConfigEditorPanel.Close();
 
                 if (_panel != null)
                 {
@@ -1715,7 +1944,17 @@ namespace HospitalModUpdateChecker
 
         private static void DestroyPanel()
         {
+            RecommendedModsPanel.Destroy();
+            HideConfigGearTooltip();
+            _configGearTooltip = null;
+            _configGearTooltipText = null;
+            ConfigEditorPanel.Close();
             DestroyUpdateRows();
+            for (int i = 0; i < _pluginRows.Count; i++)
+                if (_pluginRows[i] != null)
+                    UnityEngine.Object.Destroy(_pluginRows[i]);
+            _pluginRows.Clear();
+            _pluginEntries.Clear();
 
             if (_panel != null)
             {
@@ -1727,6 +1966,44 @@ namespace HospitalModUpdateChecker
             _newsSection = null;
             _updatesSection = null;
             _pluginsSection = null;
+        }
+    }
+    // Shared tooltip is rendered outside the masked plugin scroll area.
+    // HoverTooltipDelay is the native game's delay and pointer tracker.
+    internal sealed class ConfigGearTooltipHover : MonoBehaviour
+    {
+        private HoverTooltipDelay _hover;
+        private bool _showing;
+
+        private void Awake()
+        {
+            _hover = GetComponent<HoverTooltipDelay>();
+        }
+
+        private void Update()
+        {
+            if (_hover != null && _hover.IsMouseOver() &&
+                _hover.ShouldShowToolTip())
+            {
+                TitleScreenUpdatePanel.ShowConfigGearTooltip();
+                _showing = true;
+            }
+            else if (_showing)
+            {
+                TitleScreenUpdatePanel.HideConfigGearTooltip();
+                _showing = false;
+            }
+        }
+
+        private void OnDisable()
+        {
+            TitleScreenUpdatePanel.HideConfigGearTooltip();
+            _showing = false;
+        }
+
+        private void OnDestroy()
+        {
+            TitleScreenUpdatePanel.HideConfigGearTooltip();
         }
     }
 }
