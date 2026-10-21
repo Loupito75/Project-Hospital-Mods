@@ -4,6 +4,10 @@ A collection of mods for **Project Hospital**, developed and maintained by **Lou
 
 This repository contains the public source code and releases of my Project Hospital mods.
 
+## 🗺️ Roadmap
+
+See the [public development roadmap](ROADMAP.md) for planned, in-development and released features across the mod collection.
+
 <p align="center">
 ⬇️⬇️⬇️
 <br>
