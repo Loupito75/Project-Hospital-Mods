@@ -19,6 +19,8 @@ README_PATH = Path("README.md")
 UPDATE_MANIFEST_PATH = Path("mod-updates.json")
 PACKAGE_MANIFEST_PATH = Path("mod-packages.json")
 PACKAGE_SIGNATURE_PATH = Path("mod-packages.json.sig")
+DETAILS_PATH = Path("mod-details.json")
+DETAILS_SIG_PATH = Path("mod-details.json.sig")
 
 MANIFEST_AUTHOR = "Loupito75"
 MANIFEST_GUID_PREFIX = "loupito75."
@@ -26,10 +28,6 @@ README_TIMEZONE = ZoneInfo("America/Toronto")
 
 TEST_MOD_TECHNICAL_NAME = "HospitalModUpdateTest"
 TEST_MOD_DISPLAY_NAME = "HMUC Test Mod"
-
-TEMPORARY_EXCLUDED_PACKAGE_GUIDS = {
-    "loupito75.hospitalradio",
-}
 
 PACKAGE_FORMAT_VERSION = 1
 PACKAGE_VALIDITY_DAYS = 90
@@ -2075,16 +2073,6 @@ def rebuild_package_catalog():
                     "existing release asset."
                 )
 
-        if (
-            package["guid"].lower()
-            in TEMPORARY_EXCLUDED_PACKAGE_GUIDS
-        ):
-            print(
-                "Skipping temporarily excluded package: "
-                + package["guid"]
-            )
-            continue
-
         rebuilt_packages.append(package)
 
     # Keep the HMUC test package if it already
@@ -2135,6 +2123,8 @@ def rebuild_package_catalog():
     seal_package_manifest(
         rebuilt_manifest
     )
+    rebuild_mod_details(targets,
+        {p["guid"].lower() for p in rebuilt_packages})
 
     print(
         "Full HMUC package catalog rebuild "
@@ -2246,6 +2236,7 @@ def process_release(event):
     seal_package_manifest(
         package_manifest
     )
+    publish_mod_details(technical_mod_name, version)
 
 
 def refresh_package_catalog():
@@ -2270,6 +2261,198 @@ def refresh_package_catalog():
     seal_package_manifest(
         manifest
     )
+    refresh_mod_details()
+
+
+def get_public_mod_text(technical, version):
+    # The public repository mirrors the sources shipped in its DLL releases.
+    # For descriptions the SDK compiles <Description> into the DLL. The
+    # version-specific PluginWhatsNew string is a C# const in Plugin.cs.
+    directory = Path("mods") / ("Loupito75." + technical)
+    projects = list(directory.glob("*.csproj"))
+    plugin = directory / "Plugin.cs"
+    if len(projects) != 1 or not plugin.exists():
+        return "", ""
+    xml = projects[0].read_bytes()
+    if len(xml) > 512000 or b"<!DOCTYPE" in xml.upper():
+        raise RuntimeError("Unsafe source project metadata: " + technical)
+    root = ET.fromstring(xml)
+    node = root.find(".//Description")
+    description = " ".join(
+        (node.text if node is not None and node.text else "").split()
+    )
+    source = plugin.read_text(encoding="utf-8")
+    match = re.search(
+        r'\bconst\s+string\s+PluginVersion\s*=\s*"([^"]+)"', source
+    )
+    if match is None or match.group(1) != version:
+        print("Skipping DLL text: public source version differs for "
+              + technical + " " + version)
+        return "", ""
+    match = re.search(
+        r'\bconst\s+string\s+PluginWhatsNew\s*=\s*"((?:\\.|[^"\\])*)"\s*;',
+        source,
+    )
+    whats_new = ""
+    if match:
+        try:
+            whats_new = json.loads('"' + match.group(1) + '"').strip()
+        except ValueError as exc:
+            raise RuntimeError(
+                "Invalid PluginWhatsNew literal: " + technical
+            ) from exc
+    for name, text, maximum in (
+        ("Description", description, 700),
+        ("PluginWhatsNew", whats_new, 900),
+    ):
+        if len(text) > maximum or "<" in text or ">" in text:
+            raise RuntimeError("Invalid " + name + " for " + technical)
+        if text.count("\n") >= 8 or any(
+            ord(c) < 32 and c != "\n" for c in text
+        ):
+            raise RuntimeError("Invalid " + name + " for " + technical)
+    return description, whats_new
+
+
+def load_mod_details():
+    if not DETAILS_PATH.exists():
+        return {
+            "formatVersion": 1,
+            "manifestRevision": 0,
+            "updatedUtc": "",
+            "expiresUtc": "",
+            "mods": [],
+        }
+    value = json.loads(DETAILS_PATH.read_text(encoding="utf-8"))
+    # Forward compatibility: additional signed root keys are retained.
+    required = {"formatVersion", "manifestRevision", "updatedUtc",
+                "expiresUtc", "mods"}
+    if (not isinstance(value, dict) or
+            not required.issubset(value) or
+            value["formatVersion"] != 1 or
+            not isinstance(value["mods"], list)):
+        raise RuntimeError("Invalid mod-details.json structure")
+    return value
+
+
+def mod_details_entry(technical, version):
+    description, whats_new = get_public_mod_text(technical, version)
+    return {
+        "guid": MANIFEST_GUID_PREFIX + technical,
+        "version": version,
+        "description": description,
+        "whatsNew": whats_new,
+    }
+
+
+def seal_mod_details(manifest):
+    revision = manifest["manifestRevision"]
+    if (type(revision) is not int or revision < 0 or
+            not isinstance(manifest["mods"], list) or
+            len(manifest["mods"]) > PACKAGE_MAX_ENTRIES):
+        raise RuntimeError("Invalid mod details revision/entries")
+    seen = set()
+    for item in manifest["mods"]:
+        if not isinstance(item, dict) or not {
+                "guid", "version"}.issubset(item):
+            raise RuntimeError("Missing required mod details identity")
+        # Extra fields are signed and retained unchanged, even if the
+        # current HMUC does not understand them. Descriptions are optional.
+        key = item["guid"].lower()
+        if key in seen:
+            raise RuntimeError("Duplicate mod details GUID")
+        seen.add(key)
+    now = datetime.now(timezone.utc)
+    manifest["manifestRevision"] = revision + 1
+    manifest["updatedUtc"] = utc_text(now)
+    manifest["expiresUtc"] = utc_text(
+        now + timedelta(days=PACKAGE_VALIDITY_DAYS)
+    )
+    manifest["mods"].sort(key=lambda x: x["guid"].lower())
+    raw = (json.dumps(
+        manifest, indent=2, ensure_ascii=False
+    ) + "\n").encode("utf-8")
+    # The client applies a bounded 256 KiB JSON limit. Check before
+    # signing, including future extension fields preserved by this tool.
+    if len(raw) > 262144:
+        raise RuntimeError("mod-details.json exceeds the HMUC 256 KiB limit")
+    DETAILS_PATH.write_bytes(raw)
+    key = load_signing_key()
+    signature = sign_manifest_bytes(raw, key)
+    envelope = {
+        "formatVersion": SIGNATURE_FORMAT_VERSION,
+        "keyId": key["keyId"],
+        "algorithm": SIGNATURE_ALGORITHM,
+        "signature": base64.b64encode(signature).decode("ascii"),
+    }
+    DETAILS_SIG_PATH.write_text(
+        json.dumps(envelope, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    print("Signed mod-details.json revision "
+          + str(manifest["manifestRevision"]))
+
+
+def publish_mod_details(technical, version):
+    manifest = load_mod_details()
+    updated = mod_details_entry(technical, version)
+    previous = next((
+        x for x in manifest["mods"]
+        if x["guid"].lower() == updated["guid"].lower()
+    ), None)
+    if previous is None:
+        manifest["mods"].append(updated)
+    elif previous["version"] == version and any(
+            previous.get(k, "") != updated[k]
+            for k in ("guid", "version", "description", "whatsNew")
+    ):
+        raise RuntimeError(
+            "Refusing to change known metadata of an already published DLL: "
+            + updated["guid"] + " " + version
+        )
+    else:
+        # Preserve future extension fields that this publisher does not
+        # know how to generate yet. Version-specific fields require their
+        # own publisher support when they are introduced.
+        previous.update(updated)
+    seal_mod_details(manifest)
+
+
+def rebuild_mod_details(targets, package_guids):
+    manifest = load_mod_details()
+    old = {x["guid"].lower(): x for x in manifest["mods"]}
+    result = []
+    for target in targets:
+        entry = mod_details_entry(
+            target["technicalName"], target["version"]
+        )
+        key = entry["guid"].lower()
+        if key not in package_guids:
+            continue
+        prior = old.get(key)
+        if (prior is not None):
+            if (prior["version"] == entry["version"] and any(
+                    prior.get(k, "") != entry[k]
+                    for k in ("guid", "version", "description", "whatsNew")
+            ):
+                raise RuntimeError("Published DLL metadata changed: " + key)
+            # Preserve fields introduced by later catalog extensions.
+            # The known, version-bound text is always freshly generated.
+            merged = dict(prior)
+            merged.update(entry)
+            entry = merged
+        result.append(entry)
+    test_guid = (MANIFEST_GUID_PREFIX
+                 + TEST_MOD_TECHNICAL_NAME).lower()
+    if test_guid in old and test_guid in package_guids:
+        result.append(old[test_guid])
+    manifest["mods"] = result
+    seal_mod_details(manifest)
+
+
+def refresh_mod_details():
+    if DETAILS_PATH.exists():
+        seal_mod_details(load_mod_details())
 
 
 def main():
