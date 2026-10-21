@@ -68,7 +68,9 @@ jobs:
             README.md \
             mod-updates.json \
             mod-packages.json \
-            mod-packages.json.sig)" ]; then
+            mod-packages.json.sig \
+            mod-details.json \
+            mod-details.json.sig)" ]; then
 
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -111,7 +113,9 @@ jobs:
               'README.md',
               'mod-updates.json',
               'mod-packages.json',
-              'mod-packages.json.sig'
+              'mod-packages.json.sig',
+              'mod-details.json',
+              'mod-details.json.sig'
             ];
 
             const additions = paths
