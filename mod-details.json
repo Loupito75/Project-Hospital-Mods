@@ -1,0 +1,68 @@
+{
+  "formatVersion": 1,
+  "manifestRevision": 1,
+  "updatedUtc": "2026-10-21T17:11:35Z",
+  "expiresUtc": "2027-01-19T17:11:35Z",
+  "mods": [
+    {
+      "guid": "loupito75.HospitalAlwaysLit",
+      "version": "1.2.0",
+      "description": "Project Hospital lighting-control mod powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalCareLevelTransfer",
+      "version": "1.1.0",
+      "description": "Project Hospital care-level transfer mod powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalEMS",
+      "version": "1.0.1",
+      "description": "Project Hospital ambulance, helicopter and prehospital care mod powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalFlowOptimizer",
+      "version": "1.0.0",
+      "description": "Project Hospital resource-flow optimization mod powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalModUpdateChecker",
+      "version": "1.3.0",
+      "description": "Project Hospital secure mod update checker and installer powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalPatientLife",
+      "version": "1.0.1",
+      "description": "Project Hospital patient-life and hospital activity mod powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalPorters",
+      "version": "1.2.0",
+      "description": "Project Hospital porter and internal transport mod powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalRadio",
+      "version": "1.0.0",
+      "description": "Global hospital radio with music playlists and announcements for Project Hospital.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalShiftHandover",
+      "version": "1.1.1",
+      "description": "Project Hospital staff shift handover and pre-shift preparation mod powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalTrafficControl",
+      "version": "1.5.1",
+      "description": "Project Hospital traffic and access-control mod powered by BepInEx and Harmony.",
+      "whatsNew": ""
+    }
+  ]
+}
