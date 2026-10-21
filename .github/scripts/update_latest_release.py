@@ -2434,7 +2434,7 @@ def rebuild_mod_details(targets, package_guids):
             if (prior["version"] == entry["version"] and any(
                     prior.get(k, "") != entry[k]
                     for k in ("guid", "version", "description", "whatsNew")
-            ):
+            )):
                 raise RuntimeError("Published DLL metadata changed: " + key)
             # Preserve fields introduced by later catalog extensions.
             # The known, version-bound text is always freshly generated.
