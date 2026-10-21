@@ -10,7 +10,6 @@ Plans may change as implementation, compatibility checks and in-game testing pro
 | 🛠️ In development | 24 |
 | 🟡 Planned | 44 |
 | 💡 Ideas | 7 |
-| ✅ Released | 15 |
 
 ## Hospital Always Lit (HAL)
 
@@ -24,7 +23,7 @@ Plans may change as implementation, compatibility checks and in-game testing pro
 
 | Status | Type | Feature | Description |
 | --- | --- | --- | --- |
-| ✅ Released | Improvement | Safe Access Changes During Active Actions | Change access rules without breaking characters already using toilets, sinks, or other stationary objects. |
+|  |  |  |  |
 
 ## Hospital Care Level Transfer (HCLT)
 
@@ -85,20 +84,6 @@ Plans may change as implementation, compatibility checks and in-game testing pro
 | 🟡 Planned | Feature | Shared Radiology Technologist Pool | Let qualified technologists work across compatible X-ray, CT, and MRI rooms. |
 | 🟡 Planned | Improvement | Smart Transport Wait — Wall-First Staging | Let transport staff wait in sensible nearby staging spots when appropriate. |
 | 🟡 Planned | Feature | Trauma Holding & Boarding | Move stabilized patients out of valuable Trauma Center spaces while they wait for an appropriate inpatient bed. |
-| ✅ Released | Improvement | Follow-Up Queue Priority | Give reasonable priority to patients returning with completed test results without blocking emergencies or new patients indefinitely. |
-| ✅ Released | Compatibility | Hospital Porters Sample Continuation | Let Hospital Porters continue compatible sample transport work without unnecessary downtime. |
-| ✅ Released | Improvement | Lab Queue Balancing | Spread new laboratory work between compatible labs to prevent one lab from becoming overloaded while another is underused. |
-| ✅ Released | Improvement | Laboratory Waiting Room Reroute | Reroute patients to a suitable laboratory waiting room when needed. |
-| ✅ Released | Improvement | Observation Capacity Notification | Notify you when observation capacity needs attention. |
-| ✅ Released | Improvement | Protect Trauma Center Capacity | Avoid using Trauma Center rooms for generic examinations when other suitable rooms are available. |
-| ✅ Released | Improvement | Smart Lab Task Assignment | Keep lab staff focused on useful pending work and completed results instead of inefficient task choices. |
-| ✅ Released | Improvement | Smart Room Selection | Choose the best compatible examination room using distance, waiting time, current availability, and existing reservations. |
-| ✅ Released | Improvement | Smart Transport Continuation | Reduce empty trips by letting transporters continue directly to another compatible nearby request. |
-| ✅ Released | Improvement | Smarter Clinic Doctor Assignment | Balance clinic patients between suitable doctors using current workload, recent office activity, distance, and optional clinical matching. |
-| ✅ Released | Improvement | Smarter Inpatient Doctor Assignment | Match hospitalized patients with suitable doctors based on workload and clinical needs. |
-| ✅ Released | Improvement | Smarter Patient Transport Waiting | Let transport staff wait nearby during short examinations when returning and coming back again would create unnecessary travel. |
-| ✅ Released | Improvement | Smarter Staff Need Destinations | Send staff to sensible nearby toilets and meal facilities instead of unnecessarily distant choices. |
-| ✅ Released | Improvement | Transport Pressure Rescue | Improve transport behavior when the transport queue comes under heavy pressure. |
 
 ## Hospital Fixes (HFX)
 
