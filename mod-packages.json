@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 15,
-  "updatedUtc": "2026-10-22T05:08:19Z",
-  "expiresUtc": "2027-01-20T05:08:19Z",
+  "manifestRevision": 16,
+  "updatedUtc": "2026-10-22T06:06:07Z",
+  "expiresUtc": "2027-01-20T06:06:07Z",
   "packages": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -382,22 +382,24 @@
     {
       "guid": "loupito75.HospitalShiftHandover",
       "name": "Hospital Shift Handover",
-      "version": "1.1.1",
-      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalShiftHandover-v1.1.1-republished/Loupito75.HospitalShiftHandover-v1.1.1.zip",
-      "sha256": "11953408eabb2d4d0d31b202ea95d224383cdd84c91f7016236eefdf1f6d14c1",
-      "packageBytes": 397550,
-      "maximumUnpackedBytes": 462047,
+      "version": "1.2.0",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalShiftHandover-v1.2.0/Loupito75.HospitalShiftHandover-v1.2.0.zip",
+      "sha256": "28b6fbd7c99b22056f2ab3abdc4ca1556f1d2a9a51d56eb60cfb82fe85242ff9",
+      "packageBytes": 409830,
+      "maximumUnpackedBytes": 483426,
       "installDirectory": "Loupito75.HospitalShiftHandover",
       "archiveRoot": "Loupito75.HospitalShiftHandover",
       "pluginFile": "Loupito75.HospitalShiftHandover.dll",
       "configFile": "Loupito75.HospitalShiftHandover.Config.xml",
       "runtimeDirectories": [],
       "runtimeFiles": [
+        "Database/Loupito75.HospitalShiftHandover.xml",
         "Database/ModAddon.xml",
         "Database/ModStringTableEn.xml",
         "Loupito75.HospitalShiftHandover.dll",
         "preview.png",
-        "README_NEVER_MISS_AN_UPDATE.txt"
+        "README_NEVER_MISS_AN_UPDATE.txt",
+        "Textures/UI/shift_handover_wait_bubble.png"
       ],
       "removeFiles": []
     },
