@@ -58,14 +58,18 @@ namespace HospitalFlowOptimizer.Patches
         private const float PublicAreaIdealDistance = 3.5f;
         private const float PublicAreaMaximumRouteDistance = 7f;
         private const float PublicAreaNearDoorDistance = 2f;
-        private const float PublicAreaNearDoorPenalty = 50f;
-        private const float PublicAreaAnyDoorPenalty = 100f;
-        private const float PublicAreaWallPreferenceBonus = 10f;
+        private static readonly Direction[] StagingFootprintDirections =
+            { Direction.NE, Direction.SE, Direction.SW, Direction.NW };
         private const int TransportWaitBubbleIndex = 1;
+        internal const string WaitingBubbleAsset = "HFO_ASSET_PATIENT_WAIT_BUBBLE";
         private const float PlanningTimeoutSeconds = 5f;
 
         private static readonly Dictionary<StretcherComponent, SmartTransportWaitContext> Contexts =
             new Dictionary<StretcherComponent, SmartTransportWaitContext>();
+
+        // Render lookups stay O(1), even with many concurrent transports.
+        private static readonly HashSet<Entity> WaitingBubbleOwners =
+            new HashSet<Entity>();
 
         private static readonly System.Reflection.FieldInfo StretcherEntityField =
             AccessTools.Field(typeof(StretcherComponent), "m_entity");
@@ -406,6 +410,31 @@ namespace HospitalFlowOptimizer.Patches
             }
 
             Contexts.Clear();
+            WaitingBubbleOwners.Clear();
+            HfoFullSpeechBubblePatch.Reset();
+        }
+
+        // Exit paths that bypass UpdateStateReleasingMovingCharacter must
+        // still release the transient wait context and its bubble.
+        internal static void OnStretcherStateChanged(StretcherComponent stretcher)
+        {
+            SmartTransportWaitContext context;
+            if (stretcher != null &&
+                stretcher.m_state != null &&
+                stretcher.m_state.m_stretcherState !=
+                    StretcherComponentState.ReleasingMovingCharacter &&
+                Contexts.TryGetValue(stretcher, out context))
+            {
+                RemoveContext(context);
+            }
+        }
+
+        internal static bool IsShowingOwnWaitingBubble(Entity transporter)
+        {
+            return transporter != null &&
+                   WaitingBubbleOwners.Contains(transporter) &&
+                   IsOwnWaitingBubble(
+                       transporter.GetComponent<SpeechComponent>());
         }
 
         internal static bool TryGetWaitingPatient(
@@ -955,33 +984,55 @@ namespace HospitalFlowOptimizer.Patches
                         continue;
                     }
 
-                    float score =
-                        Math.Abs(routeDistance - PublicAreaIdealDistance) +
-                        GetCandidateJitter(context.Patient, candidate);
-                    if (routeDistance < PublicAreaNearDoorDistance)
+                    // A tile carrying an actual door must never be a
+                    // staging location, even if an adjacent wall exists.
+                    if (IsDoorwayTile(floor, candidate))
                     {
-                        score += PublicAreaNearDoorPenalty;
-                    }
-
-                    if (HasNearbyDoor(floor, candidate))
-                    {
-                        score += PublicAreaAnyDoorPenalty;
-                    }
-                    else if (HasAdjacentWall(floor, candidate))
-                    {
-                        score -= PublicAreaWallPreferenceBonus;
+                        continue;
                     }
 
                     CandidateScore item = new CandidateScore();
                     item.Position = candidate;
-                    item.Score = score;
+                    // Keep both sides of every physical doorway clear when
+                    // possible. Check the transporter AND every possible
+                    // orientation of the attached stretcher/wheelchair: the
+                    // final facing is only known after pathfinder validation.
+                    GetStagingDoorExposure(
+                        context,
+                        floor,
+                        candidate,
+                        out item.DoorFrontTier,
+                        out item.DoorNearTier);
+                    item.WallTier = HasAdjacentWall(floor, candidate) ? 0 : 1;
+                    item.AnchorTier =
+                        routeDistance < PublicAreaNearDoorDistance ? 1 : 0;
+                    item.RouteScore =
+                        Math.Abs(routeDistance - PublicAreaIdealDistance);
+                    item.Jitter = GetCandidateJitter(context.Patient, candidate);
                     scored.Add(item);
                 }
             }
 
             scored.Sort(delegate(CandidateScore left, CandidateScore right)
             {
-                return left.Score.CompareTo(right.Score);
+                // Door frontage takes priority over wall preference. A
+                // wall beside a door must not beat a clear open position.
+                int comparison = left.DoorFrontTier.CompareTo(right.DoorFrontTier);
+                if (comparison != 0) return comparison;
+                comparison = left.DoorNearTier.CompareTo(right.DoorNearTier);
+                if (comparison != 0) return comparison;
+                comparison = left.WallTier.CompareTo(right.WallTier);
+                if (comparison != 0) return comparison;
+                comparison = left.AnchorTier.CompareTo(right.AnchorTier);
+                if (comparison != 0) return comparison;
+                comparison = left.RouteScore.CompareTo(right.RouteScore);
+                if (comparison != 0) return comparison;
+                comparison = left.Jitter.CompareTo(right.Jitter);
+                if (comparison != 0) return comparison;
+                comparison = left.Position.m_x.CompareTo(right.Position.m_x);
+                return comparison != 0
+                    ? comparison
+                    : left.Position.m_y.CompareTo(right.Position.m_y);
             });
 
             List<Vector2i> result = new List<Vector2i>();
@@ -996,7 +1047,12 @@ namespace HospitalFlowOptimizer.Patches
         private sealed class CandidateScore
         {
             internal Vector2i Position;
-            internal float Score;
+            internal int WallTier;
+            internal int DoorFrontTier;
+            internal int DoorNearTier;
+            internal int AnchorTier;
+            internal float RouteScore;
+            internal float Jitter;
         }
 
         private static bool IsBaseCandidateSafe(
@@ -1556,6 +1612,113 @@ namespace HospitalFlowOptimizer.Patches
                    type == Database.Instance.GetEntry<GameDBRoomType>("ROOM_TYPE_RECEPTION");
         }
 
+        private static bool IsDoorwayTile(Floor floor, Vector2i position)
+        {
+            if (!IsInBounds(floor, position))
+            {
+                return true;
+            }
+
+            TileWalls walls = floor.GetWallsSafe(position.m_x, position.m_y);
+            return walls != null &&
+                   (walls.m_doorSW != null || walls.m_doorSE != null);
+        }
+
+        private static void GetStagingDoorExposure(
+            SmartTransportWaitContext context,
+            Floor floor,
+            Vector2i transporterTile,
+            out int doorFrontTier,
+            out int doorNearTier)
+        {
+            doorFrontTier = 0;
+            doorNearTier = 0;
+            AddTileDoorExposure(
+                floor, transporterTile, ref doorFrontTier, ref doorNearTier);
+
+            Vector2f transporterPosition = new Vector2f(transporterTile);
+            AddAttachedDoorExposure(
+                floor, context.MovingSide, transporterPosition,
+                ref doorFrontTier, ref doorNearTier);
+            if (context.PatientSide != context.MovingSide)
+            {
+                AddAttachedDoorExposure(
+                    floor, context.PatientSide, transporterPosition,
+                    ref doorFrontTier, ref doorNearTier);
+            }
+        }
+
+        private static void AddAttachedDoorExposure(
+            Floor floor,
+            TileObject attachedObject,
+            Vector2f transporterPosition,
+            ref int doorFrontTier,
+            ref int doorNearTier)
+        {
+            if (attachedObject == null)
+            {
+                return;
+            }
+
+            Vector2f attachmentOffset =
+                attachedObject.GetCharacterAttachmentOffset();
+            for (int i = 0; i < StagingFootprintDirections.Length; i++)
+            {
+                Vector2f offset = TileObject.TransformOffsetForDirection(
+                    attachmentOffset, StagingFootprintDirections[i]);
+                Vector2i attachedTile =
+                    transporterPosition.add(offset).ToVector2i();
+                AddTileDoorExposure(
+                    floor, attachedTile, ref doorFrontTier, ref doorNearTier);
+            }
+        }
+
+        private static void AddTileDoorExposure(
+            Floor floor,
+            Vector2i tile,
+            ref int doorFrontTier,
+            ref int doorNearTier)
+        {
+            if (!IsInBounds(floor, tile))
+            {
+                return;
+            }
+
+            // A TileWalls door belongs to one edge; its two standing tiles
+            // are on opposite sides of that edge (not just the stored tile).
+            if (IsDoorFrontTile(floor, tile))
+            {
+                doorFrontTier = 1;
+            }
+            if (HasNearbyDoor(floor, tile))
+            {
+                doorNearTier = 1;
+            }
+        }
+
+        private static bool IsDoorFrontTile(Floor floor, Vector2i tile)
+        {
+            if (!IsInBounds(floor, tile))
+            {
+                return false;
+            }
+
+            // Native edge convention: m_doorSE separates (x,y)/(x-1,y),
+            // while m_doorSW separates (x,y)/(x,y-1). Read neighboring
+            // edges too, so neither side of a door is treated as clear.
+            TileWalls current = floor.GetWallsSafe(tile.m_x, tile.m_y);
+            TileWalls east = tile.m_x + 1 < floor.Size.m_x
+                ? floor.GetWallsSafe(tile.m_x + 1, tile.m_y)
+                : null;
+            TileWalls north = tile.m_y + 1 < floor.Size.m_y
+                ? floor.GetWallsSafe(tile.m_x, tile.m_y + 1)
+                : null;
+            return (current != null &&
+                    (current.m_doorSE != null || current.m_doorSW != null)) ||
+                   (east != null && east.m_doorSE != null) ||
+                   (north != null && north.m_doorSW != null);
+        }
+
         private static bool HasNearbyDoor(
             Floor floor,
             Vector2i position)
@@ -1735,53 +1898,93 @@ namespace HospitalFlowOptimizer.Patches
             }
         }
 
+        private static bool IsOwnWaitingBubble(SpeechComponent speech)
+        {
+            SpeechComponentPersistentData state =
+                speech == null
+                    ? null
+                    : speech.GetPersistentData() as SpeechComponentPersistentData;
+            if (state == null || state.m_displayTime >= 0f)
+            {
+                return false;
+            }
+
+            bool custom =
+                state.m_speechBubble != null &&
+                state.m_bubbleIconIndex == -1 &&
+                string.Equals(
+                    state.m_bubbleIconAssetID,
+                    WaitingBubbleAsset,
+                    StringComparison.Ordinal);
+            bool fallback =
+                state.m_speechBubble == null &&
+                state.m_bubbleTextureIndex == TransportWaitBubbleIndex &&
+                state.m_bubbleIconIndex == -1 &&
+                state.m_bubbleIconAssetID == null;
+            return custom || fallback;
+        }
+
         private static void ShowWaitingBubble(
             SmartTransportWaitContext context)
         {
-            if (context == null ||
-                context.Transporter == null ||
-                context.ShowingWaitingBubble)
+            if (context == null || context.Transporter == null)
             {
                 return;
             }
 
             SpeechComponent speech =
                 context.Transporter.GetComponent<SpeechComponent>();
-            if (speech == null || speech.IsActive())
+            if (speech == null)
             {
                 return;
             }
 
-            speech.SetBubble(TransportWaitBubbleIndex);
+            if (context.ShowingWaitingBubble && IsOwnWaitingBubble(speech))
+            {
+                return;
+            }
+
+            // Native speech takes priority; resume our bubble on a later tick.
+            context.ShowingWaitingBubble = false;
+            WaitingBubbleOwners.Remove(context.Transporter);
+            if (speech.IsActive())
+            {
+                return;
+            }
+
+            StreamingAssetManager assets = StreamingAssetManager.GetInstance();
+            if (assets != null &&
+                assets.m_textureAssets != null &&
+                assets.m_textureAssets.ContainsKey(WaitingBubbleAsset))
+            {
+                speech.SetBubble("BUBBLE_EMPTY", WaitingBubbleAsset);
+            }
+            else
+            {
+                speech.SetBubble(TransportWaitBubbleIndex);
+            }
+
             context.ShowingWaitingBubble = true;
+            WaitingBubbleOwners.Add(context.Transporter);
         }
 
         private static void HideWaitingBubble(
             SmartTransportWaitContext context)
         {
-            if (context == null ||
-                context.Transporter == null ||
-                !context.ShowingWaitingBubble)
+            if (context == null)
             {
                 return;
             }
 
-            SpeechComponent speech =
-                context.Transporter.GetComponent<SpeechComponent>();
-            SpeechComponentPersistentData state =
-                speech == null
-                    ? null
-                    : speech.GetPersistentData() as
-                        SpeechComponentPersistentData;
-
-            if (state != null &&
-                state.m_speechBubble == null &&
-                state.m_bubbleTextureIndex ==
-                    TransportWaitBubbleIndex &&
-                state.m_bubbleIconIndex == -1 &&
-                state.m_bubbleIconAssetID == null)
+            if (context.Transporter != null)
             {
-                speech.HideBubble();
+                SpeechComponent speech =
+                    context.Transporter.GetComponent<SpeechComponent>();
+                if (context.ShowingWaitingBubble && IsOwnWaitingBubble(speech))
+                {
+                    speech.HideBubble();
+                }
+                WaitingBubbleOwners.Remove(context.Transporter);
             }
 
             context.ShowingWaitingBubble = false;
@@ -1976,6 +2179,18 @@ namespace HospitalFlowOptimizer.Patches
                 "; transporter=" +
                 HfoDiagnostics.EntityName(context == null ? null : context.Transporter) +
                 "; " + message);
+        }
+    }
+
+    [HarmonyPatch(
+        typeof(StretcherComponent),
+        nameof(StretcherComponent.SwitchState),
+        new Type[] { typeof(StretcherComponentState) })]
+    internal static class SmartTransportWaitStateCleanupPatch
+    {
+        private static void Postfix(StretcherComponent __instance)
+        {
+            SmartTransportWaitRuntime.OnStretcherStateChanged(__instance);
         }
     }
 

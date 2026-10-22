@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Database>
+  <GameDBAsset ID="HFO_ASSET_PATIENT_WAIT_BUBBLE">
+    <Type>TEXTURE_CUSTOM_SPRITE</Type>
+    <File>MOD_ROOT/Textures/UI/hfo_patient_wait_bubble.png</File>
+  </GameDBAsset>
   <GameDBNotification ID="L75_HFO_NOTIF_OBSERVATION_EQUIPMENT_CAPACITY">
     <TextLocID>L75_HFO_NOTIF_OBSERVATION_EQUIPMENT_CAPACITY_TEXT</TextLocID>
     <DefaultMessageLevel>POPUP</DefaultMessageLevel>
