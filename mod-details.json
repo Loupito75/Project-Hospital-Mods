@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 1,
-  "updatedUtc": "2026-10-21T17:11:35Z",
-  "expiresUtc": "2027-01-19T17:11:35Z",
+  "manifestRevision": 2,
+  "updatedUtc": "2026-10-22T03:02:04Z",
+  "expiresUtc": "2027-01-20T03:02:04Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -30,9 +30,9 @@
     },
     {
       "guid": "loupito75.HospitalModUpdateChecker",
-      "version": "1.3.0",
-      "description": "Project Hospital secure mod update checker and installer powered by BepInEx and Harmony.",
-      "whatsNew": ""
+      "version": "1.4.0",
+      "description": "Checks installed Project Hospital BepInEx mods for newer public versions and displays available updates directly on the title screen.",
+      "whatsNew": "Mod description tooltips, safer XML configuration updates, vanilla-style Mod Center, clearer install/update results, HMUC-first update guidance"
     },
     {
       "guid": "loupito75.HospitalPatientLife",
