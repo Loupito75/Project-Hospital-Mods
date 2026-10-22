@@ -54,13 +54,39 @@ namespace HospitalTrafficControl
             internal byte Mode;
         }
 
-        // Writes happen on Unity's main thread. PathfinderJob workers only read
-        // the latest immutable array snapshot. Avoid lock patterns that can emit
+        private sealed class RuleSnapshot
+        {
+            internal readonly DoorRule[] Rules;
+            internal readonly Dictionary<DoorKey, byte> Index;
+
+            internal RuleSnapshot(DoorRule[] rules)
+            {
+                Rules = rules ?? new DoorRule[0];
+                Index = new Dictionary<DoorKey, byte>(Rules.Length);
+
+                for (int i = 0; i < Rules.Length; i++)
+                {
+                    // Rule construction already enforces unique keys. Keep the
+                    // first rule if an old/corrupt snapshot somehow contains a
+                    // duplicate so lookup matches the historical linear scan.
+                    if (!Index.ContainsKey(Rules[i].Key))
+                    {
+                        Index.Add(Rules[i].Key, Rules[i].Mode);
+                    }
+                }
+            }
+        }
+
+        // Writes happen on Unity's main thread. PathfinderJob workers read one
+        // fully-built immutable snapshot. The array remains the persistence/UI
+        // source of truth while the dictionary is only its O(1) read index.
+        // Replacing one volatile reference publishes both atomically and avoids
         // Monitor.Enter overloads unavailable on Project Hospital's Mono runtime.
-        private static volatile DoorRule[] s_rules = new DoorRule[0];
+        private static volatile RuleSnapshot s_snapshot =
+            new RuleSnapshot(new DoorRule[0]);
         private static int s_revision;
 
-        internal static int RuleCount => s_rules.Length;
+        internal static int RuleCount => s_snapshot.Rules.Length;
         internal static int Revision => s_revision;
 
         internal static byte GetMode(Door door)
@@ -70,9 +96,10 @@ namespace HospitalTrafficControl
                 return 0;
             }
 
-            DoorRule[] current = s_rules;
-            int index = FindRule(current, GetDoorKey(door));
-            return index >= 0 ? current[index].Mode : (byte)0;
+            byte mode;
+            return s_snapshot.Index.TryGetValue(GetDoorKey(door), out mode)
+                ? mode
+                : (byte)0;
         }
 
         internal static byte CycleGroup(Door[] doors)
@@ -83,7 +110,7 @@ namespace HospitalTrafficControl
                 return 0;
             }
 
-            DoorRule[] current = s_rules;
+            DoorRule[] current = s_snapshot.Rules;
             byte currentMode = GetLogicalGroupMode(current, keys);
             byte next = (byte)((currentMode + 1) % 3);
             ApplyGroupMode(current, keys, next);
@@ -98,7 +125,7 @@ namespace HospitalTrafficControl
                 return keys.Length == 1 ? GetMode(doors[0]) : (byte)0;
             }
 
-            DoorRule[] current = s_rules;
+            DoorRule[] current = s_snapshot.Rules;
             byte mode = GetLogicalGroupMode(current, keys);
             ApplyGroupMode(current, keys, mode);
             return mode;
@@ -111,7 +138,7 @@ namespace HospitalTrafficControl
                 return;
             }
 
-            DoorRule[] current = s_rules;
+            DoorRule[] current = s_snapshot.Rules;
             int index = FindRule(current, GetDoorKey(door));
             if (index < 0)
             {
@@ -127,13 +154,12 @@ namespace HospitalTrafficControl
             {
                 Array.Copy(current, index + 1, reduced, index, current.Length - index - 1);
             }
-            s_rules = reduced;
-            s_revision++;
+            PublishRules(reduced);
         }
 
         internal static OneWayPersistedRule[] GetFloorSnapshot(int floorIndex)
         {
-            DoorRule[] current = s_rules;
+            DoorRule[] current = s_snapshot.Rules;
             var snapshot = new List<OneWayPersistedRule>();
 
             for (int i = 0; i < current.Length; i++)
@@ -159,7 +185,7 @@ namespace HospitalTrafficControl
             int floorIndex,
             OneWayPersistedRule[] snapshot)
         {
-            DoorRule[] current = s_rules;
+            DoorRule[] current = s_snapshot.Rules;
             var rebuilt = new List<DoorRule>(current.Length + (snapshot?.Length ?? 0));
 
             for (int i = 0; i < current.Length; i++)
@@ -204,19 +230,16 @@ namespace HospitalTrafficControl
             DoorRule[] updated = rebuilt.ToArray();
             if (!RulesEqual(current, updated))
             {
-                s_rules = updated;
-                s_revision++;
+                PublishRules(updated);
             }
         }
 
         internal static void Reset()
         {
-            if (s_rules.Length > 0)
+            if (s_snapshot.Rules.Length > 0)
             {
-                s_revision++;
+                PublishRules(new DoorRule[0]);
             }
-
-            s_rules = new DoorRule[0];
         }
 
         internal static bool IsTransitionAllowed(
@@ -224,8 +247,8 @@ namespace HospitalTrafficControl
             Vector2i currentPosition,
             Vector2i nextPosition)
         {
-            DoorRule[] rules = s_rules;
-            if (rules.Length == 0 || floor == null)
+            RuleSnapshot snapshot = s_snapshot;
+            if (snapshot.Rules.Length == 0 || floor == null)
             {
                 return true;
             }
@@ -262,13 +285,13 @@ namespace HospitalTrafficControl
                 return true;
             }
 
-            int index = FindRule(rules, key);
-            if (index < 0)
+            byte mode;
+            if (!snapshot.Index.TryGetValue(key, out mode))
             {
                 return true;
             }
 
-            return rules[index].Mode == 1 ? increasing : !increasing;
+            return mode == 1 ? increasing : !increasing;
         }
 
         private static void ApplyGroupMode(
@@ -301,9 +324,14 @@ namespace HospitalTrafficControl
             DoorRule[] updated = rebuilt.ToArray();
             if (!RulesEqual(current, updated))
             {
-                s_rules = updated;
-                s_revision++;
+                PublishRules(updated);
             }
+        }
+
+        private static void PublishRules(DoorRule[] rules)
+        {
+            s_snapshot = new RuleSnapshot(rules);
+            s_revision++;
         }
 
         private static byte GetLogicalGroupMode(

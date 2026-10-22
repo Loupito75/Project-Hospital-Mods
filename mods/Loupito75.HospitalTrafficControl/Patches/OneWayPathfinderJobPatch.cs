@@ -58,6 +58,15 @@ namespace HospitalTrafficControl.Patches
     [HarmonyPatch(typeof(WalkComponent), "UpdateLookingForPath")]
     internal static class OneWayAcceptedDetourDebugPatch
     {
+        // This Prefix only records diagnostics and never changes movement.
+        // Config is loaded before PatchAll: avoid attaching Harmony to every
+        // UpdateLookingForPath in normal play, not just returning inside Prefix.
+        [HarmonyPrepare]
+        private static bool Prepare()
+        {
+            return TrafficControlConfig.PathfindingDebug;
+        }
+
         private const int MaxAnomalyNodesToLog = 12;
         private const string NoFloorId = "FLOOR_TYPE_NONE";
 

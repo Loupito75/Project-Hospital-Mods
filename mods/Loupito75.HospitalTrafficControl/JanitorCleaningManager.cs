@@ -35,17 +35,26 @@ namespace HospitalTrafficControl
         private const float ProtectedRoomWaitIdealDoorDistance = 3.5f;
         private const float ProtectedRoomWaitMaximumDoorDistance = 7f;
         private const float ProtectedRoomWaitMinimumDoorDistance = 2f;
-        private const float ProtectedRoomWaitAnyDoorPenalty = 100f;
-        private const float ProtectedRoomWaitWallPreferenceBonus = 10f;
+        // Strict physical ranking replaces the former additive preference.
 
         // Exterior cart staging uses the bucket cart's real one-tile
         // placement + pickup access, like HPO's movable sample cart. Vanilla
         // FindClosest3x3Area(...) remains the untouched interior fallback.
         private const int JanitorCartExteriorRadius = 5;
         private const int JanitorCartDoorPreferenceRadius = 2;
+        private static readonly Direction[] DoorExposureCartDirections =
+            new Direction[]
+            {
+                Direction.NW,
+                Direction.NE,
+                Direction.SE,
+                Direction.SW
+            };
 
-        // Native speech bubbles atlas: row 2, column 9 (16 icons per row,
-        // zero-based linear index). Provisional icon until a custom wait icon.
+        // Dedicated full-size bubble, with vanilla index 24 as a safe
+        // fallback when the custom image is not available.
+        private const string ProtectedRoomWaitBubbleAssetId =
+            "HTC_ASSET_JANITOR_ROOM_OCCUPIED_BUBBLE";
         private const int ProtectedRoomWaitBubbleIndex = 24;
 
         private sealed class ProtectedRoomWaitState
@@ -155,6 +164,7 @@ namespace HospitalTrafficControl
             }
 
             ProtectedRoomWaits.Clear();
+            HtcFullSpeechBubblePatch.Reset();
             foreach (ProtectedRoomApproachState approach in
                      ProtectedRoomApproaches.Values)
             {
@@ -1670,28 +1680,96 @@ namespace HospitalTrafficControl
             }
         }
 
+        private static bool IsOwnProtectedRoomWaitingBubble(
+            SpeechComponent speech)
+        {
+            SpeechComponentPersistentData state =
+                speech == null ? null
+                    : speech.GetPersistentData() as SpeechComponentPersistentData;
+            if (state == null ||
+                state.m_displayTime >= 0f ||
+                state.m_bubbleIconIndex != -1)
+            {
+                return false;
+            }
+
+            bool ownAsset =
+                state.m_speechBubble != null &&
+                string.Equals(
+                    state.m_bubbleIconAssetID,
+                    ProtectedRoomWaitBubbleAssetId,
+                    StringComparison.Ordinal);
+            bool ownFallback =
+                state.m_speechBubble == null &&
+                state.m_bubbleTextureIndex == ProtectedRoomWaitBubbleIndex &&
+                state.m_bubbleIconAssetID == null;
+            return ownAsset || ownFallback;
+        }
+
+        internal static bool IsShowingProtectedRoomWaitingBubble(Entity entity)
+        {
+            ProtectedRoomWaitState wait;
+            return entity != null &&
+                   ProtectedRoomWaits.TryGetValue(entity, out wait) &&
+                   wait.ShowingWaitingBubble &&
+                   IsOwnProtectedRoomWaitingBubble(
+                       entity.GetComponent<SpeechComponent>());
+        }
+
         private static void ShowProtectedRoomWaitingBubble(
             Entity entity,
             ProtectedRoomWaitState wait)
         {
             if (entity == null ||
                 wait == null ||
-                wait.DurationMinutes <= 0 ||
-                wait.ShowingWaitingBubble)
+                wait.DurationMinutes <= 0)
             {
                 return;
             }
 
             SpeechComponent speech =
                 entity.GetComponent<SpeechComponent>();
-            if (speech == null || speech.IsActive())
+            if (speech == null)
             {
-                // Never replace speech from native gameplay. If that bubble
-                // expires during the wait, retry on the next janitor update.
                 return;
             }
 
-            speech.SetBubble(ProtectedRoomWaitBubbleIndex);
+            if (wait.ShowingWaitingBubble &&
+                IsOwnProtectedRoomWaitingBubble(speech))
+            {
+                return;
+            }
+
+            // A native bubble may have replaced HTC's. Never overwrite it.
+            // Retry only once it has expired or been dismissed by vanilla.
+            wait.ShowingWaitingBubble = false;
+            if (speech.IsActive())
+            {
+                return;
+            }
+
+            StreamingAssetManager assets =
+                StreamingAssetManager.GetInstance();
+            UnityEngine.Texture texture;
+            bool hasTexture =
+                assets != null &&
+                assets.m_textureAssets != null &&
+                assets.m_textureAssets.TryGetValue(
+                    ProtectedRoomWaitBubbleAssetId, out texture) &&
+                texture != null;
+            if (hasTexture &&
+                Database.Instance != null &&
+                Database.Instance.GetEntry<GameDBSpeechBubble>(
+                    "BUBBLE_EMPTY") != null)
+            {
+                speech.SetBubble(
+                    "BUBBLE_EMPTY", ProtectedRoomWaitBubbleAssetId);
+            }
+            else
+            {
+                speech.SetBubble(ProtectedRoomWaitBubbleIndex);
+            }
+
             wait.ShowingWaitingBubble = true;
         }
 
@@ -1699,34 +1777,23 @@ namespace HospitalTrafficControl
             Entity entity,
             ProtectedRoomWaitState wait)
         {
-            if (entity == null ||
-                wait == null ||
-                !wait.ShowingWaitingBubble)
+            if (entity == null || wait == null)
             {
                 return;
             }
 
             SpeechComponent speech =
                 entity.GetComponent<SpeechComponent>();
-            SpeechComponentPersistentData state =
-                speech == null
-                    ? null
-                    : speech.GetPersistentData() as
-                        SpeechComponentPersistentData;
-
-            // Only hide the raw atlas icon HTC placed. Do not remove a
-            // subsequently displayed vanilla database/asset speech bubble.
-            if (state != null &&
-                state.m_speechBubble == null &&
-                state.m_bubbleTextureIndex ==
-                    ProtectedRoomWaitBubbleIndex &&
-                state.m_bubbleIconIndex == -1 &&
-                state.m_bubbleIconAssetID == null)
+            if (wait.ShowingWaitingBubble &&
+                IsOwnProtectedRoomWaitingBubble(speech))
             {
                 speech.HideBubble();
             }
 
             wait.ShowingWaitingBubble = false;
+            // Restores only HTC's own renderer changes. Gameplay bubbles
+            // placed by vanilla after ours remain untouched.
+            HtcFullSpeechBubblePatch.Restore(entity);
         }
 
         private static void TryClearRecoveredProtectedRoomWaitingBubble(
@@ -1739,41 +1806,21 @@ namespace HospitalTrafficControl
 
             SpeechComponent speech =
                 entity.GetComponent<SpeechComponent>();
-            SpeechComponentPersistentData state =
-                speech == null
-                    ? null
-                    : speech.GetPersistentData() as
-                        SpeechComponentPersistentData;
-            if (state == null)
+            if (!IsOwnProtectedRoomWaitingBubble(speech))
             {
                 return;
             }
 
-            // Match only the exact indefinite raw icon HTC creates with
-            // SetBubble(ProtectedRoomWaitBubbleIndex). Do not touch database
-            // speech bubbles, asset icons, timed bubbles or other raw icons.
-            bool exactRecoveredHtcWaitBubble =
-                state.m_speechBubble == null &&
-                state.m_bubbleTextureIndex ==
-                    ProtectedRoomWaitBubbleIndex &&
-                state.m_bubbleIconIndex == -1 &&
-                state.m_bubbleIconAssetID == null &&
-                state.m_displayTime < 0f;
-
-            if (!exactRecoveredHtcWaitBubble)
-            {
-                return;
-            }
-
+            // Native serializes speech but HTC's transient wait does not
+            // survive loading. Clear only our unique asset or atlas fallback.
             speech.HideBubble();
+            HtcFullSpeechBubblePatch.Restore(entity);
 
             if (TrafficControlConfig.PathfindingDebug)
             {
                 Plugin.Log?.LogInfo(
                     "[JanitorDebug] ROOM_WAIT_LOAD_BUBBLE_CLEANUP" +
-                    " | janitor=" + CharacterName(entity) +
-                    " | bubble=" + ProtectedRoomWaitBubbleIndex +
-                    ".");
+                    " | janitor=" + CharacterName(entity) + ".");
             }
         }
 
@@ -2601,6 +2648,86 @@ namespace HospitalTrafficControl
                  east.m_doorSE != null);
         }
 
+        private static void GetProtectedRoomWaitDoorExposure(
+            BehaviorJanitor janitor,
+            Floor floor,
+            Vector2i janitorTile,
+            out int doorFrontRank,
+            out int nearbyDoorRank)
+        {
+            doorFrontRank = 0;
+            nearbyDoorRank = 0;
+            AddDoorExposure(
+                floor,
+                janitorTile,
+                1,
+                ref doorFrontRank,
+                ref nearbyDoorRank);
+
+            if (!IsCartAttached(janitor) ||
+                janitor.m_state == null ||
+                janitor.m_state.m_cart == null)
+            {
+                return;
+            }
+
+            TileObject cart =
+                janitor.m_state.m_cart.GetEntity();
+            if (cart == null || cart.m_state == null)
+            {
+                return;
+            }
+
+            Vector2f janitorPosition =
+                new Vector2f(janitorTile);
+            Vector2f attachmentOffset =
+                cart.GetCharacterAttachmentOffset();
+            for (int i = 0;
+                 i < DoorExposureCartDirections.Length;
+                 i++)
+            {
+                Vector2f offset =
+                    TileObject.TransformOffsetForDirection(
+                        attachmentOffset,
+                        DoorExposureCartDirections[i]);
+                Vector2i cartTile =
+                    janitorPosition.add(offset).ToVector2i();
+                AddDoorExposure(
+                    floor,
+                    cartTile,
+                    1,
+                    ref doorFrontRank,
+                    ref nearbyDoorRank);
+            }
+        }
+
+        private static void AddDoorExposure(
+            Floor floor,
+            Vector2i tile,
+            int nearbyRadius,
+            ref int doorFrontRank,
+            ref int nearbyDoorRank)
+        {
+            if (!RoomGeometry.IsInsideFloor(floor, tile))
+            {
+                return;
+            }
+
+            if (HasDoorOnTileBoundary(floor, tile))
+            {
+                doorFrontRank = 1;
+            }
+
+            if (HasNearbyDoor(
+                    floor,
+                    tile,
+                    nearbyRadius))
+            {
+                nearbyDoorRank = 1;
+            }
+        }
+
+
         private static bool HasAdjacentWall(
             Floor floor,
             Vector2i position)
@@ -2742,6 +2869,9 @@ namespace HospitalTrafficControl
             // HTC has no gameplay obligation to wait: if every valid public
             // tile is still within the near-door zone, abort the optional
             // wait instead of parking on the doorway as a fallback.
+            int bestDoorFrontRank = int.MaxValue;
+            int bestNearbyDoorRank = int.MaxValue;
+            int bestWallRank = int.MaxValue;
             float bestScore = float.MaxValue;
             float bestDoorDistance = float.MaxValue;
             float bestFromJanitor = float.MaxValue;
@@ -2761,21 +2891,48 @@ namespace HospitalTrafficControl
                 for (int y = minY; y <= maxY; y++)
                 {
                     Vector2i candidate = new Vector2i(x, y);
-                    if (!IsValidProtectedRoomWaitTile(
+                    // Reject out-of-radius candidates without consulting
+                    // room occupancy or pathfinding.
+                    float dx = x - doorwayAnchor.m_x;
+                    float dy = y - doorwayAnchor.m_y;
+                    if (dx * dx + dy * dy >
+                        ProtectedRoomWaitMaximumDoorDistance *
+                        ProtectedRoomWaitMaximumDoorDistance ||
+                        !IsValidProtectedRoomWaitTile(
                             janitor.m_entity, floor, room, candidate))
                     {
                         continue;
                     }
 
-                    float dx = x - doorwayAnchor.m_x;
-                    float dy = y - doorwayAnchor.m_y;
-                    if (dx * dx + dy * dy >
-                        ProtectedRoomWaitMaximumDoorDistance *
-                        ProtectedRoomWaitMaximumDoorDistance)
+                    // Door clearance is more important than WALL > OPEN.
+                    // Exact frontage checks both standing sides of every
+                    // native door edge and also covers every possible
+                    // attached bucket-cart footprint at this wait tile.
+                    int doorFrontRank;
+                    int nearDoorRank;
+                    GetProtectedRoomWaitDoorExposure(
+                        janitor,
+                        floor,
+                        candidate,
+                        out doorFrontRank,
+                        out nearDoorRank);
+                    int wallRank =
+                        HasAdjacentWall(floor, candidate) ? 0 : 1;
+
+                    // Once a reachable winner exists, an inferior physical
+                    // tier cannot win; avoid the exact route for that tile.
+                    if (doorFrontRank > bestDoorFrontRank ||
+                        (doorFrontRank == bestDoorFrontRank &&
+                         nearDoorRank > bestNearbyDoorRank) ||
+                        (doorFrontRank == bestDoorFrontRank &&
+                         nearDoorRank == bestNearbyDoorRank &&
+                         wallRank > bestWallRank))
                     {
                         continue;
                     }
 
+                    // All remaining candidates still require a real route
+                    // to validate their distance and admissibility.
                     float fromDoor = gridMap.GetDistance(
                         floorIndex,
                         doorwayAnchor,
@@ -2791,18 +2948,12 @@ namespace HospitalTrafficControl
 
                     float score = Math.Abs(
                         fromDoor - ProtectedRoomWaitIdealDoorDistance);
-                    if (HasNearbyDoor(floor, candidate, 1))
-                    {
-                        score += ProtectedRoomWaitAnyDoorPenalty;
-                    }
-                    else if (HasAdjacentWall(floor, candidate))
-                    {
-                        score -= ProtectedRoomWaitWallPreferenceBonus;
-                    }
-
-                    if (score > bestScore ||
-                        (score == bestScore &&
-                         fromDoor > bestDoorDistance))
+                    if (doorFrontRank == bestDoorFrontRank &&
+                        nearDoorRank == bestNearbyDoorRank &&
+                        wallRank == bestWallRank &&
+                        (score > bestScore ||
+                         (score == bestScore &&
+                          fromDoor > bestDoorDistance)))
                     {
                         continue;
                     }
@@ -2820,13 +2971,19 @@ namespace HospitalTrafficControl
                         continue;
                     }
 
-                    if (score == bestScore &&
+                    if (doorFrontRank == bestDoorFrontRank &&
+                        nearDoorRank == bestNearbyDoorRank &&
+                        wallRank == bestWallRank &&
+                        score == bestScore &&
                         fromDoor == bestDoorDistance &&
                         fromJanitor >= bestFromJanitor)
                     {
                         continue;
                     }
 
+                    bestDoorFrontRank = doorFrontRank;
+                    bestNearbyDoorRank = nearDoorRank;
+                    bestWallRank = wallRank;
                     bestScore = score;
                     bestDoorDistance = fromDoor;
                     bestFromJanitor = fromJanitor;
@@ -4833,8 +4990,9 @@ namespace HospitalTrafficControl
             }
 
             GridMap gridMap = GridMap.GetInstance();
-            int bestWallRank = int.MaxValue;
+            int bestDoorFrontRank = int.MaxValue;
             int bestDoorRank = int.MaxValue;
+            int bestWallRank = int.MaxValue;
             float bestScore = float.MaxValue;
             int bestDistance = int.MaxValue;
 
@@ -4858,9 +5016,6 @@ namespace HospitalTrafficControl
                         Vector2i candidate = new Vector2i(x, y);
                         if (room.IsPositionInRoom(candidate) ||
                             doorwayAnchors.Contains(candidate) ||
-                            HasDoorOnTileBoundary(
-                                floor,
-                                candidate) ||
                             !IsJanitorStagingArea(
                                 floor,
                                 candidate) ||
@@ -4894,11 +5049,12 @@ namespace HospitalTrafficControl
                             continue;
                         }
 
-                        bool wallPreferred =
-                            HasAdjacentWall(
+                        int doorFrontRank =
+                            HasDoorOnTileBoundary(
                                 floor,
-                                candidate);
-                        int wallRank = wallPreferred ? 0 : 1;
+                                candidate)
+                                ? 1
+                                : 0;
                         int doorRank =
                             HasNearbyDoor(
                                 floor,
@@ -4906,16 +5062,22 @@ namespace HospitalTrafficControl
                                 JanitorCartDoorPreferenceRadius)
                                 ? 1
                                 : 0;
+                        int wallRank =
+                            HasAdjacentWall(
+                                floor,
+                                candidate)
+                                ? 0
+                                : 1;
 
-                        // Corridor usability comes first: a physically safe
-                        // wall-side cart always beats an open/middle tile,
-                        // even when that wall is close to a door. Door
-                        // proximity only breaks ties inside the same WALL or
-                        // OPEN category. The doorway tile itself was already
-                        // rejected above.
-                        if (wallRank > bestWallRank ||
-                            (wallRank == bestWallRank &&
-                             doorRank > bestDoorRank))
+                        // Door clearance outranks WALL > OPEN. A clear open
+                        // staging tile beats a wall-side tile directly in
+                        // front of either real side of a door.
+                        if (doorFrontRank > bestDoorFrontRank ||
+                            (doorFrontRank == bestDoorFrontRank &&
+                             doorRank > bestDoorRank) ||
+                            (doorFrontRank == bestDoorFrontRank &&
+                             doorRank == bestDoorRank &&
+                             wallRank > bestWallRank))
                         {
                             continue;
                         }
@@ -4923,8 +5085,9 @@ namespace HospitalTrafficControl
                         float lowerBound =
                             (float)Math.Sqrt(
                                 anchorDistanceSquared);
-                        if (wallRank == bestWallRank &&
+                        if (doorFrontRank == bestDoorFrontRank &&
                             doorRank == bestDoorRank &&
+                            wallRank == bestWallRank &&
                             lowerBound > bestScore)
                         {
                             continue;
@@ -4951,19 +5114,22 @@ namespace HospitalTrafficControl
                             (candidate.m_y - position.m_y);
                         float score = fromDoor;
 
-                        if (wallRank > bestWallRank ||
-                            (wallRank == bestWallRank &&
+                        if (doorFrontRank > bestDoorFrontRank ||
+                            (doorFrontRank == bestDoorFrontRank &&
                              (doorRank > bestDoorRank ||
                               (doorRank == bestDoorRank &&
-                               (score > bestScore ||
-                                (score == bestScore &&
-                                 distance >= bestDistance))))))
+                               (wallRank > bestWallRank ||
+                                (wallRank == bestWallRank &&
+                                 (score > bestScore ||
+                                  (score == bestScore &&
+                                   distance >= bestDistance))))))))
                         {
                             continue;
                         }
 
-                        bestWallRank = wallRank;
+                        bestDoorFrontRank = doorFrontRank;
                         bestDoorRank = doorRank;
+                        bestWallRank = wallRank;
                         bestScore = score;
                         bestDistance = distance;
                         result = candidate;
@@ -5005,8 +5171,9 @@ namespace HospitalTrafficControl
                     : walk.GetFloorIndex();
             GridMap gridMap = GridMap.GetInstance();
 
-            int bestWallRank = int.MaxValue;
+            int bestDoorFrontRank = int.MaxValue;
             int bestDoorRank = int.MaxValue;
+            int bestWallRank = int.MaxValue;
             float bestRoute = float.MaxValue;
             int bestDistance = int.MaxValue;
 
@@ -5022,7 +5189,6 @@ namespace HospitalTrafficControl
                     Vector2i candidate =
                         new Vector2i(x, y);
                     if (!room.IsPositionInRoom(candidate) ||
-                        HasDoorOnTileBoundary(floor, candidate) ||
                         !NavigationAccessPolicy.IsTileAccessible(
                             floor,
                             candidate,
@@ -5036,10 +5202,12 @@ namespace HospitalTrafficControl
                         continue;
                     }
 
-                    int wallRank =
-                        HasAdjacentWall(floor, candidate)
-                            ? 0
-                            : 1;
+                    int doorFrontRank =
+                        HasDoorOnTileBoundary(
+                            floor,
+                            candidate)
+                            ? 1
+                            : 0;
                     int doorRank =
                         HasNearbyDoor(
                             floor,
@@ -5047,10 +5215,17 @@ namespace HospitalTrafficControl
                             JanitorCartDoorPreferenceRadius)
                             ? 1
                             : 0;
+                    int wallRank =
+                        HasAdjacentWall(floor, candidate)
+                            ? 0
+                            : 1;
 
-                    if (wallRank > bestWallRank ||
-                        (wallRank == bestWallRank &&
-                         doorRank > bestDoorRank))
+                    if (doorFrontRank > bestDoorFrontRank ||
+                        (doorFrontRank == bestDoorFrontRank &&
+                         doorRank > bestDoorRank) ||
+                        (doorFrontRank == bestDoorFrontRank &&
+                         doorRank == bestDoorRank &&
+                         wallRank > bestWallRank))
                     {
                         continue;
                     }
@@ -5075,19 +5250,22 @@ namespace HospitalTrafficControl
                         continue;
                     }
 
-                    if (wallRank > bestWallRank ||
-                        (wallRank == bestWallRank &&
+                    if (doorFrontRank > bestDoorFrontRank ||
+                        (doorFrontRank == bestDoorFrontRank &&
                          (doorRank > bestDoorRank ||
                           (doorRank == bestDoorRank &&
-                           (route > bestRoute ||
-                            (route == bestRoute &&
-                             distance >= bestDistance))))))
+                           (wallRank > bestWallRank ||
+                            (wallRank == bestWallRank &&
+                             (route > bestRoute ||
+                              (route == bestRoute &&
+                               distance >= bestDistance))))))))
                     {
                         continue;
                     }
 
-                    bestWallRank = wallRank;
+                    bestDoorFrontRank = doorFrontRank;
                     bestDoorRank = doorRank;
+                    bestWallRank = wallRank;
                     bestRoute = route;
                     bestDistance = distance;
                     result = candidate;

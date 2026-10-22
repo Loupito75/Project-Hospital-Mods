@@ -10,6 +10,10 @@ namespace HospitalTrafficControl.Patches
     {
         private static void Postfix(WalkComponent __instance, WalkState state)
         {
+            BlockedPathBubbleManager.OnWalkStateChanged(
+                __instance,
+                state);
+
             if (state == WalkState.NoPath)
             {
                 if (TrafficControlConfig.PathfindingDebug)

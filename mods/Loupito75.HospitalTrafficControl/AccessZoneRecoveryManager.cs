@@ -64,6 +64,16 @@ namespace HospitalTrafficControl
         private static readonly HashSet<WalkComponent> PendingPhysicalExit =
             new HashSet<WalkComponent>();
 
+        // Main-thread scratch collections reused by UpdatePendingPhysicalExits().
+        // Recovery is transient but can span many frames; avoid per-frame GC work.
+        private static readonly HashSet<Floor> ReadyFloorsScratch =
+            new HashSet<Floor>();
+        private static readonly List<WalkComponent> PendingPhysicalExitScratch =
+            new List<WalkComponent>();
+        private static readonly List<KeyValuePair<WalkComponent, AccessZoneRecoveryEntry>>
+            ActiveEntriesScratch =
+                new List<KeyValuePair<WalkComponent, AccessZoneRecoveryEntry>>();
+
         private static readonly Vector2i[] CardinalDirections =
         {
             new Vector2i(-1, 0),
@@ -115,6 +125,9 @@ namespace HospitalTrafficControl
             PendingPhysicalExit.Clear();
             DeferredMovements.Clear();
             RecoveryMovement.Clear();
+            ReadyFloorsScratch.Clear();
+            PendingPhysicalExitScratch.Clear();
+            ActiveEntriesScratch.Clear();
             AccessZoneRecoveryTracker.Reset();
         }
 
@@ -125,14 +138,18 @@ namespace HospitalTrafficControl
                 return;
             }
 
-            HashSet<Floor> readyFloors = new HashSet<Floor>();
+            ReadyFloorsScratch.Clear();
+            PendingPhysicalExitScratch.Clear();
+            ActiveEntriesScratch.Clear();
 
             if (PendingPhysicalExit.Count > 0)
             {
-                List<WalkComponent> pending =
-                    new List<WalkComponent>(PendingPhysicalExit);
+                foreach (WalkComponent walk in PendingPhysicalExit)
+                {
+                    PendingPhysicalExitScratch.Add(walk);
+                }
 
-                foreach (WalkComponent walk in pending)
+                foreach (WalkComponent walk in PendingPhysicalExitScratch)
                 {
                     if (walk == null || walk.Floor == null ||
                         walk.m_state == null)
@@ -153,21 +170,23 @@ namespace HospitalTrafficControl
                         !IsAwaitingBladderStageTransition(entity) &&
                         !IsUrineAnalysisInteractionActive(entity))
                     {
-                        readyFloors.Add(walk.Floor);
+                        ReadyFloorsScratch.Add(walk.Floor);
                     }
                 }
             }
 
             if (Active.Count > 0)
             {
-                List<KeyValuePair<WalkComponent, AccessZoneRecoveryEntry>>
-                    activeEntries =
-                        new List<KeyValuePair<WalkComponent, AccessZoneRecoveryEntry>>(
-                            Active);
+                foreach (
+                    KeyValuePair<WalkComponent, AccessZoneRecoveryEntry> pair
+                    in Active)
+                {
+                    ActiveEntriesScratch.Add(pair);
+                }
 
                 foreach (
                     KeyValuePair<WalkComponent, AccessZoneRecoveryEntry> pair
-                    in activeEntries)
+                    in ActiveEntriesScratch)
                 {
                     WalkComponent walk = pair.Key;
                     AccessZoneRecoveryEntry entry = pair.Value;
@@ -193,15 +212,19 @@ namespace HospitalTrafficControl
 
                     if (!IsBladderSequenceContinuationActive(entity))
                     {
-                        readyFloors.Add(walk.Floor);
+                        ReadyFloorsScratch.Add(walk.Floor);
                     }
                 }
             }
 
-            foreach (Floor floor in readyFloors)
+            foreach (Floor floor in ReadyFloorsScratch)
             {
                 HandleAccessRightsChanged(floor, null);
             }
+
+            ReadyFloorsScratch.Clear();
+            PendingPhysicalExitScratch.Clear();
+            ActiveEntriesScratch.Clear();
         }
 
         private static ProcedureScriptNeedBladder GetBladderScript(
@@ -1336,6 +1359,12 @@ namespace HospitalTrafficControl
                         currentTile,
                         accessRights);
 
+                if (!currentTileLegal &&
+                    !walk.m_state.m_lying)
+                {
+                    BlockedPathBubbleManager.TrackRestricted(walk);
+                }
+
                 if (!hasExistingRecovery &&
                     newlyRestricted &&
                     IsUrineAnalysisInteractionActive(entity))
@@ -2221,10 +2250,10 @@ namespace HospitalTrafficControl
 
         internal static void Begin(PathfinderJob job)
         {
+            // Hashtable.Synchronized indexer returns null for a missing job.
+            // All registered values are non-null; one locked lookup is enough.
             AccessZoneRecoveryJobRegistration registration =
-                job != null && Jobs.ContainsKey(job)
-                    ? Jobs[job] as AccessZoneRecoveryJobRegistration
-                    : null;
+                job == null ? null : Jobs[job] as AccessZoneRecoveryJobRegistration;
 
             if (registration != null &&
                 registration.Generation == s_generation)

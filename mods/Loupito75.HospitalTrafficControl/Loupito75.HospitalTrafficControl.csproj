@@ -8,14 +8,14 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 
-    <Version>1.5.1</Version>
-    <AssemblyVersion>1.5.1</AssemblyVersion>
-    <FileVersion>1.5.1</FileVersion>
-    <InformationalVersion>1.5.1</InformationalVersion>
+    <Version>1.5.2</Version>
+    <AssemblyVersion>1.5.2</AssemblyVersion>
+    <FileVersion>1.5.2</FileVersion>
+    <InformationalVersion>1.5.2</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Traffic Control</Product>
-    <Description>Project Hospital traffic and access-control mod powered by BepInEx and Harmony.</Description>
+    <Description>Improves character access, movement rules and traffic management inside the hospital.</Description>
 
     <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_DIR)' != ''">$(PROJECT_HOSPITAL_DIR)</GameDir>
     <ManagedDir Condition="'$(GameDir)' != ''">$(GameDir)\ProjectHospital_Data\Managed</ManagedDir>
@@ -27,12 +27,14 @@
     <Compile Include="AccessZoneRecoveryManager.cs" />
     <Compile Include="NavigationAccessPolicy.cs" />
     <Compile Include="BlockedRouteManager.cs" />
+    <Compile Include="BlockedPathBubbleManager.cs" />
     <Compile Include="BathroomCleaningTopology.cs" />
     <Compile Include="CharacterAccess.cs" />
     <Compile Include="CollapseRouteRecoveryManager.cs" />
     <Compile Include="CrossFloorBlockedManager.cs" />
     <Compile Include="DoorDebugManager.cs" />
     <Compile Include="JanitorCleaningManager.cs" />
+    <Compile Include="HtcFullSpeechBubblePatch.cs" />
     <Compile Include="LocalizationManager.cs" />
     <Compile Include="NavigationChangeTracker.cs" />
     <Compile Include="HtcDatabase.cs" />
@@ -81,6 +83,7 @@
   <ItemGroup>
     <None Include="Loupito75.HospitalTrafficControl.Config.xml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Database\Loupito75.HospitalTrafficControl.xml" CopyToOutputDirectory="PreserveNewest" />
+    <ModTextureFiles Include="Textures\**\*.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -132,11 +135,14 @@
   <Target Name="CopyPluginToGame" AfterTargets="Build">
     <MakeDir Directories="$(PluginDir)" />
     <MakeDir Directories="$(PluginDir)\Database" />
+    <MakeDir Directories="$(PluginDir)\Textures\UI" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Loupito75.HospitalTrafficControl.Config.xml"
           DestinationFolder="$(PluginDir)"
           Condition="!Exists('$(PluginDir)\Loupito75.HospitalTrafficControl.Config.xml')" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Database\Loupito75.HospitalTrafficControl.xml"
           DestinationFolder="$(PluginDir)\Database" />
+    <Copy SourceFiles="@(ModTextureFiles)"
+          DestinationFiles="@(ModTextureFiles->'$(PluginDir)\Textures\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 </Project>

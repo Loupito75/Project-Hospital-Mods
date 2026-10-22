@@ -21,6 +21,7 @@ namespace HospitalTrafficControl
             OneWayRouteManager.Reset();
             BlockedRouteManager.Reset();
             CrossFloorBlockedManager.Reset();
+            BlockedPathBubbleManager.Reset();
             NavigationChangeTracker.Reset();
 
             CrossFloorVisitorRecovery.Reset();

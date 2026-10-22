@@ -7,21 +7,17 @@ namespace HospitalTrafficControl
     {
         internal static void ApplyPenalty(Floor floor, Vector2i position, ref float movementCost)
         {
-            if (!TrafficControlConfig.AvoidRoomShortcuts ||
-                TrafficControlConfig.RoomTransitPenalty <= 0f ||
-                floor == null)
+            // Both GetMovementCost patches have HarmonyPrepare gates. Their
+            // only callers reach this method when RoomTransit was enabled with
+            // a positive penalty before PatchAll; those settings are loaded
+            // once in Plugin.Awake. Avoid repeating that gating on every cost.
+            if (floor == null)
             {
                 return;
             }
 
             PathfinderJob job = OneWayPathfinderTracker.CurrentJob;
             if (job == null)
-            {
-                return;
-            }
-
-            // Outdoor routing keeps the game's native movement cost unchanged.
-            if (floor.IsOutdoors(position))
             {
                 return;
             }
@@ -36,7 +32,14 @@ namespace HospitalTrafficControl
             }
 
             Room room = roomTiles[position.m_x, position.m_y];
-            if (!ShouldPenalizeRoom(room))
+            if (room == null)
+            {
+                return;
+            }
+
+            // Outdoor routing keeps the game's native movement cost unchanged.
+            if (floor.IsOutdoors(position) ||
+                !ShouldPenalizeRoom(room))
             {
                 return;
             }

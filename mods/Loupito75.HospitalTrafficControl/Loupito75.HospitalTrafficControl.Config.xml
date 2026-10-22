@@ -1,59 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
 <HospitalTrafficControl>
+  <!-- @HMUC:desc Controls shortcut penalties and the room types exempted from them. -->
   <RoomTransit>
-    <!-- Boolean true/false. Default: false. false preserves vanilla routing; true discourages shortcuts through functional rooms. -->
-    <AvoidRoomShortcuts>false</AvoidRoomShortcuts>
+    <!-- Boolean true/false. Default: true. true discourages shortcuts through functional rooms; false restores vanilla routing. -->
+    <!-- @HMUC:set label="Avoid room shortcuts" control="checkbox" -->
+    <!-- @HMUC:desc Discourages routes from cutting through configured functional rooms while preserving vanilla routing when disabled. -->
+    <AvoidRoomShortcuts>true</AvoidRoomShortcuts>
 
     <!-- Number 0-1000 using "." as decimal separator. Default: 8. Extra movement cost applied only when AvoidRoomShortcuts=true. -->
+    <!-- @HMUC:set label="Room transit penalty" control="number" min="0" max="1000" step="0.1" -->
+    <!-- @HMUC:desc Extra movement cost applied to configured room transit when room-shortcut avoidance is enabled. -->
     <RoomTransitPenalty>8</RoomTransitPenalty>
 
-    <!-- Each Room requires a non-empty ID and Enabled=true/false. Defaults: corridor, waiting and reception enabled. Enabled rooms keep vanilla movement cost; outdoor, unzoned, start and destination rooms are always exempt. -->
+    <!-- @HMUC:set label="Room transit exceptions" control="multiline-list" -->
+    <!-- @HMUC:desc Room type IDs excluded from shortcut penalties, one per line. An empty list excludes no named rooms; native outdoor, unzoned, origin and destination exceptions still apply. -->
     <Exceptions>
-      <Room ID="ROOM_TYPE_CORRIDOR" Enabled="true" />
-      <Room ID="ROOM_TYPE_WAITING" Enabled="true" />
-      <Room ID="ROOM_TYPE_RECEPTION" Enabled="true" />
+      <Value>ROOM_TYPE_CORRIDOR</Value>
+      <Value>ROOM_TYPE_WAITING</Value>
+      <Value>ROOM_TYPE_RECEPTION</Value>
     </Exceptions>
   </RoomTransit>
 
+  <!-- @HMUC:desc Configures janitor cleanup protection, exterior waits and nighttime priority. -->
   <JanitorCleaning>
-    <!-- Boolean true/false. Default: false (vanilla cleaning). true gives patients priority in short clinical rooms; hospitalization rooms remain cleanable and operating rooms stay protected when reserved or active. -->
-    <AvoidCleaningActiveProcedureRooms>false</AvoidCleaningActiveProcedureRooms>
+    <!-- Boolean true/false. Default: true. true gives patients priority in short clinical rooms; false restores vanilla cleaning selection for this rule. Hospitalization rooms remain cleanable and operating rooms stay protected when reserved or active. -->
+    <!-- @HMUC:set label="Avoid active procedure rooms" control="checkbox" -->
+    <!-- @HMUC:desc Gives patients priority in short clinical rooms while preserving hospitalization and operating-room safety rules. -->
+    <AvoidCleaningActiveProcedureRooms>true</AvoidCleaningActiveProcedureRooms>
 
-    <!-- Boolean true/false. Default: false (vanilla cleaning). true prevents janitors from selecting or entering an occupied WC compartment; a single-WC room is treated as one exclusive sanitary space while its bathroom flow is active. -->
-    <AvoidCleaningOccupiedBathrooms>false</AvoidCleaningOccupiedBathrooms>
+    <!-- Boolean true/false. Default: true. true prevents janitors from selecting or entering an occupied WC compartment; false restores vanilla cleaning selection for this rule. A single-WC room is treated as one exclusive sanitary space while its bathroom flow is active. -->
+    <!-- @HMUC:set label="Avoid occupied bathrooms" control="checkbox" -->
+    <!-- @HMUC:desc Prevents janitors from selecting or entering an occupied WC compartment. -->
+    <AvoidCleaningOccupiedBathrooms>true</AvoidCleaningOccupiedBathrooms>
 
     <!-- Integer 0-100 percent. Default: 30. Chance to wait outside a dirty clinical room occupied by a patient after normal free-room work in the janitor's department fails and before vanilla's floor-wide indoor-tile fallback. -->
+    <!-- @HMUC:set label="Occupied-room wait chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance that a janitor waits outside a dirty clinical room occupied by a patient after normal free-room work fails. -->
     <JanitorOccupiedRoomWaitChance>30</JanitorOccupiedRoomWaitChance>
 
     <!-- Integer 0-240 in-game minutes. Default: 30. Cooldown starts after a real exterior wait ends; a refused decision remains remembered for the same janitor, room and occupant, and a failed approach does not consume the cooldown. -->
+    <!-- @HMUC:set label="Occupied-room wait cooldown" control="slider" min="0" max="240" step="5" -->
+    <!-- @HMUC:desc In-game cooldown after a real exterior janitor wait ends before the same wait situation may be reconsidered. -->
     <JanitorOccupiedRoomWaitCooldownMinutes>30</JanitorOccupiedRoomWaitCooldownMinutes>
 
     <!-- Integer 0-240 in-game minutes. Default: 15. Maximum exterior wait; the room is rechecked and cleaning resumes early if it becomes free. 0 skips the stationary wait. -->
+    <!-- @HMUC:set label="Occupied-room wait duration" control="slider" min="0" max="240" step="5" -->
+    <!-- @HMUC:desc Maximum in-game minutes a janitor waits outside an occupied clinical room before giving up. -->
     <JanitorOccupiedRoomWaitMinutes>15</JanitorOccupiedRoomWaitMinutes>
 
     <!-- Integer 0-60 in-game minutes. Default: 3. Plus/minus variation chosen once when the wait starts; defaults produce a 12-18 minute wait. -->
+    <!-- @HMUC:set label="Occupied-room wait variation" control="slider" min="0" max="60" step="1" -->
+    <!-- @HMUC:desc Plus/minus in-game minute variation chosen once when an occupied-room janitor wait starts. -->
     <JanitorOccupiedRoomWaitRandomnessMinutes>3</JanitorOccupiedRoomWaitRandomnessMinutes>
 
-    <!-- Boolean true/false. Default: false (vanilla hospitalization-room priority). true strongly deprioritizes ordinary cleaning in occupied hospitalization rooms during NIGHT; blood remains urgent. -->
-    <ReduceOccupiedHospitalizationCleaningAtNight>false</ReduceOccupiedHospitalizationCleaningAtNight>
+    <!-- Boolean true/false. Default: true. true strongly deprioritizes ordinary cleaning in occupied hospitalization rooms during NIGHT while blood remains urgent; false restores vanilla hospitalization-room priority. -->
+    <!-- @HMUC:set label="Reduce occupied ward cleaning at night" control="checkbox" -->
+    <!-- @HMUC:desc Strongly deprioritizes ordinary nighttime cleaning in occupied hospitalization rooms while blood remains urgent. -->
+    <ReduceOccupiedHospitalizationCleaningAtNight>true</ReduceOccupiedHospitalizationCleaningAtNight>
   </JanitorCleaning>
 
+  <!-- @HMUC:desc Configures bathroom fixture handoffs. -->
   <BathroomFlow>
-    <!-- Boolean true/false. Default: false (vanilla owner lifetime). true releases a toilet ProcedureScript owner after physical use in shared/multi-WC rooms; single-WC rooms remain exclusive through WC + sink + dryer, including collapse protection. -->
-    <ReleaseToiletOwnerAfterUse>false</ReleaseToiletOwnerAfterUse>
+    <!-- Boolean true/false. Default: true. true releases a toilet ProcedureScript owner after physical use in shared/multi-WC rooms; false restores vanilla owner lifetime. Single-WC rooms remain exclusive through WC + sink + dryer, including collapse protection. -->
+    <!-- @HMUC:set label="Release toilet owner after use" control="checkbox" -->
+    <!-- @HMUC:desc Releases a toilet procedure owner after physical use in shared or multi-WC rooms while preserving single-WC exclusivity. -->
+    <ReleaseToiletOwnerAfterUse>true</ReleaseToiletOwnerAfterUse>
   </BathroomFlow>
 
+  <!-- @HMUC:desc Enables targeted diagnostics to investigate pathfinding, janitors and bathroom flow. -->
   <Debug>
     <!-- Boolean true/false. Default: false. true logs final NoPath jobs and the inaccessible transitions tested by the final PathfinderJob. -->
+    <!-- @HMUC:set label="Pathfinding diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Logs final NoPath jobs and inaccessible transitions tested by the final pathfinder job. -->
     <PathfindingDebug>false</PathfindingDebug>
 
     <!-- Boolean true/false. Default: false. true logs focused janitor/cart state, destination, room and cart changes, including nighttime-priority decisions. -->
+    <!-- @HMUC:set label="Janitor-cart diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Logs focused janitor and cart state, destination, room and cart changes. -->
     <JanitorCartDebug>false</JanitorCartDebug>
 
     <!-- Boolean true/false. Default: false. true logs Shift+click door selection/group data and OneWay arrow destination/render coordinates. -->
+    <!-- @HMUC:set label="Door diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Logs focused door selection, one-way grouping and arrow coordinate diagnostics. -->
     <DoorDebug>false</DoorDebug>
 
     <!-- Boolean true/false. Default: false. true audits WC locks and lavabo/dryer handoffs. -->
+    <!-- @HMUC:set label="Bathroom-flow diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Audits WC locks and lavabo or dryer handoffs. -->
     <BathroomFlowDebug>false</BathroomFlowDebug>
   </Debug>
 </HospitalTrafficControl>
