@@ -15,6 +15,16 @@ namespace HospitalFlowOptimizer.Patches
         private const string BladderNeedId = "NEED_BLADDER";
         private const string CafeteriaRoomTag = "cafeteria";
 
+        private static bool ResourceProceduresResolved;
+        private static GameDBProcedure StaffLunchProcedure;
+        private static GameDBProcedure StaffHungerProcedure;
+        private static GameDBProcedure BladderProcedure;
+        // Only immutable Database metadata; never cache a dynamic resource.
+        private static bool CafeteriaDlcAvailable;
+        private static GameDBDepartment AdministrativeDepartmentType;
+        private static string[] StaffLunchCafeteriaRoomTags;
+        private static string[] StaffHungerCafeteriaRoomTags;
+
         [HarmonyPostfix]
         [HarmonyPatch(
             "CreateProcedureScene",
@@ -51,15 +61,15 @@ namespace HospitalFlowOptimizer.Patches
                 return;
             }
 
-            WalkComponent walk = patient.GetComponent<WalkComponent>();
-            EmployeeComponent employee = patient.GetComponent<EmployeeComponent>();
-            if (walk == null || employee == null)
+            ResourceKind resourceKind = GetResourceKind(procedure);
+            if (resourceKind == ResourceKind.None)
             {
                 return;
             }
 
-            ResourceKind resourceKind = GetResourceKind(procedure);
-            if (resourceKind == ResourceKind.None)
+            WalkComponent walk = patient.GetComponent<WalkComponent>();
+            EmployeeComponent employee = patient.GetComponent<EmployeeComponent>();
+            if (walk == null || employee == null)
             {
                 return;
             }
@@ -73,10 +83,16 @@ namespace HospitalFlowOptimizer.Patches
             }
 
             TileObject selected = resourceKind == ResourceKind.Toilet
-                ? SelectToilet(procedure, patient, accessRights, vanilla)
+                ? SelectToilet(
+                    procedure,
+                    patient,
+                    walk,
+                    accessRights,
+                    vanilla)
                 : SelectMeal(
                     procedure,
                     patient,
+                    walk,
                     accessRights,
                     procedureSceneType,
                     vanilla);
@@ -98,27 +114,42 @@ namespace HospitalFlowOptimizer.Patches
             }
         }
 
+        internal static void ClearCachedProcedures()
+        {
+            ResourceProceduresResolved = false;
+            StaffLunchProcedure = null;
+            StaffHungerProcedure = null;
+            BladderProcedure = null;
+            CafeteriaDlcAvailable = false;
+            AdministrativeDepartmentType = null;
+            StaffLunchCafeteriaRoomTags = null;
+            StaffHungerCafeteriaRoomTags = null;
+        }
+
         private static ResourceKind GetResourceKind(GameDBProcedure procedure)
         {
-            GameDBProcedure staffLunch =
-                Database.Instance.GetEntry<GameDBProcedure>(StaffLunchProcedureId);
-            if (staffLunch != null && object.ReferenceEquals(procedure, staffLunch))
+            ResolveResourceProcedures();
+
+            if (StaffLunchProcedure != null &&
+                object.ReferenceEquals(
+                    procedure,
+                    StaffLunchProcedure))
             {
                 return ResourceKind.Meal;
             }
 
-            GameDBNeed hunger = Database.Instance.GetEntry<GameDBNeed>(StaffHungerNeedId);
-            if (hunger != null &&
-                hunger.Procedure != null &&
-                object.ReferenceEquals(procedure, hunger.Procedure))
+            if (StaffHungerProcedure != null &&
+                object.ReferenceEquals(
+                    procedure,
+                    StaffHungerProcedure))
             {
                 return ResourceKind.Meal;
             }
 
-            GameDBNeed bladder = Database.Instance.GetEntry<GameDBNeed>(BladderNeedId);
-            if (bladder != null &&
-                bladder.Procedure != null &&
-                object.ReferenceEquals(procedure, bladder.Procedure))
+            if (BladderProcedure != null &&
+                object.ReferenceEquals(
+                    procedure,
+                    BladderProcedure))
             {
                 return ResourceKind.Toilet;
             }
@@ -126,9 +157,64 @@ namespace HospitalFlowOptimizer.Patches
             return ResourceKind.None;
         }
 
+        private static void ResolveResourceProcedures()
+        {
+            if (ResourceProceduresResolved ||
+                Database.Instance == null ||
+                !Database.Instance.Loaded)
+            {
+                return;
+            }
+
+            StaffLunchProcedure =
+                Database.Instance.GetEntry<GameDBProcedure>(
+                    StaffLunchProcedureId);
+
+            GameDBNeed hunger =
+                Database.Instance.GetEntry<GameDBNeed>(
+                    StaffHungerNeedId);
+            StaffHungerProcedure =
+                hunger == null
+                    ? null
+                    : hunger.Procedure;
+
+            GameDBNeed bladder =
+                Database.Instance.GetEntry<GameDBNeed>(
+                    BladderNeedId);
+            BladderProcedure =
+                bladder == null
+                    ? null
+                    : bladder.Procedure;
+
+            CafeteriaDlcAvailable =
+                Database.Instance.GetEntry<GameDBTweakableInt>(
+                    "DLC_ADMIN_PATHOLOGY_ENABLED") != null;
+            AdministrativeDepartmentType = CafeteriaDlcAvailable
+                ? Database.Instance.GetEntry<GameDBDepartment>(
+                    "DLC_DPT_ADMINISTRATIVE")
+                : null;
+            StaffLunchCafeteriaRoomTags =
+                BuildCafeteriaRoomTags(StaffLunchProcedure);
+            StaffHungerCafeteriaRoomTags =
+                BuildCafeteriaRoomTags(StaffHungerProcedure);
+            ResourceProceduresResolved = true;
+        }
+
+        private static string[] BuildCafeteriaRoomTags(GameDBProcedure procedure)
+        {
+            if (procedure == null ||
+                string.IsNullOrEmpty(procedure.IgnoreDepratmentForRoom))
+            {
+                return null;
+            }
+
+            return new string[] { procedure.IgnoreDepratmentForRoom };
+        }
+
         private static TileObject SelectToilet(
             GameDBProcedure procedure,
             Entity character,
+            WalkComponent walk,
             AccessRights accessRights,
             TileObject vanilla)
         {
@@ -138,10 +224,25 @@ namespace HospitalFlowOptimizer.Patches
                 return vanilla;
             }
 
-            WalkComponent walk = character.GetComponent<WalkComponent>();
             if (walk == null)
             {
                 return vanilla;
+            }
+
+            // A reachable distance-zero vanilla WC cannot be beaten.
+            // Preserve the HTC restriction and skip this only in diagnostic mode.
+            if (!FlowOptimizerConfig.StaffNeedsDiagnosticLogging &&
+                vanilla.GetFloorIndex() == walk.GetFloorIndex() &&
+                vanilla.m_state.m_position.m_x == walk.GetCurrentTile().m_x &&
+                vanilla.m_state.m_position.m_y == walk.GetCurrentTile().m_y)
+            {
+                bool ignoredApiAvailable;
+                if (HtcCompatibility.IsBathroomAllowedForCharacter(
+                        character, vanilla, out ignoredApiAvailable) &&
+                    GetComparableRouteDistance(walk, vanilla, accessRights) == 0)
+                {
+                    return vanilla;
+                }
             }
 
             TileObject local = FindClosestSameFloor(
@@ -259,7 +360,7 @@ namespace HospitalFlowOptimizer.Patches
 
             int localDistance =
                 GetComparableRouteDistance(
-                    character,
+                    walk,
                     local,
                     accessRights);
             if (localDistance < 0)
@@ -306,7 +407,7 @@ namespace HospitalFlowOptimizer.Patches
 
             int vanillaDistance =
                 GetComparableRouteDistance(
-                    character,
+                    walk,
                     vanilla,
                     accessRights);
 
@@ -339,6 +440,7 @@ namespace HospitalFlowOptimizer.Patches
         private static TileObject SelectMeal(
             GameDBProcedure procedure,
             Entity character,
+            WalkComponent walk,
             AccessRights accessRights,
             ProcedureSceneType procedureSceneType,
             TileObject vanilla)
@@ -349,7 +451,11 @@ namespace HospitalFlowOptimizer.Patches
                 return vanilla;
             }
 
-            WalkComponent walk = character.GetComponent<WalkComponent>();
+            if (walk == null)
+            {
+                return vanilla;
+            }
+
             TileObject local = FindClosestSameFloor(
                 walk,
                 required.Tag,
@@ -357,6 +463,20 @@ namespace HospitalFlowOptimizer.Patches
                 procedure.RequiredRoomTags,
                 null,
                 null);
+
+            int roll = -1;
+            if (local != null)
+            {
+                roll = GetStableMealRoll(character, procedure);
+                // No cafeteria chance exceeds 75%. With a valid local
+                // candidate, this decision cannot be changed by the
+                // cafeteria search or by route-distance calculations.
+                if (roll >= 75 &&
+                    !FlowOptimizerConfig.StaffNeedsDiagnosticLogging)
+                {
+                    return local;
+                }
+            }
 
             TileObject cafeteria = FindVanillaCafeteriaCandidate(
                 walk,
@@ -374,8 +494,13 @@ namespace HospitalFlowOptimizer.Patches
                 return local;
             }
 
-            int localDistance = GetRouteDistance(character, local, accessRights);
-            int cafeteriaDistance = GetRouteDistance(character, cafeteria, accessRights);
+            int localDistance = -1;
+            int cafeteriaDistance = -1;
+            if (walk.GetFloorIndex() == cafeteria.GetFloorIndex())
+            {
+                localDistance = GetRouteDistance(walk, local, accessRights);
+                cafeteriaDistance = GetRouteDistance(walk, cafeteria, accessRights);
+            }
             int chance = GetCafeteriaChancePercent(
                 walk.GetFloorIndex(),
                 cafeteria.GetFloorIndex(),
@@ -385,7 +510,6 @@ namespace HospitalFlowOptimizer.Patches
             // QUERY and INSTANTIATION must resolve to the same resource.
             // A second random roll here can validate one destination and then
             // execute another a few frames later.
-            int roll = GetStableMealRoll(character, procedure);
             TileObject selected = roll < chance ? cafeteria : local;
 
             if (FlowOptimizerConfig.StaffNeedsDiagnosticLogging)
@@ -457,15 +581,22 @@ namespace HospitalFlowOptimizer.Patches
             AccessRights accessRights,
             GameDBProcedure procedure)
         {
+            string[] cafeteriaRoomTags =
+                object.ReferenceEquals(procedure, StaffLunchProcedure)
+                    ? StaffLunchCafeteriaRoomTags
+                    : StaffHungerCafeteriaRoomTags;
+
             if (walk == null ||
-                string.IsNullOrEmpty(procedure.IgnoreDepratmentForRoom) ||
-                Database.Instance.GetEntry<GameDBTweakableInt>("DLC_ADMIN_PATHOLOGY_ENABLED") == null)
+                cafeteriaRoomTags == null ||
+                !CafeteriaDlcAvailable ||
+                AdministrativeDepartmentType == null)
             {
                 return null;
             }
 
+            // The department instance remains dynamic and is resolved afresh.
             Department administrative = MapScriptInterface.Instance.GetDepartmentOfType(
-                Database.Instance.GetEntry<GameDBDepartment>("DLC_DPT_ADMINISTRATIVE"));
+                AdministrativeDepartmentType);
             if (administrative == null)
             {
                 return null;
@@ -477,7 +608,7 @@ namespace HospitalFlowOptimizer.Patches
                 administrative,
                 tag,
                 accessRights,
-                new string[] { procedure.IgnoreDepratmentForRoom });
+                cafeteriaRoomTags);
         }
 
         private static int GetStableMealRoll(
@@ -586,7 +717,17 @@ namespace HospitalFlowOptimizer.Patches
             TileObject target,
             AccessRights accessRights)
         {
-            WalkComponent walk = character == null ? null : character.GetComponent<WalkComponent>();
+            return GetRouteDistance(
+                character == null ? null : character.GetComponent<WalkComponent>(),
+                target,
+                accessRights);
+        }
+
+        private static int GetRouteDistance(
+            WalkComponent walk,
+            TileObject target,
+            AccessRights accessRights)
+        {
             if (walk == null || target == null)
             {
                 return -1;
@@ -610,12 +751,23 @@ namespace HospitalFlowOptimizer.Patches
             TileObject target,
             AccessRights accessRights)
         {
-            int distance = GetRouteDistance(character, target, accessRights);
+            return GetComparableRouteDistance(
+                character == null ? null : character.GetComponent<WalkComponent>(),
+                target,
+                accessRights);
+        }
+
+        private static int GetComparableRouteDistance(
+            WalkComponent walk,
+            TileObject target,
+            AccessRights accessRights)
+        {
+            int distance = GetRouteDistance(walk, target, accessRights);
 
             if (distance < 0 && accessRights == AccessRights.STAFF_ONLY)
             {
                 distance = GetRouteDistance(
-                    character,
+                    walk,
                     target,
                     AccessRights.STAFF);
             }

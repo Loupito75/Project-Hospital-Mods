@@ -15,6 +15,12 @@ namespace HospitalFlowOptimizer.Patches
         private const string HpoPluginGuid =
             "loupito75.HospitalPorters";
 
+        private delegate bool PorterBoolDelegate(Entity porter);
+        private delegate LabProcedure[] PorterCandidatesDelegate(Entity porter);
+        private delegate bool PorterProcedureBoolDelegate(
+            Entity porter,
+            LabProcedure procedure);
+
         private static Type ApiType;
         private static MethodInfo GetSampleContinuationApiVersionMethod;
         private static MethodInfo LegacyGetApiVersionMethod;
@@ -22,6 +28,10 @@ namespace HospitalFlowOptimizer.Patches
         private static MethodInfo GetCandidatesMethod;
         private static MethodInfo TryStartMethod;
         private static MethodInfo FinishWindowMethod;
+        private static PorterBoolDelegate IsWindowOpenCallback;
+        private static PorterCandidatesDelegate GetCandidatesCallback;
+        private static PorterProcedureBoolDelegate TryStartCallback;
+        private static PorterBoolDelegate FinishWindowCallback;
         private static int SampleApiVersion;
         private static int ResolvedAssemblyCount = -1;
 
@@ -41,6 +51,11 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
+                if (IsWindowOpenCallback != null)
+                {
+                    return IsWindowOpenCallback(porter);
+                }
+
                 object result =
                     IsWindowOpenMethod.Invoke(
                         null,
@@ -64,9 +79,11 @@ namespace HospitalFlowOptimizer.Patches
             try
             {
                 LabProcedure[] result =
-                    GetCandidatesMethod.Invoke(
-                        null,
-                        new object[] { porter }) as LabProcedure[];
+                    GetCandidatesCallback != null
+                        ? GetCandidatesCallback(porter)
+                        : GetCandidatesMethod.Invoke(
+                            null,
+                            new object[] { porter }) as LabProcedure[];
                 return result ?? new LabProcedure[0];
             }
             catch
@@ -88,6 +105,11 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
+                if (TryStartCallback != null)
+                {
+                    return TryStartCallback(porter, procedure);
+                }
+
                 object result =
                     TryStartMethod.Invoke(
                         null,
@@ -113,6 +135,11 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
+                if (FinishWindowCallback != null)
+                {
+                    return FinishWindowCallback(porter);
+                }
+
                 object result =
                     FinishWindowMethod.Invoke(
                         null,
@@ -240,6 +267,39 @@ namespace HospitalFlowOptimizer.Patches
                     tryStartMethod;
                 FinishWindowMethod =
                     finishWindowMethod;
+
+                try
+                {
+                    IsWindowOpenCallback =
+                        (PorterBoolDelegate)Delegate.CreateDelegate(
+                            typeof(PorterBoolDelegate),
+                            isWindowOpenMethod);
+                    GetCandidatesCallback =
+                        (PorterCandidatesDelegate)Delegate.CreateDelegate(
+                            typeof(PorterCandidatesDelegate),
+                            getCandidatesMethod);
+                    TryStartCallback =
+                        (PorterProcedureBoolDelegate)Delegate.CreateDelegate(
+                            typeof(PorterProcedureBoolDelegate),
+                            tryStartMethod);
+                    FinishWindowCallback =
+                        finishWindowMethod == null
+                            ? null
+                            : (PorterBoolDelegate)Delegate.CreateDelegate(
+                                typeof(PorterBoolDelegate),
+                                finishWindowMethod);
+                }
+                catch
+                {
+                    // Keep the reflection fallback for older or unusual
+                    // Hospital Porters builds whose public signatures do not
+                    // bind exactly to the typed delegates.
+                    IsWindowOpenCallback = null;
+                    GetCandidatesCallback = null;
+                    TryStartCallback = null;
+                    FinishWindowCallback = null;
+                }
+
                 return true;
             }
 

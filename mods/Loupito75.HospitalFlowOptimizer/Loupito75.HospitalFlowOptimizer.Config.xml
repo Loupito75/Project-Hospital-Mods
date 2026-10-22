@@ -2,105 +2,190 @@
 <HospitalFlowOptimizer>
   <!-- Boolean values accept true or false. Numeric optimization weights accept 0 to 5. -->
 
+  <!-- @HMUC:desc Balances assignments between admissible inpatient doctors while preserving surgical capacity when needed. -->
   <SmartDoctor>
     <!-- true/false. Default: true. -->
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables the inpatient doctor assignment optimization. -->
     <Enabled>true</Enabled>
     <!-- 0-5. Inpatient workload balancing weight. Default: 1.0. -->
+    <!-- @HMUC:set label="Workload weight" control="slider" min="0" max="5" step="0.1" -->
+    <!-- @HMUC:desc Weight given to current workload during scoring. -->
     <WorkloadWeight>1.0</WorkloadWeight>
     <!-- 0-5. Clinical-fit weight. Default: 0.4. -->
+    <!-- @HMUC:set label="Clinical fit weight" control="slider" min="0" max="5" step="0.1" -->
+    <!-- @HMUC:desc Weight given to clinical fit during scoring. -->
     <ClinicalFitWeight>0.4</ClinicalFitWeight>
     <!-- true/false. Preserve surgery-capable doctors while surgery is waiting. Default: true. -->
+    <!-- @HMUC:set label="Protect surgical capacity" control="checkbox" -->
+    <!-- @HMUC:desc Preserves surgery-capable doctors while surgery work is waiting. -->
     <ProtectSurgicalCapacity>true</ProtectSurgicalCapacity>
   </SmartDoctor>
 
+  <!-- @HMUC:desc Balances outpatient doctor selection using clinic workload, distance and optional clinical fit. -->
   <SmartClinicDoctor>
     <!-- true/false. Default: true. -->
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables the outpatient clinic doctor assignment optimization. -->
     <Enabled>true</Enabled>
     <!-- 0-5. Current assignment and recent room-load weight. Default: 1.0. -->
+    <!-- @HMUC:set label="Load balancing weight" control="slider" min="0" max="5" step="0.1" -->
+    <!-- @HMUC:desc Weight given to current assignment and recent room load for clinic-doctor selection. -->
     <LoadBalancingWeight>1.0</LoadBalancingWeight>
     <!-- 0-5. Distance weight. Default: 0.3. -->
+    <!-- @HMUC:set label="Distance weight" control="slider" min="0" max="5" step="0.1" -->
+    <!-- @HMUC:desc Weight given to native route distance during scoring. -->
     <DistanceWeight>0.3</DistanceWeight>
     <!-- 0-5. Optional clinical-fit weight; 0 keeps clinic routing flow-focused. Default: 0.0. -->
+    <!-- @HMUC:set label="Clinical fit weight" control="slider" min="0" max="5" step="0.1" -->
+    <!-- @HMUC:desc Weight given to clinical fit during scoring. -->
     <ClinicalFitWeight>0.0</ClinicalFitWeight>
   </SmartClinicDoctor>
 
+  <!-- @HMUC:desc Ranks immediately valid diagnostic rooms using their recent workload and route distance. -->
   <SmartRoomSelection>
     <!-- true/false. Optimize only among immediately valid diagnostic rooms. Default: true. -->
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables diagnostic room selection among already-valid rooms. -->
     <Enabled>true</Enabled>
     <!-- 0-5. Recent native room-workload weight. Default: 1.0. -->
+    <!-- @HMUC:set label="Workload weight" control="slider" min="0" max="5" step="0.1" -->
+    <!-- @HMUC:desc Weight given to current workload during scoring. -->
     <WorkloadWeight>1.0</WorkloadWeight>
     <!-- 0-5. Native route-distance weight. Default: 0.3. -->
+    <!-- @HMUC:set label="Distance weight" control="slider" min="0" max="5" step="0.1" -->
+    <!-- @HMUC:desc Weight given to native route distance during scoring. -->
     <DistanceWeight>0.3</DistanceWeight>
   </SmartRoomSelection>
 
+  <!-- @HMUC:desc Selects suitable destinations for staff bathroom and meal needs within native eligibility rules. -->
   <SmartStaffNeeds>
     <!-- true/false. Improve staff WC and meal destination selection. Default: true. -->
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables staff bathroom and meal destination optimization. -->
     <Enabled>true</Enabled>
   </SmartStaffNeeds>
 
+  <!-- @HMUC:desc Balances compatible laboratory work, prioritizes eligible tasks and optionally reroutes outpatient waiting. -->
   <LabOptimization>
     <!-- true/false. Balance new work between compatible stat labs. Default: true. -->
+    <!-- @HMUC:set label="Queue balancing" control="checkbox" -->
+    <!-- @HMUC:desc Balances new laboratory work between compatible stat labs. -->
     <QueueBalancing>true</QueueBalancing>
     <!-- true/false. Reorder already-valid lab work by waiting time and workflow progress. Default: true. -->
+    <!-- @HMUC:set label="Smart task assignment" control="checkbox" -->
+    <!-- @HMUC:desc Reorders already-valid laboratory work using waiting time and workflow progress. -->
     <SmartTaskAssignment>true</SmartTaskAssignment>
     <!-- 0-240 in-game minutes. Main workflow priority advantage. Default: 30. -->
+    <!-- @HMUC:set label="Task priority time" control="slider" min="0" max="240" step="5" -->
+    <!-- @HMUC:desc Main laboratory workflow priority advantage in in-game minutes. -->
     <TaskPriorityTimeMinutes>30</TaskPriorityTimeMinutes>
     <!-- 0-120 in-game minutes. Stable +/- priority variation. Default: 5. -->
+    <!-- @HMUC:set label="Task priority variation" control="slider" min="0" max="120" step="1" -->
+    <!-- @HMUC:desc Stable plus/minus variation applied to laboratory task priority in in-game minutes. -->
     <TaskPriorityRandomnessMinutes>5</TaskPriorityRandomnessMinutes>
     <!-- 0-100 percent. Chance to reroute an outpatient to the selected lab waiting room. Default: 70. -->
+    <!-- @HMUC:set label="Waiting-room reroute chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance to reroute an outpatient to the selected laboratory waiting room. -->
     <WaitingRoomRerouteChance>70</WaitingRoomRerouteChance>
   </LabOptimization>
 
+  <!-- @HMUC:desc Controls bounded waiting-time priority for eligible outpatient follow-up visits. -->
   <FollowUpQueue>
     <!-- true/false. Give eligible outpatient follow-up returns a bounded queue advantage. Default: true. -->
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables the bounded outpatient follow-up queue priority. -->
     <Enabled>true</Enabled>
     <!-- 0-240 in-game minutes. Main follow-up waiting-time advantage. Default: 20. -->
+    <!-- @HMUC:set label="Follow-up priority time" control="slider" min="0" max="240" step="5" -->
+    <!-- @HMUC:desc Waiting-time advantage given to eligible outpatient follow-up returns. -->
     <PriorityTimeMinutes>20</PriorityTimeMinutes>
     <!-- 0-120 in-game minutes. Stable +/- follow-up variation. Default: 8. -->
+    <!-- @HMUC:set label="Follow-up priority variation" control="slider" min="0" max="120" step="1" -->
+    <!-- @HMUC:desc Stable plus/minus variation applied to the follow-up queue advantage. -->
     <PriorityRandomnessMinutes>8</PriorityRandomnessMinutes>
   </FollowUpQueue>
 
+  <!-- @HMUC:desc Controls valid transport waiting, pressure rescue and patient or sample mission continuation. -->
   <SmartTransport>
     <!-- true/false. Keep a compatible transporter/equipment nearby during short examinations. Default: true. -->
+    <!-- @HMUC:set label="Retained transport waiting" control="checkbox" -->
+    <!-- @HMUC:desc Keeps compatible transport staff or equipment nearby during short examinations when valid. -->
     <WaitEnabled>true</WaitEnabled>
     <!-- 0-100 percent. Applied only after wait validity and safety checks. Default: 65. -->
+    <!-- @HMUC:set label="Retained wait chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance to keep compatible transport capacity waiting after all validity and safety checks pass. -->
     <WaitChance>65</WaitChance>
     <!-- 1-240 in-game minutes. Base retained-wait limit. Default: 16. -->
+    <!-- @HMUC:set label="Retained wait procedure limit" control="slider" min="1" max="240" step="1" -->
+    <!-- @HMUC:desc Base maximum procedure duration, in in-game minutes, eligible for retained transport waiting. -->
     <WaitMaxProcedureMinutes>16</WaitMaxProcedureMinutes>
     <!-- 0-120 in-game minutes. Stable +/- variation around the wait limit. Default: 4. -->
+    <!-- @HMUC:set label="Retained wait limit variation" control="slider" min="0" max="120" step="1" -->
+    <!-- @HMUC:desc Stable plus/minus variation around the retained-wait procedure limit. -->
     <WaitMaxProcedureVariationMinutes>4</WaitMaxProcedureVariationMinutes>
 
     <!-- true/false. Release retained transport capacity for another valid patient mission. Default: true. -->
+    <!-- @HMUC:set label="Pressure rescue" control="checkbox" -->
+    <!-- @HMUC:desc Allows retained transport capacity to be released for another valid patient mission. -->
     <PressureRescueEnabled>true</PressureRescueEnabled>
     <!-- 0-100 percent. Single Pressure Rescue gate. Default: 70. -->
+    <!-- @HMUC:set label="Pressure rescue chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance gate used when a valid pressure-rescue opportunity exists. -->
     <PressureRescueChance>70</PressureRescueChance>
 
     <!-- true/false. Continue to another valid patient transport when possible. Default: true. -->
+    <!-- @HMUC:set label="Patient transport continuation" control="checkbox" -->
+    <!-- @HMUC:desc Allows compatible transport staff to continue directly to another valid patient mission. -->
     <ContinuationEnabled>true</ContinuationEnabled>
     <!-- 0-100 percent. One roll after a real continuation candidate exists. Default: 65. -->
+    <!-- @HMUC:set label="Patient continuation chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance to continue to another patient transport after a real continuation candidate exists. -->
     <ContinuationChance>65</ContinuationChance>
 
     <!-- true/false. Continue to another HPO-admissible sample mission after delivery. Default: true. -->
+    <!-- @HMUC:set label="Sample transport continuation" control="checkbox" -->
+    <!-- @HMUC:desc Allows an HPO-compatible porter to continue to another valid sample mission after delivery. -->
     <SampleContinuationEnabled>true</SampleContinuationEnabled>
     <!-- 0-100 percent. One roll per HPO sample continuation window. Default: 75. -->
+    <!-- @HMUC:set label="Sample continuation chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance applied to each valid HPO sample-continuation window. -->
     <SampleContinuationChance>75</SampleContinuationChance>
   </SmartTransport>
 
+  <!-- @HMUC:desc Prefers compatible Observation examinations before using Trauma Center capacity, with bounded retries. -->
   <TraumaCenterProtection>
     <!-- true/false. Prefer Observation for compatible non-critical examinations. Default: true. -->
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables Observation-first Trauma Center protection. -->
     <Enabled>true</Enabled>
     <!-- 0-10 retries before vanilla fallback is released. Default: 2. -->
+    <!-- @HMUC:set label="Trauma-center fallback retries" control="slider" min="0" max="10" step="1" -->
+    <!-- @HMUC:desc Number of retries before trauma-center protection releases the vanilla fallback. -->
     <FallbackRetries>2</FallbackRetries>
     <!-- 1-60 in-game minutes between retries. Default: 5. -->
+    <!-- @HMUC:set label="Trauma-center retry interval" control="slider" min="1" max="60" step="1" -->
+    <!-- @HMUC:desc In-game minutes between trauma-center protection retries. -->
     <RetryMinutes>5</RetryMinutes>
   </TraumaCenterProtection>
 
   <!-- Troubleshooting only. All diagnostics are disabled by default. -->
+  <!-- @HMUC:desc Enables optional troubleshooting logs for individual optimization areas; all are disabled by default. -->
   <Diagnostics>
+    <!-- @HMUC:set label="Doctor diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Enables troubleshooting diagnostics for doctor optimization. -->
     <Doctor>false</Doctor>
+    <!-- @HMUC:set label="Staff-needs diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Enables troubleshooting diagnostics for staff-needs optimization. -->
     <StaffNeeds>false</StaffNeeds>
+    <!-- @HMUC:set label="Laboratory diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Enables troubleshooting diagnostics for laboratory optimization. -->
     <Lab>false</Lab>
+    <!-- @HMUC:set label="Transport diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Enables troubleshooting diagnostics for transport optimization. -->
     <Transport>false</Transport>
+    <!-- @HMUC:set label="Trauma-center diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Enables troubleshooting diagnostics for trauma-center protection. -->
     <TraumaCenter>false</TraumaCenter>
   </Diagnostics>
 </HospitalFlowOptimizer>

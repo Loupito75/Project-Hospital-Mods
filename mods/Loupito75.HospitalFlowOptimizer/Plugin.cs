@@ -13,7 +13,7 @@ namespace HospitalFlowOptimizer
         public const string HarmonyId = "Loupito75:HospitalFlowOptimizer";
         public const string PluginName = "Hospital Flow Optimizer";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         internal static ManualLogSource Log { get; private set; }
 
@@ -53,6 +53,7 @@ namespace HospitalFlowOptimizer
         internal static void ClearRuntimeState()
         {
             HfoDiagnostics.Clear();
+            Patches.SmartStaffNeedResourcePatch.ClearCachedProcedures();
             Patches.SmartTransportWaitRuntime.Clear();
             Patches.SmartTransportContinuationRuntime.Clear();
             Patches.SmartTransportSampleContinuationRuntime.Clear();

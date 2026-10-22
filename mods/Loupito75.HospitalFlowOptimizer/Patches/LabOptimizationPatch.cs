@@ -207,13 +207,22 @@ namespace HospitalFlowOptimizer.Patches
             if (candidates.Count == 0)
                 return;
 
+            Dictionary<Room, int> queueSnapshot =
+                OutpatientLabRoutingRuntime.BuildQueueSnapshot();
+
             Room best = vanillaRoom;
-            int bestQueue = GetActiveProcedureCount(vanillaRoom);
+            int bestQueue =
+                OutpatientLabRoutingRuntime.GetQueueCount(
+                    vanillaRoom,
+                    queueSnapshot);
             int bestUsage = GetCurrentUsage(vanillaRoom);
 
             foreach (Room candidate in candidates)
             {
-                int queue = GetActiveProcedureCount(candidate);
+                int queue =
+                    OutpatientLabRoutingRuntime.GetQueueCount(
+                        candidate,
+                        queueSnapshot);
                 int usage = GetCurrentUsage(candidate);
                 if (queue < bestQueue || (queue == bestQueue && usage < bestUsage))
                 {
@@ -229,7 +238,10 @@ namespace HospitalFlowOptimizer.Patches
                     labExamination.DatabaseID +
                     "; procedureId=" + __instance.GetEntityID() +
                     "; vanillaLab=" + DescribeRoom(vanillaRoom) +
-                    "; vanillaQueue=" + GetActiveProcedureCount(vanillaRoom) +
+                    "; vanillaQueue=" +
+                    OutpatientLabRoutingRuntime.GetQueueCount(
+                        vanillaRoom,
+                        queueSnapshot) +
                     "; selectedLab=" + DescribeRoom(best) + "; selectedQueue=" + bestQueue +
                     "; candidates=" + candidates.Count);
             }
@@ -317,30 +329,6 @@ namespace HospitalFlowOptimizer.Patches
                     return true;
 
             return false;
-        }
-
-        private static int GetActiveProcedureCount(Room room)
-        {
-            if (room == null)
-                return int.MaxValue;
-
-            int count = 0;
-            foreach (LabProcedure procedure in LabProcedureManager.Instance.m_labProcedures)
-            {
-                if (procedure != null &&
-                    procedure.m_state != null &&
-                    procedure.m_state.m_statLab != null &&
-                    procedure.m_state.m_statLab.GetEntity() == room &&
-                    procedure.m_state.m_labProcedureState !=
-                        LabProcedureState.Finished &&
-                    !LabStaleGuardRuntime.ShouldIgnoreForHfo(
-                        procedure))
-                {
-                    count++;
-                }
-            }
-            return count +
-                OutpatientLabRoutingRuntime.GetIncomingTargetCount(room);
         }
 
         private static int GetCurrentUsage(Room room)
@@ -477,14 +465,18 @@ namespace HospitalFlowOptimizer.Patches
                 }
             }
 
-            Room selectedRoom = SelectBestRoom(candidates);
+            int selectedQueue;
+            Room selectedRoom =
+                SelectBestRoom(
+                    candidates,
+                    out selectedQueue);
             if (selectedRoom == null)
                 return false;
 
             target = new OutpatientLabRoutingTarget();
             target.Room = selectedRoom;
             target.CandidateCount = candidates.Count;
-            target.QueueAtSelection = GetQueueCount(selectedRoom);
+            target.QueueAtSelection = selectedQueue;
             target.UsageAtSelection = GetCurrentUsage(selectedRoom);
             Targets[procedure] = target;
             return true;
@@ -823,15 +815,23 @@ namespace HospitalFlowOptimizer.Patches
             }
         }
 
-        private static Room SelectBestRoom(List<Room> candidates)
+        private static Room SelectBestRoom(
+            List<Room> candidates,
+            out int selectedQueue)
         {
+            Dictionary<Room, int> queueSnapshot =
+                BuildQueueSnapshot();
+
             Room best = null;
             int bestQueue = int.MaxValue;
             int bestUsage = int.MaxValue;
 
             foreach (Room candidate in candidates)
             {
-                int queue = GetQueueCount(candidate);
+                int queue =
+                    GetQueueCount(
+                        candidate,
+                        queueSnapshot);
                 int usage = GetCurrentUsage(candidate);
 
                 if (best == null ||
@@ -844,6 +844,7 @@ namespace HospitalFlowOptimizer.Patches
                 }
             }
 
+            selectedQueue = bestQueue;
             return best;
         }
 
@@ -953,29 +954,102 @@ namespace HospitalFlowOptimizer.Patches
             return false;
         }
 
-        private static int GetQueueCount(Room room)
+        internal static Dictionary<Room, int> BuildQueueSnapshot()
         {
-            if (room == null)
-                return int.MaxValue;
+            PruneTargets();
 
-            int count = 0;
-            foreach (LabProcedure procedure
-                in LabProcedureManager.Instance.m_labProcedures)
+            Dictionary<Room, int> counts =
+                new Dictionary<Room, int>();
+
+            if (LabProcedureManager.Instance != null &&
+                LabProcedureManager.Instance.m_labProcedures != null)
             {
-                if (procedure != null &&
-                    procedure.m_state != null &&
-                    procedure.m_state.m_statLab != null &&
-                    procedure.m_state.m_statLab.GetEntity() == room &&
-                    procedure.m_state.m_labProcedureState !=
-                        LabProcedureState.Finished &&
-                    !LabStaleGuardRuntime.ShouldIgnoreForHfo(
-                        procedure))
+                foreach (LabProcedure procedure
+                    in LabProcedureManager.Instance.m_labProcedures)
                 {
-                    count++;
+                    if (procedure == null ||
+                        procedure.m_state == null ||
+                        procedure.m_state.m_statLab == null ||
+                        procedure.m_state.m_labProcedureState ==
+                            LabProcedureState.Finished ||
+                        LabStaleGuardRuntime.ShouldIgnoreForHfo(
+                            procedure))
+                    {
+                        continue;
+                    }
+
+                    Room room =
+                        procedure.m_state.m_statLab.GetEntity();
+                    IncrementQueueCount(
+                        counts,
+                        room);
                 }
             }
 
-            return count + GetIncomingTargetCount(room);
+            foreach (KeyValuePair<LabProcedure, OutpatientLabRoutingTarget> item
+                in Targets)
+            {
+                LabProcedure procedure = item.Key;
+                OutpatientLabRoutingTarget target = item.Value;
+
+                if (procedure == null ||
+                    procedure.m_state == null ||
+                    procedure.m_state.m_statLab != null ||
+                    procedure.m_state.m_labProcedureState !=
+                        LabProcedureState.SamplingFinished ||
+                    target == null ||
+                    target.Room == null)
+                {
+                    continue;
+                }
+
+                IncrementQueueCount(
+                    counts,
+                    target.Room);
+            }
+
+            return counts;
+        }
+
+        internal static int GetQueueCount(
+            Room room,
+            Dictionary<Room, int> queueSnapshot)
+        {
+            if (room == null)
+            {
+                return int.MaxValue;
+            }
+
+            int count;
+            return queueSnapshot != null &&
+                queueSnapshot.TryGetValue(
+                    room,
+                    out count)
+                    ? count
+                    : 0;
+        }
+
+        private static int GetQueueCount(Room room)
+        {
+            return GetQueueCount(
+                room,
+                BuildQueueSnapshot());
+        }
+
+        private static void IncrementQueueCount(
+            Dictionary<Room, int> counts,
+            Room room)
+        {
+            if (counts == null || room == null)
+            {
+                return;
+            }
+
+            int current;
+            counts.TryGetValue(
+                room,
+                out current);
+            counts[room] = current + 1;
         }
 
         private static int GetCurrentUsage(Room room)
