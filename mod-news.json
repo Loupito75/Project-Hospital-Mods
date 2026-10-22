@@ -1,27 +1,17 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 164241,
-  "updatedUtc": "2026-10-17T18:53:00Z",
+  "manifestRevision": 164242,
+  "updatedUtc": "2026-10-22T06:08:45Z",
   "items": [
     {
       "id": 20,
-      "title": "2026-10-14 ★ HMUC - New features",
-      "text": "→ You can now update supported mods DIRECTLY from the main menu.\n→ Update HMUC manually one last time, then enjoy much easier updates for your other supported mods."
+      "title": "2026-10-17 ★ Hospital Flow Optimizer - [[ -- NEW MOD -- ]]",
+      "text": "→ Smarter doctor, room and laboratory workload distribution.\n→ Better follow-up and patient transport flow.\n→ Helps keep Trauma Center capacity available for critical patients."
     },
     {
       "id": 19,
-      "title": "2026-10-17 ★ HPO - New features",
-      "text": "→ Cross-department Patient transport.\n→ Native Porter needs and breaks restored.\n→ More natural post-transport return flow."
-    },
-    {
-      "id": 18,
-      "title": "2026-10-17 ★ HTC - Fixes (check XML settings)",
-      "text": "→ Better bucket cart parking.\n→ Safer janitor behavior around occupied rooms.\n→ Improved nighttime cleaning priorities."
-    },
-    {
-      "id": 17,
-      "title": "2026-10-17 ★ Hospital Flow Optimizer - [[ -- NEW MOD -- ]]",
-      "text": "→ Smarter doctor, room and laboratory workload distribution.\n→ Better follow-up and patient transport flow.\n→ Helps keep Trauma Center capacity available for critical patients."
+      "title": "2026-10-22 ★ HFO/HPO/HTC/HSH - Update",
+      "text": "→ HFO, HPO, HTC and HSH received a performance optimization pass.\n→ Update recommended for smoother performance, especially in large or busy hospitals.\n→ Their latest fixes and gameplay improvements are included too."
     }
   ]
 }
