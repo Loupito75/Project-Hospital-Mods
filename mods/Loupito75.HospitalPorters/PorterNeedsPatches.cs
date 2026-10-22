@@ -13,11 +13,10 @@ namespace HospitalPorters
             "CONTROL_PROCEDURE_NURSE_FREE_TIME";
 
         internal static bool TryStartNativeIdleActivity(
-            BehaviorNurse nurse)
+            BehaviorNurse nurse,
+            Entity porter)
         {
-            Entity porter =
-                PorterIdleResting.GetEntity(nurse);
-            if (!PorterIdentity.IsPorter(porter) ||
+            if (porter == null ||
                 nurse == null ||
                 nurse.m_state == null ||
                 nurse.m_state.m_nurseState != NurseState.Idle ||

@@ -74,8 +74,6 @@ namespace HospitalPorters
             internal bool AwaitingNativeReplay;
         }
 
-        private static readonly FieldInfo NurseEntityField =
-            AccessTools.Field(typeof(BehaviorNurse), "m_entity");
         private static readonly FieldInfo StretcherEntityField =
             AccessTools.Field(typeof(StretcherComponent), "m_entity");
 
@@ -288,10 +286,11 @@ namespace HospitalPorters
 
         // The nurse's vanilla update must run while it is physically
         // returning the equipment. HPO takes control only after that.
-        internal static bool UpdateActiveReturn(BehaviorNurse nurse)
+        internal static bool UpdateActiveReturn(
+            BehaviorNurse nurse,
+            Entity porter)
         {
-            Entity porter = GetPorter(nurse);
-            if (!PorterIdentity.IsPorter(porter))
+            if (porter == null)
             {
                 return false;
             }
@@ -368,9 +367,10 @@ namespace HospitalPorters
             return UpdateStationReturn(porter, nurse, job);
         }
 
-        internal static void OnNurseUpdated(BehaviorNurse nurse)
+        internal static void OnNurseUpdated(
+            BehaviorNurse nurse,
+            Entity porter)
         {
-            Entity porter = GetPorter(nurse);
             ReturnJob job;
             if (porter == null ||
                 !Jobs.TryGetValue(porter, out job) ||
@@ -439,13 +439,6 @@ namespace HospitalPorters
             job.ContinuationDeclined = continuationDeclined;
             Jobs[porter] = job;
             return true;
-        }
-
-        private static Entity GetPorter(BehaviorNurse nurse)
-        {
-            return nurse == null || NurseEntityField == null
-                ? null
-                : NurseEntityField.GetValue(nurse) as Entity;
         }
 
         private static bool IsPorterOperational(Entity porter)

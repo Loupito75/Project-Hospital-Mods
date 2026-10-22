@@ -7,6 +7,10 @@
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
         <File>MOD_ROOT/Textures/UI/sample_cart.png</File>
     </GameDBAsset>
+    <GameDBAsset ID="HPO_ASSET_PORTER_SAMPLE_ROOM_OCCUPIED_BUBBLE">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/porter_sample_room_occupied_bubble.png</File>
+    </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
         <File>MOD_ROOT/Textures/UI/porter.png</File>
@@ -147,6 +151,8 @@
             <Tag>porter_sample_cart</Tag>
             <Tag>ui_porter_sample_cart</Tag>
         </Tags>
+
+        <SoundEventUseLoopRef>SFX_ENV_BUCKET_CART_LOOP</SoundEventUseLoopRef>
 
         <Cost>99</Cost>
     </GameDBObject>

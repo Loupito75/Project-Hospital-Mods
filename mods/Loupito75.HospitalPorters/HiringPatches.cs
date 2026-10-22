@@ -635,6 +635,9 @@ namespace HospitalPorters
 
         internal static void Reset()
         {
+            // Plugin.OnDestroy is the only caller. Clear the transient render
+            // reference introduced by HPO 1.3.0 before the plugin is released.
+            PorterFullSpeechBubblePatch.Reset();
             s_applied = false;
             s_applying = false;
         }

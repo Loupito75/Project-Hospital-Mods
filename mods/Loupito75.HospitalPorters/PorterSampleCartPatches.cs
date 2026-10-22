@@ -7,6 +7,175 @@ using Lopital;
 
 namespace HospitalPorters
 {
+    internal static class PorterDoorPlacementRules
+    {
+        private static readonly Direction[] AttachmentDirections =
+            new Direction[]
+            {
+                Direction.NW,
+                Direction.NE,
+                Direction.SE,
+                Direction.SW
+            };
+
+        internal static void GetPorterAndCartDoorExposure(
+            Floor floor,
+            Vector2i porterTile,
+            TileObject cart,
+            out int doorFrontTier,
+            out int doorNearTier)
+        {
+            doorFrontTier = 0;
+            doorNearTier = 0;
+
+            AddTileDoorExposure(
+                floor,
+                porterTile,
+                ref doorFrontTier,
+                ref doorNearTier);
+
+            if (cart == null)
+            {
+                return;
+            }
+
+            Vector2f porterPosition =
+                new Vector2f(porterTile);
+            Vector2f attachmentOffset =
+                cart.GetCharacterAttachmentOffset();
+
+            for (int i = 0;
+                i < AttachmentDirections.Length;
+                i++)
+            {
+                Vector2f offset =
+                    TileObject.TransformOffsetForDirection(
+                        attachmentOffset,
+                        AttachmentDirections[i]);
+                Vector2i cartTile =
+                    porterPosition.add(offset).ToVector2i();
+
+                AddTileDoorExposure(
+                    floor,
+                    cartTile,
+                    ref doorFrontTier,
+                    ref doorNearTier);
+            }
+        }
+
+        private static void AddTileDoorExposure(
+            Floor floor,
+            Vector2i tile,
+            ref int doorFrontTier,
+            ref int doorNearTier)
+        {
+            if (!IsInBounds(floor, tile))
+            {
+                return;
+            }
+
+            if (IsDoorFrontTile(floor, tile))
+            {
+                doorFrontTier = 1;
+            }
+
+            if (HasNearbyDoor(floor, tile))
+            {
+                doorNearTier = 1;
+            }
+        }
+
+        private static bool IsDoorFrontTile(
+            Floor floor,
+            Vector2i tile)
+        {
+            if (!IsInBounds(floor, tile))
+            {
+                return false;
+            }
+
+            // Vanilla edge convention confirmed in Floor.IsThroughDoor:
+            // m_doorSE separates this tile from x-1, and m_doorSW
+            // separates this tile from y-1. Read the neighboring stored
+            // edge too so both real standing sides of every door count.
+            TileWalls current =
+                floor.GetWallsSafe(
+                    tile.m_x,
+                    tile.m_y);
+            TileWalls east =
+                tile.m_x + 1 < floor.Size.m_x
+                    ? floor.GetWallsSafe(
+                        tile.m_x + 1,
+                        tile.m_y)
+                    : null;
+            TileWalls north =
+                tile.m_y + 1 < floor.Size.m_y
+                    ? floor.GetWallsSafe(
+                        tile.m_x,
+                        tile.m_y + 1)
+                    : null;
+
+            return
+                (current != null &&
+                 (current.m_doorSE != null ||
+                  current.m_doorSW != null)) ||
+                (east != null &&
+                 east.m_doorSE != null) ||
+                (north != null &&
+                 north.m_doorSW != null);
+        }
+
+        private static bool HasNearbyDoor(
+            Floor floor,
+            Vector2i position)
+        {
+            if (floor == null)
+            {
+                return false;
+            }
+
+            for (int x = position.m_x - 1;
+                x <= position.m_x + 1;
+                x++)
+            {
+                for (int y = position.m_y - 1;
+                    y <= position.m_y + 1;
+                    y++)
+                {
+                    if (x < 0 ||
+                        y < 0 ||
+                        x >= floor.Size.m_x ||
+                        y >= floor.Size.m_y)
+                    {
+                        continue;
+                    }
+
+                    TileWalls walls =
+                        floor.GetWallsSafe(x, y);
+                    if (walls != null &&
+                        (walls.m_doorSW != null ||
+                         walls.m_doorSE != null))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsInBounds(
+            Floor floor,
+            Vector2i tile)
+        {
+            return floor != null &&
+                tile.m_x >= 0 &&
+                tile.m_y >= 0 &&
+                tile.m_x < floor.Size.m_x &&
+                tile.m_y < floor.Size.m_y;
+        }
+    }
+
     internal static class PorterSampleCartRuntime
     {
         internal static bool HasFreeCart(Entity porter)
@@ -214,6 +383,15 @@ namespace HospitalPorters
                 cart.m_state.m_moving &&
                 cart.IsAttachedToCharacter() &&
                 cart.User == porter;
+
+            if (attached)
+            {
+                // Match native mobile-equipment sound handling: the Sample Cart
+                // reuses the Vanilla bucket-cart rolling loop while attached.
+                // Parking/restore paths already call StopSounds().
+                cart.StopSounds();
+                cart.PlayLoopingSound(0.75f, 1.25f);
+            }
 
             PorterDiagnostics.Log(
                 "cart attach: porter=" +
@@ -568,9 +746,6 @@ namespace HospitalPorters
             return true;
         }
 
-        private const float InteractionParkingDoorPenalty = 100f;
-        private const float InteractionParkingWallPreferenceBonus = 10f;
-
         private static bool TryFindPreferredInteractionParkingTile(
             Entity porter,
             TileObject cart,
@@ -612,6 +787,12 @@ namespace HospitalPorters
                     (int)(nativeUsePosition.m_x + 0.5f),
                     (int)(nativeUsePosition.m_y + 0.5f));
 
+            int bestDoorFrontTier =
+                int.MaxValue;
+            int bestDoorNearTier =
+                int.MaxValue;
+            int bestWallTier =
+                int.MaxValue;
             float bestScore =
                 float.MaxValue;
             float bestRoute =
@@ -637,15 +818,27 @@ namespace HospitalPorters
                         new Vector2i(x, y);
                     if (candidate == interactionPosition ||
                         candidate == usePosition ||
-                        !IsInteractionParkingTileSafe(
-                            porter,
-                            cart,
-                            interactionRoom,
-                            candidate,
-                            requireRoute: false))
+                        !interactionRoom.IsPositionInRoom(
+                            candidate))
                     {
                         continue;
                     }
+
+                    int doorFrontTier;
+                    int doorNearTier;
+                    PorterDoorPlacementRules
+                        .GetPorterAndCartDoorExposure(
+                            floor,
+                            candidate,
+                            cart,
+                            out doorFrontTier,
+                            out doorNearTier);
+                    int wallTier =
+                        HasAdjacentInteractionWall(
+                            floor,
+                            candidate)
+                            ? 0
+                            : 1;
 
                     int dx =
                         x - interactionPosition.m_x;
@@ -654,24 +847,30 @@ namespace HospitalPorters
                     float score =
                         dx * dx + dy * dy;
 
-                    if (HasNearbyInteractionDoor(
-                            floor,
-                            candidate))
+                    // Door/wall ranking is local and cheaper than footprint
+                    // validation or pathfinding. Once a valid best candidate
+                    // exists, reject tiers that cannot beat it before doing
+                    // the more expensive physical checks.
+                    if (doorFrontTier > bestDoorFrontTier ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier > bestDoorNearTier) ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier == bestDoorNearTier &&
+                         wallTier > bestWallTier) ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier == bestDoorNearTier &&
+                         wallTier == bestWallTier &&
+                         score > bestScore))
                     {
-                        score +=
-                            InteractionParkingDoorPenalty;
-                    }
-                    else if (HasAdjacentInteractionWall(
-                                 floor,
-                                 candidate))
-                    {
-                        score -=
-                            InteractionParkingWallPreferenceBonus;
+                        continue;
                     }
 
-                    // Only calculate an exact route for a candidate that can
-                    // still improve the current geometric/door/wall score.
-                    if (score > bestScore)
+                    if (!IsInteractionParkingTileSafe(
+                            porter,
+                            cart,
+                            interactionRoom,
+                            candidate,
+                            requireRoute: false))
                     {
                         continue;
                     }
@@ -684,12 +883,18 @@ namespace HospitalPorters
                             candidate,
                             AccessRights.STAFF);
                     if (route < 0f ||
-                        (score == bestScore &&
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier == bestDoorNearTier &&
+                         wallTier == bestWallTier &&
+                         score == bestScore &&
                          route >= bestRoute))
                     {
                         continue;
                     }
 
+                    bestDoorFrontTier = doorFrontTier;
+                    bestDoorNearTier = doorNearTier;
+                    bestWallTier = wallTier;
                     bestScore = score;
                     bestRoute = route;
                     parkingTile = candidate;
@@ -925,49 +1130,6 @@ namespace HospitalPorters
 
             return cartTileUser == null ||
                 cartTileUser == porter;
-        }
-
-        private static bool HasNearbyInteractionDoor(
-            Floor floor,
-            Vector2i position)
-        {
-            if (floor == null)
-            {
-                return false;
-            }
-
-            for (int x =
-                    position.m_x - 1;
-                x <=
-                    position.m_x + 1;
-                x++)
-            {
-                for (int y =
-                        position.m_y - 1;
-                    y <=
-                        position.m_y + 1;
-                    y++)
-                {
-                    if (x < 0 ||
-                        y < 0 ||
-                        x >= floor.Size.m_x ||
-                        y >= floor.Size.m_y)
-                    {
-                        continue;
-                    }
-
-                    TileWalls walls =
-                        floor.GetWallsSafe(x, y);
-                    if (walls != null &&
-                        (walls.m_doorSW != null ||
-                         walls.m_doorSE != null))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
         }
 
         private static bool HasAdjacentInteractionWall(
@@ -1222,6 +1384,9 @@ namespace HospitalPorters
                             "cart recovery: porter=" +
                             porter.Name +
                             "; action=released reservation in station.");
+                        PorterSampleTransportRuntime.TrackOrphanCartState(
+                            porter,
+                            cart);
                         continue;
                     }
 
@@ -1261,6 +1426,10 @@ namespace HospitalPorters
                             porter.Name + ".");
                     }
                 }
+
+                PorterSampleTransportRuntime.TrackOrphanCartState(
+                    porter,
+                    cart);
             }
         }
 
@@ -1283,6 +1452,7 @@ namespace HospitalPorters
                     continue;
                 }
 
+                Entity orphanUser = cart.User;
                 PorterDiagnostics.Log(
                     "orphan cart recovery triggered: floor=" +
                     floor.m_floorIndex +
@@ -1295,45 +1465,16 @@ namespace HospitalPorters
                     "; attached=" +
                     cart.IsAttachedToCharacter() +
                     "; user=" +
-                    (cart.User == null
+                    (orphanUser == null
                         ? "NONE"
-                        : (cart.User.Name ?? string.Empty).Trim()) +
+                        : (orphanUser.Name ?? string.Empty).Trim()) +
                     ".");
 
                 RecoverOrphanedMovingCart(cart);
+                PorterSampleTransportRuntime.TrackOrphanCartState(
+                    orphanUser,
+                    cart);
             }
-        }
-
-        internal static bool HasAttachedCart(
-            Entity porter)
-        {
-            if (porter == null ||
-                Hospital.Instance == null ||
-                Hospital.Instance.m_floors == null)
-            {
-                return false;
-            }
-
-            foreach (Floor floor in Hospital.Instance.m_floors)
-            {
-                if (floor == null || floor.m_movingObjects == null)
-                {
-                    continue;
-                }
-
-                for (int i = 0; i < floor.m_movingObjects.Count; i++)
-                {
-                    TileObject cart = floor.m_movingObjects[i];
-                    if (IsSampleCart(cart) &&
-                        cart.User == porter &&
-                        cart.IsAttachedToCharacter())
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
         }
 
         internal static void CollectFreeCarts(
@@ -2908,8 +3049,8 @@ namespace HospitalPorters
                 NurseEntityField == null
                     ? null
                     : NurseEntityField.GetValue(__instance) as Entity;
-            if (!PorterIdentity.IsPorter(porter) ||
-                !PorterSampleCartRuntime.HasAttachedCart(porter))
+            if (!PorterSampleTransportRuntime
+                    .HasAttachedMissionCart(porter))
             {
                 return;
             }
@@ -2937,18 +3078,25 @@ namespace HospitalPorters
             string animationID,
             ref string __result)
         {
-            Entity porter =
-                NurseEntityField == null
-                    ? null
-                    : NurseEntityField.GetValue(__instance) as Entity;
-            if (!PorterIdentity.IsPorter(porter) ||
-                animationID != "walk" ||
-                !PorterSampleCartRuntime.HasAttachedCart(porter))
+            if (animationID != "walk")
             {
                 return;
             }
 
-            __result = "walk_push_cart";
+            Entity porter =
+                NurseEntityField == null
+                    ? null
+                    : NurseEntityField.GetValue(__instance) as Entity;
+            if (!PorterSampleTransportRuntime
+                    .HasAttachedMissionCart(porter))
+            {
+                return;
+            }
+
+            __result =
+                PorterSampleCartAnimationRuntime.IsReady
+                    ? PorterSampleCartAnimationRuntime.AnimationId
+                    : "walk_push_cart";
         }
     }
 
@@ -2971,8 +3119,8 @@ namespace HospitalPorters
                 NurseEntityField == null
                     ? null
                     : NurseEntityField.GetValue(__instance) as Entity;
-            if (!PorterIdentity.IsPorter(porter) ||
-                !PorterSampleCartRuntime.HasAttachedCart(porter))
+            if (!PorterSampleTransportRuntime
+                    .HasAttachedMissionCart(porter))
             {
                 return;
             }

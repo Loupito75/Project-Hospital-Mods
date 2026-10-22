@@ -1745,6 +1745,7 @@ namespace HospitalPorters
         private static void Prefix()
         {
             PorterSampleTransportRuntime.Reset();
+            PorterFullSpeechBubblePatch.Reset();
             PorterIdleWorkstationVisuals.Reset();
             StretcherDestinationPatch.ResetFallbackTracking();
         }
