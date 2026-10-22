@@ -24,29 +24,47 @@ namespace HospitalShiftHandover
         private static readonly Dictionary<EmployeeComponent, ActivityState> States =
             new Dictionary<EmployeeComponent, ActivityState>();
 
-        internal static bool TryHandleDoctor(BehaviorDoctor behavior, float deltaTime, out bool prefixResult)
+        internal static bool TryHandleDoctor(
+            BehaviorDoctor behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift,
+            float deltaTime,
+            out bool prefixResult)
         {
             return TryHandle(
                 behavior,
-                behavior != null ? behavior.GetComponent<EmployeeComponent>() : null,
+                employee,
+                shouldHoldBeforeShift,
                 deltaTime,
                 out prefixResult);
         }
 
-        internal static bool TryHandleNurse(BehaviorNurse behavior, float deltaTime, out bool prefixResult)
+        internal static bool TryHandleNurse(
+            BehaviorNurse behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift,
+            float deltaTime,
+            out bool prefixResult)
         {
             return TryHandle(
                 behavior,
-                behavior != null ? behavior.GetComponent<EmployeeComponent>() : null,
+                employee,
+                shouldHoldBeforeShift,
                 deltaTime,
                 out prefixResult);
         }
 
-        internal static bool TryHandleLabSpecialist(BehaviorLabSpecialist behavior, float deltaTime, out bool prefixResult)
+        internal static bool TryHandleLabSpecialist(
+            BehaviorLabSpecialist behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift,
+            float deltaTime,
+            out bool prefixResult)
         {
             return TryHandle(
                 behavior,
-                behavior != null ? behavior.GetComponent<EmployeeComponent>() : null,
+                employee,
+                shouldHoldBeforeShift,
                 deltaTime,
                 out prefixResult);
         }
@@ -97,6 +115,7 @@ namespace HospitalShiftHandover
         private static bool TryHandle(
             Behavior behavior,
             EmployeeComponent employee,
+            bool shouldHoldBeforeShift,
             float deltaTime,
             out bool prefixResult)
         {
@@ -107,7 +126,6 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            bool isInCommonArea = PreShiftArrival.IsInCommonArea(behavior);
             bool lockerInteractionActive =
                 PreShiftLockerInteraction.HasActiveInteraction(employee);
 
@@ -141,7 +159,7 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            if (!HandoverRules.ShouldHoldBeforeShift(employee))
+            if (!shouldHoldBeforeShift)
             {
                 PreShiftLockerInteraction.AbandonForWorkplaceFallback(
                     employee,
@@ -150,6 +168,8 @@ namespace HospitalShiftHandover
                 return false;
             }
 
+            bool isInCommonArea =
+                PreShiftArrival.IsInCommonArea(behavior);
             if (!isInCommonArea)
             {
                 return false;

@@ -59,19 +59,37 @@ namespace HospitalShiftHandover
 
         private static bool s_reflectionWarningLogged;
 
-        internal static bool HandleDoctorIdle(BehaviorDoctor behavior)
+        internal static bool HandleDoctorIdle(
+            BehaviorDoctor behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift)
         {
-            return HandleIdle(behavior, behavior != null ? behavior.GetComponent<EmployeeComponent>() : null);
+            return HandleIdle(
+                behavior,
+                employee,
+                shouldHoldBeforeShift);
         }
 
-        internal static bool HandleNurseIdle(BehaviorNurse behavior)
+        internal static bool HandleNurseIdle(
+            BehaviorNurse behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift)
         {
-            return HandleIdle(behavior, behavior != null ? behavior.GetComponent<EmployeeComponent>() : null);
+            return HandleIdle(
+                behavior,
+                employee,
+                shouldHoldBeforeShift);
         }
 
-        internal static bool HandleLabSpecialistIdle(BehaviorLabSpecialist behavior)
+        internal static bool HandleLabSpecialistIdle(
+            BehaviorLabSpecialist behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift)
         {
-            return HandleIdle(behavior, behavior != null ? behavior.GetComponent<EmployeeComponent>() : null);
+            return HandleIdle(
+                behavior,
+                employee,
+                shouldHoldBeforeShift);
         }
 
         internal static bool TryInterceptWorkplaceRequest(Behavior behavior, EmployeeComponent employee)
@@ -92,6 +110,7 @@ namespace HospitalShiftHandover
                 Entity opposite;
                 if (!TryGetActiveOppositeWorkspaceOwner(employee, out opposite))
                 {
+                    PreShiftVisuals.UpdateHandoverWaitingBubble(employee, false);
                     plan.Phase = TransitionPhase.Released;
                     Plans.Remove(employee);
                     WorkplaceTravelEstimator.Clear(employee);
@@ -99,6 +118,9 @@ namespace HospitalShiftHandover
                 }
 
                 plan.OppositeEmployee = opposite;
+                PreShiftVisuals.UpdateHandoverWaitingBubble(
+                    employee,
+                    plan.Phase == TransitionPhase.HandoverWaiting);
                 if (plan.Phase == TransitionPhase.PreparingApproach &&
                     !TryStartApproach(behavior, employee, plan, opposite) &&
                     !WorkplaceTravelEstimator.IsApproachPending(employee))
@@ -217,6 +239,11 @@ namespace HospitalShiftHandover
             return plan != null && IsTransitionPhase(plan.Phase);
         }
 
+        internal static bool HasManagedPlan(EmployeeComponent employee)
+        {
+            return GetPlan(employee, false) != null;
+        }
+
         internal static void Clear(EmployeeComponent employee)
         {
             if (employee == null)
@@ -224,6 +251,7 @@ namespace HospitalShiftHandover
                 return;
             }
 
+            PreShiftVisuals.UpdateHandoverWaitingBubble(employee, false);
             Plans.Remove(employee);
             WorkplaceTravelEstimator.Clear(employee);
         }
@@ -234,7 +262,10 @@ namespace HospitalShiftHandover
             WorkplaceHoldLogStamps.Clear();
         }
 
-        private static bool HandleIdle(Behavior behavior, EmployeeComponent employee)
+        private static bool HandleIdle(
+            Behavior behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift)
         {
             if (behavior == null || employee == null || employee.m_state == null)
             {
@@ -247,7 +278,9 @@ namespace HospitalShiftHandover
                 return HandleTransitionIdle(behavior, employee, plan);
             }
 
-            if (!HandoverRules.ShouldHoldBeforeShift(employee))
+            PreShiftVisuals.UpdateHandoverWaitingBubble(employee, false);
+
+            if (!shouldHoldBeforeShift)
             {
                 if (plan != null)
                 {
@@ -371,6 +404,7 @@ namespace HospitalShiftHandover
             Entity activeOpposite;
             if (!TryGetActiveOppositeWorkspaceOwner(employee, out activeOpposite))
             {
+                PreShiftVisuals.UpdateHandoverWaitingBubble(employee, false);
                 if (plan.WaitLogged)
                 {
                     LogHandover(employee, plan.OppositeEmployee, "WORKPLACE_HANDOVER_RELEASE", null);
@@ -390,6 +424,9 @@ namespace HospitalShiftHandover
 
             plan.OppositeEmployee = activeOpposite;
             LogWaitOnce(employee, plan, activeOpposite);
+            PreShiftVisuals.UpdateHandoverWaitingBubble(
+                employee,
+                plan.Phase == TransitionPhase.HandoverWaiting);
 
             if (plan.Phase == TransitionPhase.PreparingApproach)
             {
@@ -427,6 +464,7 @@ namespace HospitalShiftHandover
                 }
 
                 plan.Phase = TransitionPhase.HandoverWaiting;
+                PreShiftVisuals.UpdateHandoverWaitingBubble(employee, true);
                 LogHandover(
                     employee,
                     activeOpposite,
@@ -1382,6 +1420,7 @@ namespace HospitalShiftHandover
                     return plan;
                 }
 
+                PreShiftVisuals.UpdateHandoverWaitingBubble(employee, false);
                 Plans.Remove(employee);
             }
 

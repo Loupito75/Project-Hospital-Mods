@@ -13,7 +13,7 @@ namespace HospitalShiftHandover
         private const int DefaultPlannedCommuteLeadMinMinutes = 65;
         private const int DefaultPlannedCommuteLeadMaxMinutes = 80;
         private const int DefaultNativeEarlyExtensionMinutes = 15;
-        private const bool DefaultDressingEnabled = false;
+        private const bool DefaultDressingEnabled = true;
         private const int DefaultArrivalDressingChancePercent = 70;
         private const int DefaultOutgoingDressingChancePercent = 40;
         private const int DefaultCasualClothesPercent = 65;

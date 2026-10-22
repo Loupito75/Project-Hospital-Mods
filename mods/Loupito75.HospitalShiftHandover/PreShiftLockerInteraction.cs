@@ -10,6 +10,11 @@ namespace HospitalShiftHandover
     {
         private const float MinimumSlackMinutes = 8f;
 
+        private const string LockerOpenSoundEventId = "SFX_ENV_DOOR_LOCKER_OPEN";
+        private const string LockerCloseSoundEventId = "SFX_ENV_DOOR_LOCKER_CLOSE";
+        private const string DressSoundEventId = "SFX_ENV_PATIENT_DRESS";
+        private const string UndressSoundEventId = "SFX_ENV_PATIENT_UNDRESS";
+
         private const int StableDecisionArrivalDressing = 1;
         private const int StableDecisionOutgoingDressing = 2;
         private const int StableDecisionCivilianStyle = 3;
@@ -289,7 +294,10 @@ namespace HospitalShiftHandover
             return true;
         }
 
-        internal static bool TryHandleOutgoing(Behavior behavior)
+        internal static bool TryHandleOutgoing(
+            Behavior behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift)
         {
             if (!ShiftHandoverConfig.DressingEnabled ||
                 behavior == null ||
@@ -298,8 +306,6 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            EmployeeComponent employee =
-                behavior.GetComponent<EmployeeComponent>();
             if (employee == null ||
                 employee.m_state == null ||
                 employee.m_entity == null ||
@@ -313,7 +319,7 @@ namespace HospitalShiftHandover
             // Incoming employees already inside during the pre-shift hold window are
             // also technically off-shift. They belong to the arrival pipeline, never
             // to the outgoing dressing pipeline.
-            if (HandoverRules.ShouldHoldBeforeShift(employee))
+            if (shouldHoldBeforeShift)
             {
                 return false;
             }
@@ -357,6 +363,13 @@ namespace HospitalShiftHandover
                 CancelOutgoing(employee, state, "stamp-changed");
                 state = null;
             }
+
+            PreShiftVisuals.UpdateDressingBubble(
+                employee,
+                state != null &&
+                (state.Phase == OutgoingPhase.OpeningLocker ||
+                 state.Phase == OutgoingPhase.UsingLocker) &&
+                CanShowOutgoingDressingBubble(behavior, employee));
 
             WalkComponent walk =
                 behavior.GetComponent<WalkComponent>();
@@ -639,7 +652,7 @@ namespace HospitalShiftHandover
                 activeAnim.SetDirection(
                     activeLocker.GetAccessOrientation(
                         state.AccessPosition));
-                activeLocker.PlayStartUseSound();
+                PlayDressingSound(activeOwner, LockerOpenSoundEventId);
                 if (!PlayLockerCharacterAnimation(
                         behavior,
                         activeLocker.m_state.m_gameDBObject.Entry
@@ -655,6 +668,9 @@ namespace HospitalShiftHandover
                 }
 
                 state.Phase = OutgoingPhase.OpeningLocker;
+                PreShiftVisuals.UpdateDressingBubble(
+                    employee,
+                    CanShowOutgoingDressingBubble(behavior, employee));
                 LogOutgoing(
                     employee,
                     "OUT_ACTIVATE",
@@ -702,9 +718,10 @@ namespace HospitalShiftHandover
                 ApplyOutgoingCivilianClothes(
                     behavior,
                     employee);
+                PreShiftVisuals.UpdateDressingBubble(employee, false);
 
                 ForceLockerFrame(activeLocker, 0);
-                activeLocker.PlayEndUseSound();
+                PlayDressingSound(activeOwner, LockerCloseSoundEventId);
                 if (!PlayLockerCharacterAnimation(
                         behavior,
                         activeLocker.m_state.m_gameDBObject.Entry
@@ -749,7 +766,9 @@ namespace HospitalShiftHandover
         }
 
         internal static bool ShouldRunVanillaOutgoingDeparture(
-            Behavior behavior)
+            Behavior behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift)
         {
             if (behavior == null ||
                 DayTime.Instance == null)
@@ -757,12 +776,10 @@ namespace HospitalShiftHandover
                 return false;
             }
 
-            EmployeeComponent employee =
-                behavior.GetComponent<EmployeeComponent>();
             if (employee == null ||
                 employee.m_state == null ||
                 employee.IsFired() ||
-                HandoverRules.ShouldHoldBeforeShift(employee) ||
+                shouldHoldBeforeShift ||
                 DayTime.Instance.GetShift() ==
                     employee.m_state.m_shift)
             {
@@ -869,6 +886,40 @@ namespace HospitalShiftHandover
                 ShiftHandoverConfig.OutgoingDressingChancePercent,
                 selected ? "dressing" : "uniform");
             return selected;
+        }
+
+        internal static bool HasManagedIdleWorkflow(
+            EmployeeComponent employee)
+        {
+            if (employee == null ||
+                employee.m_state == null ||
+                DayTime.Instance == null)
+            {
+                return false;
+            }
+
+            int stamp = GetStamp(employee);
+
+            InteractionState interactionState;
+            if (States.TryGetValue(employee, out interactionState) &&
+                interactionState != null &&
+                interactionState.Stamp == stamp)
+            {
+                return true;
+            }
+
+            OutgoingState outgoingState;
+            if (OutgoingStates.TryGetValue(employee, out outgoingState) &&
+                outgoingState != null &&
+                outgoingState.Stamp == stamp)
+            {
+                return true;
+            }
+
+            CivilianState civilianState;
+            return CivilianStates.TryGetValue(employee, out civilianState) &&
+                   civilianState != null &&
+                   civilianState.Stamp == stamp;
         }
 
         internal static bool IsOutgoingDressingActive(
@@ -992,6 +1043,8 @@ namespace HospitalShiftHandover
         private static void AbandonForForcedBiohazardClothes(
             EmployeeComponent employee)
         {
+            PreShiftVisuals.UpdateDressingBubble(employee, false);
+
             if (employee == null ||
                 employee.m_state == null ||
                 DayTime.Instance == null)
@@ -1068,6 +1121,8 @@ namespace HospitalShiftHandover
             EmployeeComponent employee,
             string reason)
         {
+            PreShiftVisuals.UpdateDressingBubble(employee, false);
+
             if (employee == null ||
                 employee.m_state == null ||
                 employee.m_entity == null ||
@@ -1159,6 +1214,13 @@ namespace HospitalShiftHandover
                     state = null;
                 }
             }
+
+            PreShiftVisuals.UpdateDressingBubble(
+                employee,
+                state != null &&
+                (state.Phase == InteractionPhase.OpeningLocker ||
+                 state.Phase == InteractionPhase.UsingLocker) &&
+                HasPendingCivilianClothes(employee));
 
             if (state == null)
             {
@@ -1336,7 +1398,7 @@ namespace HospitalShiftHandover
                 }
 
                 activeAnim.SetDirection(activeLocker.GetAccessOrientation(accessPosition));
-                activeLocker.PlayStartUseSound();
+                PlayDressingSound(activeOwner, LockerOpenSoundEventId);
                 if (!PlayLockerCharacterAnimation(
                         behavior,
                         activeLocker.m_state.m_gameDBObject.Entry.DefaultUseStartAnimations,
@@ -1347,6 +1409,9 @@ namespace HospitalShiftHandover
                 }
 
                 state.Phase = InteractionPhase.OpeningLocker;
+                PreShiftVisuals.UpdateDressingBubble(
+                    employee,
+                    HasPendingCivilianClothes(employee));
                 Log(
                     employee,
                     "ACTIVATE",
@@ -1392,8 +1457,9 @@ namespace HospitalShiftHandover
                 RestoreProfessionalClothes(
                     employee,
                     "locker-use-complete");
+                PreShiftVisuals.UpdateDressingBubble(employee, false);
                 ForceLockerFrame(activeLocker, 0);
-                activeLocker.PlayEndUseSound();
+                PlayDressingSound(activeOwner, LockerCloseSoundEventId);
                 if (!PlayLockerCharacterAnimation(
                         behavior,
                         activeLocker.m_state.m_gameDBObject.Entry.DefaultUseEndAnimations,
@@ -1434,6 +1500,8 @@ namespace HospitalShiftHandover
             {
                 return;
             }
+
+            PreShiftVisuals.UpdateDressingBubble(employee, false);
 
             if (IsWorkplaceFallbackActive(
                     employee,
@@ -1911,6 +1979,48 @@ namespace HospitalShiftHandover
             }
         }
 
+        private static bool CanShowOutgoingDressingBubble(
+            Behavior behavior,
+            EmployeeComponent employee)
+        {
+            if (behavior == null ||
+                employee == null ||
+                employee.m_entity == null)
+            {
+                return false;
+            }
+
+            WalkComponent walk =
+                behavior.GetComponent<WalkComponent>();
+            AnimModelComponent anim =
+                behavior.GetComponent<AnimModelComponent>();
+            if (walk == null ||
+                anim == null ||
+                anim.m_state == null ||
+                anim.m_state.m_defaultClothes == null ||
+                (WorldEventManager.Instance != null &&
+                 WorldEventManager.Instance
+                     .HasEventForcingBiohazardClothes()) ||
+                walk.IsOnBiohazard() ||
+                GetCivilianFamily(
+                    GetClothingStyleId(anim.m_state.m_clothes)) != null)
+            {
+                return false;
+            }
+
+            int civilianStyleRoll =
+                GetStableDecisionValue(
+                    employee,
+                    StableDecisionCivilianStyle,
+                    100);
+            string[] styles =
+                civilianStyleRoll <
+                    ShiftHandoverConfig.CasualClothesPercent
+                    ? CasualStyleIds
+                    : BusinessStyleIds;
+            return ClothingStylesExist(styles);
+        }
+
         private static bool ApplyOutgoingCivilianClothes(
             Behavior behavior,
             EmployeeComponent employee)
@@ -1970,6 +2080,9 @@ namespace HospitalShiftHandover
             string defaultStyleId =
                 GetClothingStyleId(
                     anim.m_state.m_defaultClothes);
+            string previousStyleId =
+                GetClothingStyleId(
+                    anim.m_state.m_clothes);
             anim.ForceClothingStyle(styles, null);
 
             string appliedStyleId =
@@ -1995,6 +2108,13 @@ namespace HospitalShiftHandover
                         defaultStyleId,
                     FromOutgoing = true
                 };
+
+            if (previousStyleId != appliedStyleId)
+            {
+                PlayDressingSound(
+                    employee.m_entity,
+                    UndressSoundEventId);
+            }
 
             LogOutgoing(
                 employee,
@@ -2053,6 +2173,8 @@ namespace HospitalShiftHandover
             {
                 return;
             }
+
+            PreShiftVisuals.UpdateDressingBubble(employee, false);
 
             Entity owner = employee.m_entity;
             if (state != null)
@@ -2781,6 +2903,9 @@ namespace HospitalShiftHandover
                 return;
             }
 
+            string previousStyleId =
+                GetClothingStyleId(anim.m_state.m_clothes);
+
             EmployeeComponent previousExplicitRestore =
                 ExplicitProfessionalRestoreEmployee;
             ExplicitProfessionalRestoreEmployee = employee;
@@ -2798,6 +2923,14 @@ namespace HospitalShiftHandover
                 GetClothingStyleId(anim.m_state.m_clothes);
             string defaultStyleId =
                 GetClothingStyleId(anim.m_state.m_defaultClothes);
+
+            if (reason == "locker-use-complete" &&
+                previousStyleId != restoredStyleId)
+            {
+                PlayDressingSound(
+                    owner,
+                    DressSoundEventId);
+            }
 
             CivilianStates.Remove(employee);
             Log(
@@ -2828,6 +2961,8 @@ namespace HospitalShiftHandover
             EmployeeComponent employee,
             string reason)
         {
+            PreShiftVisuals.UpdateDressingBubble(employee, false);
+
             if (employee == null)
             {
                 return;
@@ -2868,6 +3003,8 @@ namespace HospitalShiftHandover
             EmployeeComponent employee,
             string reason)
         {
+            PreShiftVisuals.UpdateDressingBubble(employee, false);
+
             if (employee == null)
             {
                 return;
@@ -2908,6 +3045,8 @@ namespace HospitalShiftHandover
             bool success,
             string details)
         {
+            PreShiftVisuals.UpdateDressingBubble(employee, false);
+
             if (employee == null)
             {
                 return;
@@ -3037,6 +3176,25 @@ namespace HospitalShiftHandover
                 " | threshold=" +
                 threshold.ToString(CultureInfo.InvariantCulture) +
                 " | result=" + result);
+        }
+
+        private static void PlayDressingSound(
+            Entity source,
+            string soundEventId)
+        {
+            if (source == null || string.IsNullOrEmpty(soundEventId))
+            {
+                return;
+            }
+
+            SoundSourceComponent sound =
+                source.GetComponent<SoundSourceComponent>();
+            if (sound != null)
+            {
+                sound.PlaySoundEvent(
+                    soundEventId,
+                    SoundEventCategory.SFX);
+            }
         }
 
         private static string GetObjectId(TileObject tileObject)

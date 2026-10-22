@@ -11,10 +11,11 @@ namespace HospitalShiftHandover
     // Treat that residual User value as occupied only while the departing employee is
     // still physically sitting on the chair; never clear the game's User field here.
     //
-    // Clinic doctors need one additional guard: a consultation can remain clinically
-    // active after the desk/chair has been released. In that case the native patient
-    // reservation and the doctor's physical room remain authoritative until the
-    // procedure releases the doctor.
+    // Clinic doctors need two additional guards. A consultation can remain clinically
+    // active after the desk/chair has been released, and a finished consultation can
+    // release its logical reservation before the outgoing doctor and last procedure
+    // patient have physically left a doctors office. Native clinical state stays
+    // authoritative first; physical occupancy only extends the handover afterward.
     [HarmonyPatch(typeof(PreShiftCoordinator), "TryGetActiveOppositeWorkspaceOwner")]
     internal static class PreShiftCoordinatorStaleChairGuardPatch
     {
@@ -42,6 +43,16 @@ namespace HospitalShiftHandover
             // the native patient reservation/state and keep the incoming doctor staged.
             if (!__result)
             {
+                Entity physicalOutgoingDoctor;
+                if (TryGetFinishedOppositeDoctorStillPhysicallyOccupyingOffice(
+                        employee,
+                        out physicalOutgoingDoctor))
+                {
+                    oppositeEmployee = physicalOutgoingDoctor;
+                    __result = true;
+                    return;
+                }
+
                 Entity busyDoctor;
                 if (TryGetBusyOppositeDoctorPhysicallyInWorkplaceRoom(employee, out busyDoctor))
                 {
@@ -82,11 +93,130 @@ namespace HospitalShiftHandover
                 }
             }
 
-            // The opposite employee is already leaving and is not physically occupying
-            // the work chair. Let the coordinator perform its normal RELEASE + native
-            // GoToWorkplace dispatch without mutating the stale chair reservation.
+            if (ShouldHoldFinishedDoctorOfficeForPhysicalOccupancy(employee, oppositeEmployee))
+            {
+                return;
+            }
+
+            // The opposite employee is already leaving, has no live clinical reservation,
+            // is not physically occupying the work chair, and neither the outgoing doctor
+            // nor their last procedure patient remains inside the protected doctors office.
+            // Let the coordinator perform its normal RELEASE + native GoToWorkplace dispatch.
             oppositeEmployee = null;
             __result = false;
+        }
+
+        private static bool TryGetFinishedOppositeDoctorStillPhysicallyOccupyingOffice(
+            EmployeeComponent incomingEmployee,
+            out Entity outgoingDoctor)
+        {
+            outgoingDoctor = null;
+
+            if (incomingEmployee == null || incomingEmployee.m_state == null ||
+                incomingEmployee.m_entity == null ||
+                incomingEmployee.m_entity.GetComponent<BehaviorDoctor>() == null ||
+                incomingEmployee.m_state.m_workDesk == null)
+            {
+                return false;
+            }
+
+            TileObject workDesk = incomingEmployee.m_state.m_workDesk.GetEntity();
+            if (workDesk == null)
+            {
+                return false;
+            }
+
+            Shift oppositeShift =
+                incomingEmployee.m_state.m_shift == Shift.DAY ? Shift.NIGHT : Shift.DAY;
+            Entity candidate = workDesk.GetWorkspaceOwner(oppositeShift);
+            if (!ShouldHoldFinishedDoctorOfficeForPhysicalOccupancy(
+                    incomingEmployee,
+                    candidate))
+            {
+                return false;
+            }
+
+            outgoingDoctor = candidate;
+            return true;
+        }
+
+        private static bool ShouldHoldFinishedDoctorOfficeForPhysicalOccupancy(
+            EmployeeComponent incomingEmployee,
+            Entity outgoingDoctor)
+        {
+            if (incomingEmployee == null || incomingEmployee.m_state == null ||
+                outgoingDoctor == null || outgoingDoctor == incomingEmployee.m_entity ||
+                incomingEmployee.m_state.m_workDesk == null ||
+                MapScriptInterface.Instance == null || Database.Instance == null)
+            {
+                return false;
+            }
+
+            TileObject incomingDesk = incomingEmployee.m_state.m_workDesk.GetEntity();
+            BehaviorDoctor doctor = outgoingDoctor.GetComponent<BehaviorDoctor>();
+            EmployeeComponent outgoingEmployee =
+                outgoingDoctor.GetComponent<EmployeeComponent>();
+            if (incomingDesk == null || incomingDesk.m_state == null ||
+                doctor == null || doctor.m_state == null ||
+                outgoingEmployee == null || outgoingEmployee.m_state == null ||
+                outgoingEmployee.IsFired() ||
+                outgoingEmployee.m_state.m_shift == incomingEmployee.m_state.m_shift ||
+                outgoingEmployee.m_state.m_workDesk == null ||
+                outgoingEmployee.m_state.m_workDesk.GetEntity() != incomingDesk ||
+                !IsFinishedOrLeaving(outgoingDoctor) ||
+                HasActiveClinicalReservation(doctor, outgoingEmployee))
+            {
+                return false;
+            }
+
+            Room workplaceRoom = MapScriptInterface.Instance.GetRoomAt(
+                incomingDesk.m_state.m_position,
+                incomingDesk.GetFloorIndex());
+            GameDBRoomType doctorsOffice =
+                Database.Instance.GetEntry<GameDBRoomType>("ROOM_TYPE_DOCTORS_OFFICE");
+            if (workplaceRoom == null || workplaceRoom.m_roomPersistentData == null ||
+                workplaceRoom.m_roomPersistentData.m_roomType.Entry == null ||
+                doctorsOffice == null ||
+                workplaceRoom.m_roomPersistentData.m_roomType.Entry != doctorsOffice)
+            {
+                return false;
+            }
+
+            if (IsPhysicallyInRoom(outgoingDoctor, workplaceRoom))
+            {
+                return true;
+            }
+
+            Entity lastProcedurePatient =
+                doctor.m_state.m_lastProcedurePatient != null
+                    ? doctor.m_state.m_lastProcedurePatient.GetEntity()
+                    : null;
+            if (lastProcedurePatient == null)
+            {
+                return false;
+            }
+
+            BehaviorPatient patient =
+                lastProcedurePatient.GetComponent<BehaviorPatient>();
+            if (patient == null || patient.m_state == null ||
+                patient.m_state.m_patientState == PatientState.Left ||
+                patient.m_state.m_patientState == PatientState.Dead)
+            {
+                return false;
+            }
+
+            return IsPhysicallyInRoom(lastProcedurePatient, workplaceRoom);
+        }
+
+        private static bool IsPhysicallyInRoom(Entity character, Room room)
+        {
+            if (character == null || room == null || MapScriptInterface.Instance == null)
+            {
+                return false;
+            }
+
+            WalkComponent walk = character.GetComponent<WalkComponent>();
+            return walk != null && MapScriptInterface.Instance.GetRoomAt(walk) == room;
         }
 
         private static bool TryGetBusyOppositeDoctorPhysicallyInWorkplaceRoom(

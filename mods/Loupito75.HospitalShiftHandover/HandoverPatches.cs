@@ -215,6 +215,32 @@ namespace HospitalShiftHandover
         }
     }
 
+    internal static class HandoverIdleFastPath
+    {
+        internal static bool CanRunVanilla(
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift)
+        {
+            if (employee == null ||
+                employee.m_state == null ||
+                DayTime.Instance == null ||
+                shouldHoldBeforeShift)
+            {
+                return false;
+            }
+
+            if (DayTime.Instance.GetShift() != employee.m_state.m_shift)
+            {
+                return false;
+            }
+
+            return !OutgoingHandover.HasActiveLateReliefHold(employee) &&
+                   !PreShiftLockerInteraction.HasManagedIdleWorkflow(employee) &&
+                   !PreShiftCommonAreaController.HasManagedPreShiftState(employee) &&
+                   !PreShiftCoordinator.HasManagedPlan(employee);
+        }
+    }
+
     [HarmonyPatch(typeof(EmployeeComponent), "ShouldStartCommuting")]
     internal static class EmployeeShouldStartCommutingPatch
     {
@@ -376,28 +402,58 @@ namespace HospitalShiftHandover
     {
         private static bool Prefix(BehaviorDoctor __instance, float deltaTime)
         {
-            if (OutgoingHandover.TryHoldForLateRelief(__instance))
+            EmployeeComponent employee =
+                __instance.GetComponent<EmployeeComponent>();
+            bool shouldHoldBeforeShift =
+                HandoverRules.ShouldHoldBeforeShift(employee);
+
+            if (HandoverIdleFastPath.CanRunVanilla(
+                    employee,
+                    shouldHoldBeforeShift))
+            {
+                return true;
+            }
+
+            if (OutgoingHandover.TryHoldForLateRelief(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift))
             {
                 return false;
             }
 
-            if (PreShiftLockerInteraction.TryHandleOutgoing(__instance))
+            if (PreShiftLockerInteraction.TryHandleOutgoing(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift))
             {
                 return false;
             }
 
             if (PreShiftLockerInteraction
-                    .ShouldRunVanillaOutgoingDeparture(__instance))
+                    .ShouldRunVanillaOutgoingDeparture(
+                        __instance,
+                        employee,
+                        shouldHoldBeforeShift))
             {
                 return true;
             }
 
             bool result;
-            if (PreShiftCommonAreaController.TryHandleDoctor(__instance, deltaTime, out result))
+            if (PreShiftCommonAreaController.TryHandleDoctor(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift,
+                    deltaTime,
+                    out result))
             {
                 return result;
             }
-            return PreShiftCoordinator.HandleDoctorIdle(__instance);
+
+            return PreShiftCoordinator.HandleDoctorIdle(
+                __instance,
+                employee,
+                shouldHoldBeforeShift);
         }
     }
 
@@ -406,28 +462,58 @@ namespace HospitalShiftHandover
     {
         private static bool Prefix(BehaviorNurse __instance, float deltaTime)
         {
-            if (OutgoingHandover.TryHoldForLateRelief(__instance))
+            EmployeeComponent employee =
+                __instance.GetComponent<EmployeeComponent>();
+            bool shouldHoldBeforeShift =
+                HandoverRules.ShouldHoldBeforeShift(employee);
+
+            if (HandoverIdleFastPath.CanRunVanilla(
+                    employee,
+                    shouldHoldBeforeShift))
+            {
+                return true;
+            }
+
+            if (OutgoingHandover.TryHoldForLateRelief(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift))
             {
                 return false;
             }
 
-            if (PreShiftLockerInteraction.TryHandleOutgoing(__instance))
+            if (PreShiftLockerInteraction.TryHandleOutgoing(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift))
             {
                 return false;
             }
 
             if (PreShiftLockerInteraction
-                    .ShouldRunVanillaOutgoingDeparture(__instance))
+                    .ShouldRunVanillaOutgoingDeparture(
+                        __instance,
+                        employee,
+                        shouldHoldBeforeShift))
             {
                 return true;
             }
 
             bool result;
-            if (PreShiftCommonAreaController.TryHandleNurse(__instance, deltaTime, out result))
+            if (PreShiftCommonAreaController.TryHandleNurse(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift,
+                    deltaTime,
+                    out result))
             {
                 return result;
             }
-            return PreShiftCoordinator.HandleNurseIdle(__instance);
+
+            return PreShiftCoordinator.HandleNurseIdle(
+                __instance,
+                employee,
+                shouldHoldBeforeShift);
         }
     }
 
@@ -436,28 +522,58 @@ namespace HospitalShiftHandover
     {
         private static bool Prefix(BehaviorLabSpecialist __instance, float deltaTime)
         {
-            if (OutgoingHandover.TryHoldForLateRelief(__instance))
+            EmployeeComponent employee =
+                __instance.GetComponent<EmployeeComponent>();
+            bool shouldHoldBeforeShift =
+                HandoverRules.ShouldHoldBeforeShift(employee);
+
+            if (HandoverIdleFastPath.CanRunVanilla(
+                    employee,
+                    shouldHoldBeforeShift))
+            {
+                return true;
+            }
+
+            if (OutgoingHandover.TryHoldForLateRelief(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift))
             {
                 return false;
             }
 
-            if (PreShiftLockerInteraction.TryHandleOutgoing(__instance))
+            if (PreShiftLockerInteraction.TryHandleOutgoing(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift))
             {
                 return false;
             }
 
             if (PreShiftLockerInteraction
-                    .ShouldRunVanillaOutgoingDeparture(__instance))
+                    .ShouldRunVanillaOutgoingDeparture(
+                        __instance,
+                        employee,
+                        shouldHoldBeforeShift))
             {
                 return true;
             }
 
             bool result;
-            if (PreShiftCommonAreaController.TryHandleLabSpecialist(__instance, deltaTime, out result))
+            if (PreShiftCommonAreaController.TryHandleLabSpecialist(
+                    __instance,
+                    employee,
+                    shouldHoldBeforeShift,
+                    deltaTime,
+                    out result))
             {
                 return result;
             }
-            return PreShiftCoordinator.HandleLabSpecialistIdle(__instance);
+
+            return PreShiftCoordinator.HandleLabSpecialistIdle(
+                __instance,
+                employee,
+                shouldHoldBeforeShift);
         }
     }
 
