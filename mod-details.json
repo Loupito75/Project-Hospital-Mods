@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 4,
-  "updatedUtc": "2026-10-22T04:15:01Z",
-  "expiresUtc": "2027-01-20T04:15:01Z",
+  "manifestRevision": 5,
+  "updatedUtc": "2026-10-22T05:08:19Z",
+  "expiresUtc": "2027-01-20T05:08:19Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -60,9 +60,9 @@
     },
     {
       "guid": "loupito75.HospitalTrafficControl",
-      "version": "1.5.1",
-      "description": "Project Hospital traffic and access-control mod powered by BepInEx and Harmony.",
-      "whatsNew": ""
+      "version": "1.5.2",
+      "description": "Improves character access, movement rules and traffic management inside the hospital.",
+      "whatsNew": "Smarter janitor waiting, improved Bucket Cart door clearance, blocked-path bubble, safer cleaning and bathroom defaults, pathfinding performance improvements"
     }
   ]
 }
