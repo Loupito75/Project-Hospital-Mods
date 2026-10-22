@@ -8,6 +8,13 @@ namespace HospitalTrafficControl.Patches
     [HarmonyPatch(typeof(Floor), nameof(Floor.GetMovementCost), new Type[] { typeof(Vector2i), typeof(int), typeof(bool) })]
     internal static class RoomMovementCostByAccessPatch
     {
+        [HarmonyPrepare]
+        private static bool Prepare()
+        {
+            return TrafficControlConfig.AvoidRoomShortcuts &&
+                   TrafficControlConfig.RoomTransitPenalty > 0f;
+        }
+
         private static void Postfix(Floor __instance, Vector2i position, ref float __result)
         {
             RoomTransitManager.ApplyPenalty(__instance, position, ref __result);
@@ -17,6 +24,13 @@ namespace HospitalTrafficControl.Patches
     [HarmonyPatch(typeof(Floor), nameof(Floor.GetMovementCost), new Type[] { typeof(Vector2i), typeof(Direction), typeof(bool) })]
     internal static class RoomMovementCostByDirectionPatch
     {
+        [HarmonyPrepare]
+        private static bool Prepare()
+        {
+            return TrafficControlConfig.AvoidRoomShortcuts &&
+                   TrafficControlConfig.RoomTransitPenalty > 0f;
+        }
+
         private static void Postfix(Floor __instance, Vector2i position, ref float __result)
         {
             RoomTransitManager.ApplyPenalty(__instance, position, ref __result);

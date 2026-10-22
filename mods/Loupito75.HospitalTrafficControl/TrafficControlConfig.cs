@@ -3,22 +3,23 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace HospitalTrafficControl
 {
     internal static class TrafficControlConfig
     {
         private const string ConfigFileName = "Loupito75.HospitalTrafficControl.Config.xml";
-        private const bool DefaultAvoidRoomShortcuts = false;
+        private const bool DefaultAvoidRoomShortcuts = true;
         private const float DefaultRoomTransitPenalty = 8f;
-        private const bool DefaultAvoidCleaningActiveProcedureRooms = false;
-        private const bool DefaultAvoidCleaningOccupiedBathrooms = false;
+        private const bool DefaultAvoidCleaningActiveProcedureRooms = true;
+        private const bool DefaultAvoidCleaningOccupiedBathrooms = true;
         private const int DefaultJanitorOccupiedRoomWaitChance = 30;
         private const int DefaultJanitorOccupiedRoomWaitCooldownMinutes = 30;
         private const int DefaultJanitorOccupiedRoomWaitMinutes = 15;
         private const int DefaultJanitorOccupiedRoomWaitRandomnessMinutes = 3;
-        private const bool DefaultReduceOccupiedHospitalizationCleaningAtNight = false;
-        private const bool DefaultReleaseToiletOwnerAfterUse = false;
+        private const bool DefaultReduceOccupiedHospitalizationCleaningAtNight = true;
+        private const bool DefaultReleaseToiletOwnerAfterUse = true;
         private const bool DefaultPathfindingDebug = false;
         private const bool DefaultJanitorCartDebug = false;
         private const bool DefaultDoorDebug = false;
@@ -34,18 +35,6 @@ namespace HospitalTrafficControl
         private static readonly Regex XmlCommentRegex = new Regex(
             "<!--.*?-->",
             RegexOptions.Singleline | RegexOptions.CultureInvariant);
-
-        private static readonly Regex ExceptionsOpenRegex = new Regex(
-            @"<\s*Exceptions(?:\s[^>]*)?>",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-        private static readonly Regex ExceptionsCloseRegex = new Regex(
-            @"<\s*/\s*Exceptions\s*>",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-        private static readonly Regex RoomElementRegex = new Regex(
-            @"<\s*Room\b(?<attributes>[^>]*)/?>",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         private static HashSet<string> _transitExceptionRoomTypeIds = CreateDefaultExceptionSet();
 
@@ -104,6 +93,12 @@ namespace HospitalTrafficControl
         private static void LoadFromText(string content)
         {
             string xml = XmlCommentRegex.Replace(content ?? string.Empty, string.Empty);
+
+            if (xml.IndexOf("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                throw new FormatException(
+                    "DTD declarations are not allowed in the HTC configuration.");
+            }
 
             if (!ContainsRoot(xml, "HospitalTrafficControl"))
             {
@@ -314,66 +309,58 @@ namespace HospitalTrafficControl
 
         private static void LoadTransitExceptions(string xml)
         {
-            Match exceptionsOpenMatch = ExceptionsOpenRegex.Match(xml);
-            Match exceptionsCloseMatch = ExceptionsCloseRegex.Match(xml);
-            if (!exceptionsOpenMatch.Success ||
-                !exceptionsCloseMatch.Success ||
-                exceptionsCloseMatch.Index <= exceptionsOpenMatch.Index)
+            // The new Value-only format is intentional. Old Room attributes
+            // must not be silently mixed with migrated HMUC values.
+            XmlDocument document = new XmlDocument();
+            document.XmlResolver = null;
+            document.LoadXml(xml);
+            XmlNode container =
+                document.SelectSingleNode(
+                    "/HospitalTrafficControl/RoomTransit/Exceptions");
+            if (container == null)
             {
                 throw new FormatException(
-                    "The XML must contain an <Exceptions>...</Exceptions> element under <RoomTransit>.");
+                    "RoomTransit requires an <Exceptions> element.");
             }
 
-            string exceptionsContent = xml.Substring(
-                exceptionsOpenMatch.Index + exceptionsOpenMatch.Length,
-                exceptionsCloseMatch.Index - (exceptionsOpenMatch.Index + exceptionsOpenMatch.Length));
-
-            MatchCollection roomMatches = RoomElementRegex.Matches(exceptionsContent);
-            HashSet<string> exceptions = new HashSet<string>(StringComparer.Ordinal);
-            HashSet<string> configuredIds = new HashSet<string>(StringComparer.Ordinal);
-
-            foreach (Match roomMatch in roomMatches)
+            HashSet<string> values = new HashSet<string>(
+                StringComparer.Ordinal);
+            foreach (XmlNode child in container.ChildNodes)
             {
-                string attributes = roomMatch.Groups["attributes"].Value;
-                string roomTypeId = GetAttributeValue(attributes, "ID");
-                string enabledValue = GetAttributeValue(attributes, "Enabled");
-
-                roomTypeId = roomTypeId == null ? null : roomTypeId.Trim();
-                enabledValue = enabledValue == null ? null : enabledValue.Trim();
-
-                if (string.IsNullOrEmpty(roomTypeId))
+                if (child.NodeType == XmlNodeType.Whitespace ||
+                    child.NodeType == XmlNodeType.SignificantWhitespace ||
+                    child.NodeType == XmlNodeType.Comment)
                 {
-                    Plugin.Log?.LogWarning(
-                        "Ignoring a transit-exception <Room> entry with a missing or empty ID attribute.");
                     continue;
                 }
 
-                bool enabled;
-                if (!bool.TryParse(enabledValue, out enabled))
+                if (child.NodeType != XmlNodeType.Element ||
+                    child.Name != "Value" ||
+                    child.HasChildNodes &&
+                    child.FirstChild.NodeType == XmlNodeType.Element)
                 {
-                    Plugin.Log?.LogWarning(
-                        "Ignoring transit exception " + roomTypeId + ": Enabled must be true or false.");
-                    continue;
+                    throw new FormatException(
+                        "RoomTransit > Exceptions only accepts <Value>room ID</Value>.");
                 }
 
-                if (!configuredIds.Add(roomTypeId))
+                string id = (child.InnerText ?? string.Empty).Trim();
+                if (id.Length == 0)
                 {
-                    Plugin.Log?.LogWarning(
-                        "Duplicate transit-exception room ID " + roomTypeId +
-                        " found in " + ConfigFileName + "; the last valid entry wins.");
+                    throw new FormatException(
+                        "RoomTransit > Exceptions contains an empty <Value>.");
                 }
 
-                if (enabled)
+                if (!values.Add(id))
                 {
-                    exceptions.Add(roomTypeId);
-                }
-                else
-                {
-                    exceptions.Remove(roomTypeId);
+                    Plugin.Log?.LogWarning(
+                        "Duplicate RoomTransit exception " + id +
+                        " ignored in " + ConfigFileName + ".");
                 }
             }
 
-            _transitExceptionRoomTypeIds = exceptions;
+            // <Exceptions /> is a valid empty set. Missing or invalid XML
+            // instead falls back to the three hard-coded defaults in Load().
+            _transitExceptionRoomTypeIds = values;
         }
 
         private static bool ContainsRoot(string xml, string rootName)
@@ -398,26 +385,6 @@ namespace HospitalTrafficControl
                 RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
 
             return match.Success ? match.Groups["value"].Value : null;
-        }
-
-        private static string GetAttributeValue(string attributes, string attributeName)
-        {
-            string escapedName = Regex.Escape(attributeName);
-
-            Match doubleQuoted = Regex.Match(
-                attributes ?? string.Empty,
-                "(?:^|\\s)" + escapedName + "\\s*=\\s*\"(?<value>[^\"]*)\"",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-            if (doubleQuoted.Success)
-            {
-                return doubleQuoted.Groups["value"].Value;
-            }
-
-            Match singleQuoted = Regex.Match(
-                attributes ?? string.Empty,
-                @"(?:^|\s)" + escapedName + @"\s*=\s*'(?<value>[^']*)'",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-            return singleQuoted.Success ? singleQuoted.Groups["value"].Value : null;
         }
 
         private static void UseDefaults()

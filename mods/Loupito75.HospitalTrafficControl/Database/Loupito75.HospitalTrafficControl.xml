@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Database>
+    <GameDBAsset ID="HTC_ASSET_JANITOR_ROOM_OCCUPIED_BUBBLE">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/htc_janitor_room_occupied_bubble.png</File>
+    </GameDBAsset>
+    <GameDBAsset ID="HTC_ASSET_PATH_BLOCKED_BUBBLE">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/htc_path_blocked_bubble.png</File>
+    </GameDBAsset>
     <GameDBNotification ID="L75_HTC_NOTIF_NO_PATH_TITLE">
         <TextLocID>L75_HTC_NOTIF_NO_PATH_TEXT</TextLocID>
         <DefaultMessageLevel>POPUP</DefaultMessageLevel>

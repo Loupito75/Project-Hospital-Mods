@@ -77,6 +77,13 @@ namespace HospitalTrafficControl.Patches
             bool ignoreObjects,
             bool ignoreAccessRights)
         {
+            // Recovery and BIOHAZARD endpoint adjustments are job-local worker
+            // state. Non-pathfinding callers can never be affected by them.
+            if (object.ReferenceEquals(OneWayPathfinderTracker.CurrentJob, null))
+            {
+                return;
+            }
+
             AccessZoneRecoveryTracker.AdjustAccessRights(
                 __instance,
                 currentPosition,
@@ -121,7 +128,22 @@ namespace HospitalTrafficControl.Patches
                 return;
             }
 
-            if (AccessZoneRecoveryTracker.ShouldDenyReentry(
+            bool pathfinderSearch =
+                !object.ReferenceEquals(OneWayPathfinderTracker.CurrentJob, null);
+            bool walkValidation = OneWayWalkValidationContext.IsActive;
+
+            // Floor.IsAccessible is also used by non-navigation systems such as
+            // MapRenderer when it evaluates object access positions. Reject those
+            // callers before touching job-local recovery state or OneWay data.
+            if (!pathfinderSearch && !walkValidation)
+            {
+                return;
+            }
+
+            // Access-zone recovery state exists only while PathfinderJob runs on
+            // its worker thread. WalkComponent route validation never needs it.
+            if (pathfinderSearch &&
+                AccessZoneRecoveryTracker.ShouldDenyReentry(
                     __instance,
                     currentPosition,
                     nextPosition))
@@ -141,19 +163,6 @@ namespace HospitalTrafficControl.Patches
                 }
 
                 __result = false;
-                return;
-            }
-
-            bool pathfinderSearch =
-                !object.ReferenceEquals(OneWayPathfinderTracker.CurrentJob, null);
-            bool walkValidation = OneWayWalkValidationContext.IsActive;
-
-            // Floor.IsAccessible is also used by non-navigation systems such as
-            // MapRenderer when it evaluates object access positions. OneWay and the
-            // no-floor safeguard below are needed only in the two confirmed native
-            // character-navigation contexts.
-            if (!pathfinderSearch && !walkValidation)
-            {
                 return;
             }
 
@@ -225,12 +234,16 @@ namespace HospitalTrafficControl.Patches
 
             Tile tile = floor.m_mapPersistentData.m_tiles[position.m_x, position.m_y];
             GameDBFloorType floorType = tile == null ? null : tile.FloorType;
-            if (floorType == null || ID.IsNullOrNoID(floorType.DatabaseID))
+            if (floorType == null)
             {
                 return false;
             }
 
-            return floorType.DatabaseID.ToString() == NoFloorId;
+            // ID.NoID contains an empty string (see reference/ID.cs), so an
+            // ordinal comparison already excludes both null and NoID. Avoid
+            // entering ID.IsNullOrNoID / ID.NoID on every accepted edge.
+            ID databaseId = floorType.DatabaseID;
+            return databaseId != null && databaseId.ToString() == NoFloorId;
         }
     }
 

@@ -1609,6 +1609,13 @@ namespace HospitalTrafficControl.Patches
     [HarmonyPatch(typeof(ProcedureScriptNeedBladder), "ScriptUpdate")]
     internal static class BathroomWcAuditPatch
     {
+        [HarmonyPrepare]
+        private static bool Prepare()
+        {
+            return TrafficControlConfig.ReleaseToiletOwnerAfterUse ||
+                   TrafficControlConfig.BathroomFlowDebug;
+        }
+
         private static void Postfix(ProcedureScriptNeedBladder __instance)
         {
             SingleToiletBathroomLockManager.RefreshProcedureLock(__instance);
