@@ -70,6 +70,15 @@ namespace HospitalFlowOptimizer.Patches
         private const string LegacyPorterIdentityTypeName =
             "HospitalPorters.PorterIdentity";
 
+        private delegate bool EntityBoolDelegate(Entity entity);
+        private delegate Entity[] EntityArrayDelegate(Entity entity);
+        private delegate Entity[] EntityPairArrayDelegate(
+            Entity first,
+            Entity second);
+        private delegate bool EntityPairBoolDelegate(
+            Entity first,
+            Entity second);
+
         private static Type ApiType;
         private static MethodInfo GetPatientContinuationApiVersionMethod;
         private static MethodInfo IsPorterMethod;
@@ -79,6 +88,12 @@ namespace HospitalFlowOptimizer.Patches
         private static MethodInfo GetPatientContinuationPreflightCandidatesMethod;
         private static MethodInfo TryStartPatientContinuationMethod;
         private static MethodInfo FinishPatientContinuationWindowMethod;
+        private static EntityBoolDelegate IsPorterCallback;
+        private static EntityBoolDelegate IsWindowOpenCallback;
+        private static EntityArrayDelegate GetCandidatesCallback;
+        private static EntityPairArrayDelegate GetPreflightCandidatesCallback;
+        private static EntityPairBoolDelegate TryStartCallback;
+        private static EntityBoolDelegate FinishWindowCallback;
         private static int PatientApiVersion;
         private static int ResolvedAssemblyCount = -1;
 
@@ -106,6 +121,11 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
+                if (IsPorterCallback != null)
+                {
+                    return IsPorterCallback(porter);
+                }
+
                 object result =
                     method.Invoke(
                         null,
@@ -127,6 +147,11 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
+                if (IsWindowOpenCallback != null)
+                {
+                    return IsWindowOpenCallback(porter);
+                }
+
                 object result =
                     IsPatientContinuationWindowOpenMethod.Invoke(
                         null,
@@ -149,9 +174,11 @@ namespace HospitalFlowOptimizer.Patches
             try
             {
                 Entity[] result =
-                    GetPatientContinuationCandidatesMethod.Invoke(
-                        null,
-                        new object[] { porter }) as Entity[];
+                    GetCandidatesCallback != null
+                        ? GetCandidatesCallback(porter)
+                        : GetPatientContinuationCandidatesMethod.Invoke(
+                            null,
+                            new object[] { porter }) as Entity[];
                 return result ?? new Entity[0];
             }
             catch
@@ -176,9 +203,13 @@ namespace HospitalFlowOptimizer.Patches
             try
             {
                 Entity[] result =
-                    GetPatientContinuationPreflightCandidatesMethod.Invoke(
-                        null,
-                        new object[] { porter, sourcePatient }) as Entity[];
+                    GetPreflightCandidatesCallback != null
+                        ? GetPreflightCandidatesCallback(
+                            porter,
+                            sourcePatient)
+                        : GetPatientContinuationPreflightCandidatesMethod.Invoke(
+                            null,
+                            new object[] { porter, sourcePatient }) as Entity[];
                 return result ?? new Entity[0];
             }
             catch
@@ -200,6 +231,13 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
+                if (TryStartCallback != null)
+                {
+                    return TryStartCallback(
+                        porter,
+                        targetPatient);
+                }
+
                 object result =
                     TryStartPatientContinuationMethod.Invoke(
                         null,
@@ -221,6 +259,11 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
+                if (FinishWindowCallback != null)
+                {
+                    return FinishWindowCallback(porter);
+                }
+
                 object result =
                     FinishPatientContinuationWindowMethod.Invoke(
                         null,
@@ -376,6 +419,52 @@ namespace HospitalFlowOptimizer.Patches
                     tryStartMethod;
                 FinishPatientContinuationWindowMethod =
                     finishWindowMethod;
+
+                MethodInfo porterMethod =
+                    publicIsPorterMethod ??
+                    legacyIsPorterMethod;
+                try
+                {
+                    IsPorterCallback =
+                        (EntityBoolDelegate)Delegate.CreateDelegate(
+                            typeof(EntityBoolDelegate),
+                            porterMethod);
+                    IsWindowOpenCallback =
+                        (EntityBoolDelegate)Delegate.CreateDelegate(
+                            typeof(EntityBoolDelegate),
+                            isWindowOpenMethod);
+                    GetCandidatesCallback =
+                        (EntityArrayDelegate)Delegate.CreateDelegate(
+                            typeof(EntityArrayDelegate),
+                            getCandidatesMethod);
+                    GetPreflightCandidatesCallback =
+                        getPreflightCandidatesMethod == null
+                            ? null
+                            : (EntityPairArrayDelegate)Delegate.CreateDelegate(
+                                typeof(EntityPairArrayDelegate),
+                                getPreflightCandidatesMethod);
+                    TryStartCallback =
+                        (EntityPairBoolDelegate)Delegate.CreateDelegate(
+                            typeof(EntityPairBoolDelegate),
+                            tryStartMethod);
+                    FinishWindowCallback =
+                        (EntityBoolDelegate)Delegate.CreateDelegate(
+                            typeof(EntityBoolDelegate),
+                            finishWindowMethod);
+                }
+                catch
+                {
+                    // Reflection stays available as a compatibility fallback
+                    // if an older Hospital Porters build exposes a signature
+                    // that cannot be bound to these typed delegates.
+                    IsPorterCallback = null;
+                    IsWindowOpenCallback = null;
+                    GetCandidatesCallback = null;
+                    GetPreflightCandidatesCallback = null;
+                    TryStartCallback = null;
+                    FinishWindowCallback = null;
+                }
+
                 return true;
             }
 
