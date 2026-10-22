@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 14,
-  "updatedUtc": "2026-10-22T04:15:01Z",
-  "expiresUtc": "2027-01-20T04:15:01Z",
+  "manifestRevision": 15,
+  "updatedUtc": "2026-10-22T05:08:19Z",
+  "expiresUtc": "2027-01-20T05:08:19Z",
   "packages": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -404,11 +404,11 @@
     {
       "guid": "loupito75.HospitalTrafficControl",
       "name": "Hospital Traffic Control",
-      "version": "1.5.1",
-      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalTrafficControl-v1.5.1/Loupito75.HospitalTrafficControl-v1.5.1.zip",
-      "sha256": "78f23a834ca817358181f4abb4a4a2babfb1af1784f78eddc69d99a027ecdde8",
-      "packageBytes": 444922,
-      "maximumUnpackedBytes": 605342,
+      "version": "1.5.2",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalTrafficControl-v1.5.2/Loupito75.HospitalTrafficControl-v1.5.2.zip",
+      "sha256": "b53bd9d4a67a6325c89d0d4da8eb46c8ec2c1bd226be600fceb4c3256a40c85f",
+      "packageBytes": 462392,
+      "maximumUnpackedBytes": 628709,
       "installDirectory": "Loupito75.HospitalTrafficControl",
       "archiveRoot": "Loupito75.HospitalTrafficControl",
       "pluginFile": "Loupito75.HospitalTrafficControl.dll",
@@ -420,7 +420,9 @@
         "Database/ModStringTableEn.xml",
         "Loupito75.HospitalTrafficControl.dll",
         "preview.png",
-        "README_NEVER_MISS_AN_UPDATE.txt"
+        "README_NEVER_MISS_AN_UPDATE.txt",
+        "Textures/UI/htc_janitor_room_occupied_bubble.png",
+        "Textures/UI/htc_path_blocked_bubble.png"
       ],
       "removeFiles": []
     }
