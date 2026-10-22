@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 5,
-  "updatedUtc": "2026-10-22T05:08:19Z",
-  "expiresUtc": "2027-01-20T05:08:19Z",
+  "manifestRevision": 6,
+  "updatedUtc": "2026-10-22T06:06:07Z",
+  "expiresUtc": "2027-01-20T06:06:07Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -54,9 +54,9 @@
     },
     {
       "guid": "loupito75.HospitalShiftHandover",
-      "version": "1.1.1",
-      "description": "Project Hospital staff shift handover and pre-shift preparation mod powered by BepInEx and Harmony.",
-      "whatsNew": ""
+      "version": "1.2.0",
+      "description": "Makes staff arrivals, shift changes and handovers more natural and realistic.",
+      "whatsNew": "Door-aware handover staging, safer doctor handovers, locker dressing enabled by default, locker dressing sounds and bubbles, handover wait bubble"
     },
     {
       "guid": "loupito75.HospitalTrafficControl",
