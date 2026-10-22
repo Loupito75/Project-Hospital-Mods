@@ -117,14 +117,18 @@ namespace HospitalModUpdateChecker
 
             GameObject selector = NewButton(
                 "SelectMod", _root.transform, -38f, 37f, LeftPadding, 129f);
+            ApplyDropdownColors(
+                selector.GetComponent<Button>());
             _selectorLabel = NewText(
                 "SelectedName", selector.transform, "",
                 TextAnchor.MiddleLeft, false);
+            _selectorLabel.color = Color.white;
             Stretch(_selectorLabel.rectTransform, 10f, 42f);
 
             Text selectorArrow = NewText(
                 "SelectorArrow", selector.transform, "v",
                 TextAnchor.MiddleCenter, true);
+            selectorArrow.color = Color.white;
             RectTransform arrowRect = selectorArrow.rectTransform;
             arrowRect.anchorMin = new Vector2(1f, 0f);
             arrowRect.anchorMax = new Vector2(1f, 1f);
@@ -146,7 +150,8 @@ namespace HospitalModUpdateChecker
             _action = action.GetComponent<Button>();
             _actionLabel = NewText(
                 "InstallText", action.transform, "",
-                TextAnchor.MiddleCenter, true);
+                TextAnchor.MiddleCenter, false);
+            _actionLabel.color = ButtonTextColor();
             Stretch(_actionLabel.rectTransform, 4f, 4f);
             _action.onClick.AddListener(delegate
             {
@@ -172,8 +177,16 @@ namespace HospitalModUpdateChecker
             listViewportRect.anchoredPosition = new Vector2(-60f, -78f);
             listViewportRect.sizeDelta = new Vector2(-132f, 0f);
             Image background = _listViewport.AddComponent<Image>();
-            background.color = PanelColor();
+            background.color = DarkPanelColor();
             background.raycastTarget = true;
+
+            // Visible only while the dropdown viewport is active/open.
+            Outline outline = _listViewport.AddComponent<Outline>();
+            outline.effectColor =
+                new Color(.47058824f, .47058824f, .64705884f, 1f);
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = false;
+
             _listViewport.AddComponent<RectMask2D>();
 
             GameObject list = new GameObject("Choices");
@@ -197,13 +210,25 @@ namespace HospitalModUpdateChecker
             for (int i = 0; i < _options.Count; i++)
             {
                 PackageManifestEntry option = _options[i];
-                GameObject item = NewButton(
+                GameObject item = NewChoiceButton(
                     "Choice", _listRect, -i * RowHeight, RowHeight,
                     3f, 3f);
                 Text caption = NewText(
                     "Name", item.transform, option.Name,
                     TextAnchor.MiddleLeft, false);
-                Stretch(caption.rectTransform, 8f, 8f);
+                caption.raycastTarget = true;
+                RectTransform captionRect = caption.rectTransform;
+                captionRect.anchorMin = captionRect.anchorMax =
+                    new Vector2(0f, .5f);
+                captionRect.pivot = new Vector2(0f, .5f);
+                captionRect.anchoredPosition = new Vector2(8f, 0f);
+                captionRect.sizeDelta = new Vector2(
+                    Math.Min(caption.preferredWidth + 6f, 480f),
+                    RowHeight);
+                TitleScreenUpdatePanel.AttachModMetadataHover(
+                    caption.gameObject,
+                    ModDetailsCatalog.Description(
+                        option.Guid, option.Version));
                 string guid = option.Guid;
                 item.GetComponent<Button>().onClick.AddListener(delegate
                 {
@@ -319,22 +344,101 @@ namespace HospitalModUpdateChecker
             string name, Transform parent, float top,
             float height, float left, float right)
         {
+            GameObject root = CreateButtonRoot(
+                name, parent, top, height, left, right);
+            Button button = root.GetComponent<Button>();
+            ApplyButtonColors(button, true);
+            return root;
+        }
+
+        private static GameObject NewChoiceButton(
+            string name, Transform parent, float top,
+            float height, float left, float right)
+        {
+            GameObject root = CreateButtonRoot(
+                name, parent, top, height, left, right);
+            Button button = root.GetComponent<Button>();
+            ApplyButtonColors(button, false);
+            return root;
+        }
+
+        private static GameObject CreateButtonRoot(
+            string name, Transform parent, float top,
+            float height, float left, float right)
+        {
             GameObject root = new GameObject(name);
             root.transform.SetParent(parent, false);
             RectTransform rect = root.AddComponent<RectTransform>();
             Place(rect, top, height, left, right);
             Image image = root.AddComponent<Image>();
-            image.color = PanelColor();
+            image.color = Color.white;
             Button button = root.AddComponent<Button>();
             button.targetGraphic = image;
+            button.onClick.AddListener(delegate
+            {
+                TitleScreenUpdatePanel.PlayNativeClick();
+            });
             return root;
         }
 
-        private static Color PanelColor()
+        private static void ApplyDropdownColors(Button button)
         {
-            if (UISettings.Instance != null)
-                return UISettings.Instance.THEME_COLOR_PANEL_HEADING;
-            return new Color(.17f, .21f, .25f, 1f);
+            if (button == null)
+                return;
+
+            ColorBlock colors = button.colors;
+            // Match the scrollbar palette: normal handle colour at rest,
+            // highlighted handle colour on hover/click.
+            colors.normalColor =
+                new Color(.3137255f, .3137255f, .43137255f, 1f);
+            colors.highlightedColor =
+                new Color(.47058824f, .47058824f, .64705884f, 1f);
+            colors.pressedColor =
+                new Color(.47058824f, .47058824f, .64705884f, 1f);
+            colors.disabledColor =
+                new Color(.3137255f, .3137255f, .43137255f, 1f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = .1f;
+            button.colors = colors;
+        }
+
+        private static void ApplyButtonColors(Button button, bool light)
+        {
+            ColorBlock colors = button.colors;
+            if (light)
+            {
+                colors.normalColor =
+                    new Color(.88235295f, .88235295f, .88235295f, 1f);
+                colors.highlightedColor =
+                    new Color(.9607843f, .9607843f, .9607843f, 1f);
+                colors.pressedColor =
+                    new Color(.78431374f, .78431374f, .78431374f, 1f);
+            }
+            else
+            {
+                colors.normalColor =
+                    new Color(.15686275f, .15686275f, .21568628f, 1f);
+                colors.highlightedColor =
+                    new Color(.3137255f, .3137255f, .43137255f, .88235295f);
+                colors.pressedColor =
+                    new Color(.3137255f, .3137255f, .43137255f, .88235295f);
+            }
+            colors.disabledColor =
+                new Color(.78431374f, .78431374f, .78431374f, .5019608f);
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
+        }
+
+        private static Color DarkPanelColor()
+        {
+            return new Color(
+                .15294118f, .16078432f, .21176471f, 1f);
+        }
+
+        private static Color ButtonTextColor()
+        {
+            return new Color(
+                .15294118f, .16078432f, .21176471f, 1f);
         }
 
         private static Text NewText(string name,
@@ -354,7 +458,7 @@ namespace HospitalModUpdateChecker
             result.text = value ?? "";
             result.alignment = align;
             result.color = Color.white;
-            result.fontSize = Math.Max(_source.fontSize, 12);
+            result.fontSize = Math.Max(_source.fontSize + 1, 13);
             result.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
             result.supportRichText = false;
             result.raycastTarget = false;

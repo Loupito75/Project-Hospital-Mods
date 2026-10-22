@@ -4,6 +4,7 @@ using BepInEx;
 using BepInEx.Bootstrap;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace HospitalModUpdateChecker
 {
@@ -21,6 +22,9 @@ namespace HospitalModUpdateChecker
         private static bool _closeConfirmationPending;
         private static ConfigEditSession _session;
         private static Text _source;
+        private static Image _selectedRow;
+        private static readonly Color NormalRowColor =
+            new Color(.15686275f, .15686275f, .21568628f, 1f);
 
         internal static bool IsOpen
         {
@@ -73,7 +77,7 @@ namespace HospitalModUpdateChecker
 
             GameObject window = NewBox(
                 "ConfigWindow", _overlay.transform,
-                new Color(.14f, .17f, .20f, .99f));
+                PanelColor());
             RectTransform panel = window.GetComponent<RectTransform>();
             _windowRect = panel;
             panel.anchorMin = panel.anchorMax = new Vector2(.5f, .5f);
@@ -87,27 +91,35 @@ namespace HospitalModUpdateChecker
             TopRect(head, -8f, 44f, 8f, 8f);
 
             Text title = NewText(
-                "Title", header.transform, _session.PluginName, 20,
+                "Title", header.transform,
+                (_session.PluginName ?? string.Empty).ToUpperInvariant(),
+                Math.Max(_source.fontSize + 1, 17),
                 TextAnchor.MiddleLeft);
+            title.fontStyle = FontStyle.Bold;
             RectTransform titleRect = title.rectTransform;
             Stretch(titleRect);
             titleRect.offsetMin = new Vector2(14f, 0f);
             titleRect.offsetMax = new Vector2(-50f, 0f);
-            MakeButton("Close", header.transform, "X",
-                new Vector2(32f, 30f), new Vector2(-7f, -7f),
-                delegate { RequestClose(); });
+            TitleScreenUpdatePanel.CreateHomeCloseButton(
+                _source,
+                header.transform,
+                delegate
+                {
+                    TitleScreenUpdatePanel.PlayNativeClick();
+                    RequestClose();
+                });
 
             GameObject infoPanel = NewBox(
-                "InfoPanel", window.transform, new Color(.06f, .08f, .10f, .5f));
+                "InfoPanel", window.transform, DarkPanelColor());
             RectTransform infoRect = infoPanel.GetComponent<RectTransform>();
             infoRect.anchorMin = new Vector2(0f, 0f);
             infoRect.anchorMax = new Vector2(1f, 0f);
             infoRect.pivot = new Vector2(.5f, 0f);
-            infoRect.anchoredPosition = new Vector2(0f, 50f);
-            infoRect.sizeDelta = new Vector2(-24f, 62f);
+            infoRect.anchoredPosition = new Vector2(0f, 62f);
+            infoRect.sizeDelta = new Vector2(-24f, 50f);
 
             _status = NewText(
-                "Status", infoPanel.transform, Loc("hover_help"), 14,
+                "Status", infoPanel.transform, Loc("hover_help"), 15,
                 TextAnchor.MiddleLeft);
             RectTransform statusRect = _status.rectTransform;
             Stretch(statusRect);
@@ -116,10 +128,20 @@ namespace HospitalModUpdateChecker
             _status.horizontalOverflow = HorizontalWrapMode.Wrap;
             _status.verticalOverflow = VerticalWrapMode.Truncate;
 
+            GameObject actionPanel = NewBox(
+                "ActionPanel", window.transform, DarkPanelColor());
+            RectTransform actionRect =
+                actionPanel.GetComponent<RectTransform>();
+            actionRect.anchorMin = actionRect.anchorMax =
+                new Vector2(1f, 0f);
+            actionRect.pivot = new Vector2(1f, 0f);
+            actionRect.anchoredPosition = new Vector2(-12f, 8f);
+            actionRect.sizeDelta = new Vector2(238f, 46f);
+
             if (canEdit)
             {
-                _saveButton = MakeButton("Save", window.transform, Loc("save"),
-                    new Vector2(105f, 30f), new Vector2(-12f, 9f),
+                _saveButton = MakeButton("Save", actionPanel.transform, Loc("save"),
+                    new Vector2(105f, 30f), new Vector2(-8f, 8f),
                     delegate { Save(); }, false);
                 _saveButton.interactable = false;
             }
@@ -137,8 +159,8 @@ namespace HospitalModUpdateChecker
                     _status.text = Loc("error") + ": " + Loc("processing_error");
                 }
             }
-            MakeButton("Close", window.transform, Loc("close"),
-                new Vector2(105f, 30f), new Vector2(-125f, 9f),
+            MakeButton("Close", actionPanel.transform, Loc("close"),
+                new Vector2(105f, 30f), new Vector2(-121f, 8f),
                 delegate { RequestClose(); }, false);
 
             GameObject viewport = new GameObject("SettingsViewport");
@@ -148,10 +170,10 @@ namespace HospitalModUpdateChecker
             viewportRect.anchorMin = new Vector2(0f, 0f);
             viewportRect.anchorMax = new Vector2(1f, 1f);
             viewportRect.offsetMin = new Vector2(17f, 121f);
-            viewportRect.offsetMax = new Vector2(-39f, -62f);
+            viewportRect.offsetMax = new Vector2(-44f, -62f);
             viewport.AddComponent<RectMask2D>();
             Image hit = viewport.AddComponent<Image>();
-            hit.color = new Color(0f, 0f, 0f, 0f);
+            hit.color = DarkPanelColor();
             hit.raycastTarget = true;
 
             GameObject contents = new GameObject("Rows");
@@ -164,7 +186,7 @@ namespace HospitalModUpdateChecker
             const float normalRowHeight = 69f;
             const float compactRowHeight = 40f;
             const float multilineRowHeight = 150f;
-            const float sectionHeight = 30f;
+            const float sectionHeight = 34f;
 
             ScrollRect scrolling = viewport.AddComponent<ScrollRect>();
             scrolling.viewport = viewportRect;
@@ -176,14 +198,14 @@ namespace HospitalModUpdateChecker
 
             GameObject scrollbarRoot = NewBox(
                 "SettingsScrollbar", window.transform,
-                new Color(.08f, .10f, .13f, .92f));
+                ScrollbarTrackColor());
             RectTransform scrollbarRect =
                 scrollbarRoot.GetComponent<RectTransform>();
             scrollbarRect.anchorMin = new Vector2(1f, 0f);
             scrollbarRect.anchorMax = new Vector2(1f, 1f);
             scrollbarRect.pivot = new Vector2(1f, .5f);
-            scrollbarRect.offsetMin = new Vector2(-34f, 121f);
-            scrollbarRect.offsetMax = new Vector2(-17f, -62f);
+            scrollbarRect.offsetMin = new Vector2(-36f, 121f);
+            scrollbarRect.offsetMax = new Vector2(-12f, -62f);
 
             GameObject slidingArea =
                 new GameObject("SlidingArea");
@@ -195,17 +217,21 @@ namespace HospitalModUpdateChecker
             slidingRect.anchorMax = Vector2.one;
             slidingRect.pivot = new Vector2(.5f, .5f);
             slidingRect.anchoredPosition = Vector2.zero;
-            slidingRect.sizeDelta = new Vector2(-4f, -4f);
+            // Same native geometry as WorkshopUploadPanel: inset the
+            // sliding area, then expand the handle by the same amount.
+            // This removes the visible border while preserving scrollbar math.
+            slidingRect.sizeDelta = new Vector2(-20f, -20f);
 
             GameObject handle = NewBox(
-                "Handle", slidingArea.transform, HeadingColor());
+                "Handle", slidingArea.transform,
+                Color.white);
             RectTransform handleRect =
                 handle.GetComponent<RectTransform>();
             handleRect.anchorMin = Vector2.zero;
             handleRect.anchorMax = Vector2.one;
             handleRect.pivot = new Vector2(.5f, .5f);
             handleRect.anchoredPosition = Vector2.zero;
-            handleRect.sizeDelta = Vector2.zero;
+            handleRect.sizeDelta = new Vector2(20f, 20f);
 
             Scrollbar scrollbar =
                 scrollbarRoot.AddComponent<Scrollbar>();
@@ -213,9 +239,13 @@ namespace HospitalModUpdateChecker
             scrollbar.handleRect = handleRect;
             scrollbar.direction = Scrollbar.Direction.BottomToTop;
             scrollbar.numberOfSteps = 0;
+            ApplyMenuScrollbarColors(scrollbar);
             scrolling.verticalScrollbar = scrollbar;
+            // Keep the native-width scrollbar visible even when all
+            // settings fit in the viewport so the right-hand layout never
+            // shifts or leaves an empty reserved gutter.
             scrolling.verticalScrollbarVisibility =
-                ScrollRect.ScrollbarVisibility.AutoHide;
+                ScrollRect.ScrollbarVisibility.Permanent;
 
             float top = 0f;
             string currentSection = null;
@@ -228,10 +258,19 @@ namespace HospitalModUpdateChecker
                         section,
                         StringComparison.Ordinal))
                 {
+                    // Separate grouped settings from ungrouped rows as well
+                    // as two adjacent groups, without changing XML order.
+                    if (currentSection != null)
+                    {
+                        AddSectionSeparator(rows, top);
+                        top += 14f;
+                    }
                     currentSection = section;
                     if (section.Length > 0)
                     {
-                        AddSectionHeader(rows, section, top, sectionHeight);
+                        AddSectionHeader(
+                            rows, section, BuildSectionTooltip(section),
+                            top, sectionHeight);
                         top += sectionHeight;
                     }
                 }
@@ -253,8 +292,48 @@ namespace HospitalModUpdateChecker
             UpdateSaveButton();
         }
 
+        private static string BuildSectionTooltip(string section)
+        {
+            if (_session == null)
+                return null;
+
+            string[] parts = section.Split(
+                new string[] { " > " }, StringSplitOptions.None);
+            string path = string.Empty;
+            string tooltip = section;
+            bool hasDescription = false;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                path = path.Length == 0 ? parts[i] : path + " > " + parts[i];
+                string description;
+                if (_session.SectionDescriptions.TryGetValue(
+                    path, out description) &&
+                    !string.IsNullOrEmpty(description))
+                {
+                    tooltip += "\n\n" + parts[i] + ": " +
+                        description.Trim();
+                    hasDescription = true;
+                }
+            }
+            return hasDescription ? tooltip : null;
+        }
+
+        private static void AddSectionSeparator(Transform rows, float top)
+        {
+            // Distinct mauve-grey separator between configuration categories.
+            // The previous translucent heading colour blended into the dark
+            // viewport and made the separators effectively disappear.
+            Color color =
+                new Color(.3137255f, .3137255f, .43137255f, 1f);
+            GameObject separator = NewBox(
+                "SectionSeparator", rows, color);
+            TopRect(separator.GetComponent<RectTransform>(),
+                -top - 6f, 2f, 8f, 8f);
+        }
+
         private static void AddSectionHeader(
-            Transform rows, string section, float top, float height)
+            Transform rows, string section, string description,
+            float top, float height)
         {
             GameObject header = NewBox(
                 "Section_" + section.Replace(" > ", "_"),
@@ -264,12 +343,22 @@ namespace HospitalModUpdateChecker
 
             Text text = NewText(
                 "SectionName", header.transform,
-                TruncateLabel(section, 46), 15,
+                TruncateLabel(section.ToUpperInvariant(), 44),
+                Math.Max(_source.fontSize + 2, 16),
                 TextAnchor.MiddleLeft);
+            text.fontStyle = FontStyle.Bold;
             RectTransform textRect = text.rectTransform;
             Stretch(textRect);
             textRect.offsetMin = new Vector2(10f, 0f);
             textRect.offsetMax = new Vector2(-10f, 0f);
+            if (!string.IsNullOrEmpty(description))
+            {
+                text.raycastTarget = true;
+                text.gameObject.AddComponent<HoverTooltipDelay>();
+                ConfigOptionTooltipHover hover =
+                    text.gameObject.AddComponent<ConfigOptionTooltipHover>();
+                hover.Initialize(description);
+            }
         }
 
         private static void AddRow(
@@ -277,8 +366,9 @@ namespace HospitalModUpdateChecker
             float top, float rowHeight)
         {
             GameObject row = NewBox(
-                "Setting_" + option.Name, rows,
-                new Color(.22f, .25f, .28f, .7f));
+                "Setting_" + option.Name, rows, NormalRowColor);
+            Image rowImage = row.GetComponent<Image>();
+            AttachRowSelection(row, rowImage);
             RectTransform rect = row.GetComponent<RectTransform>();
             TopRect(
                 rect, -top,
@@ -294,11 +384,12 @@ namespace HospitalModUpdateChecker
                 (option.CompactRow ? 42 : 34));
             Text name = NewText(
                 "Name", row.transform, visibleLabel,
-                multiline ? 15 :
-                (option.CompactRow ? 14 : 16),
+                multiline ? 16 :
+                (option.CompactRow ? 15 : 17),
                 TextAnchor.MiddleLeft);
             name.supportRichText = false;
             name.raycastTarget = true;
+            AttachRowSelection(name.gameObject, rowImage);
             RectTransform nameRect = name.rectTransform;
             nameRect.anchorMin = new Vector2(0f, 0f);
             nameRect.anchorMax = new Vector2(
@@ -328,13 +419,14 @@ namespace HospitalModUpdateChecker
             if (multiline)
             {
                 AddMultilineList(
-                    row.transform, option, rowHeight);
+                    row.transform, option, rowHeight, rowImage);
                 return;
             }
 
             if (option.Control == "checkbox")
             {
                 GameObject button = MakeValueButton(row.transform);
+                AttachRowSelection(button, rowImage);
                 Text text = NewText(
                     "Check", button.transform, "",
                     option.CompactRow ? 18 : 20,
@@ -356,6 +448,7 @@ namespace HospitalModUpdateChecker
             if (option.Control == "select")
             {
                 GameObject button = MakeValueButton(row.transform);
+                AttachRowSelection(button, rowImage);
                 Text text = NewText(
                     "Selection", button.transform, option.Value + "  >",
                     15, TextAnchor.MiddleCenter);
@@ -373,7 +466,7 @@ namespace HospitalModUpdateChecker
 
             if (option.Control == "slider")
             {
-                AddSlider(row.transform, option);
+                AddSlider(row.transform, option, rowImage);
                 return;
             }
 
@@ -385,12 +478,13 @@ namespace HospitalModUpdateChecker
             inputRect.pivot = new Vector2(.5f, .5f);
             inputRect.anchoredPosition = Vector2.zero;
             inputRect.sizeDelta = new Vector2(0f, 36f);
+            AttachRowSelection(inputRoot, rowImage);
             InputField input = inputRoot.AddComponent<InputField>();
             input.targetGraphic = inputRoot.GetComponent<Image>();
             input.lineType = InputField.LineType.SingleLine;
             input.characterLimit = 2048;
             Text textField = NewText(
-                "Value", inputRoot.transform, option.Value, 15,
+                "Value", inputRoot.transform, option.Value, 16,
                 TextAnchor.MiddleLeft);
             textField.supportRichText = false;
             Stretch(textField.rectTransform);
@@ -410,7 +504,8 @@ namespace HospitalModUpdateChecker
         private static void AddMultilineList(
             Transform row,
             ConfigEditOption option,
-            float rowHeight)
+            float rowHeight,
+            Image rowImage)
         {
             GameObject inputRoot = NewBox(
                 "ValueList", row,
@@ -428,6 +523,7 @@ namespace HospitalModUpdateChecker
                 new Vector2(0f, rowHeight - 18f);
 
             inputRoot.AddComponent<RectMask2D>();
+            AttachRowSelection(inputRoot, rowImage);
 
             InputField input =
                 inputRoot.AddComponent<InputField>();
@@ -439,7 +535,7 @@ namespace HospitalModUpdateChecker
 
             Text textField = NewText(
                 "Value", inputRoot.transform,
-                option.Value, 13,
+                option.Value, 14,
                 TextAnchor.UpperLeft);
             textField.supportRichText = false;
             textField.horizontalOverflow =
@@ -463,28 +559,30 @@ namespace HospitalModUpdateChecker
         }
 
         private static void AddSlider(
-            Transform row, ConfigEditOption option)
+            Transform row, ConfigEditOption option, Image rowImage)
         {
             GameObject root = NewBox(
-                "Slider", row, new Color(.20f, .22f, .25f, .9f));
+                "Slider", row, GaugeBackColor());
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(.72f, .5f);
             rect.anchorMax = new Vector2(.87f, .5f);
             rect.pivot = new Vector2(.5f, .5f);
             rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = new Vector2(0f, 6f);
+            rect.sizeDelta = new Vector2(0f, 12f);
 
+            AttachRowSelection(root, rowImage);
             GameObject fill = NewBox(
-                "Fill", root.transform, new Color(.60f, .76f, .88f, 1f));
+                "Fill", root.transform, GaugeFrontColor());
             RectTransform fillRect = fill.GetComponent<RectTransform>();
             Stretch(fillRect);
             GameObject handle = NewBox(
-                "Handle", root.transform, Color.white);
+                "Handle", root.transform,
+                new Color(.95f, .95f, .95f, .82f));
             RectTransform handleRect = handle.GetComponent<RectTransform>();
             handleRect.anchorMin = handleRect.anchorMax =
                 new Vector2(0f, .5f);
             handleRect.pivot = new Vector2(.5f, .5f);
-            handleRect.sizeDelta = new Vector2(10f, 21f);
+            handleRect.sizeDelta = new Vector2(5f, 14f);
 
             Slider slider = root.AddComponent<Slider>();
             slider.targetGraphic = handle.GetComponent<Image>();
@@ -505,13 +603,14 @@ namespace HospitalModUpdateChecker
             Image valueHitArea = valueRoot.AddComponent<Image>();
             valueHitArea.color = new Color(0f, 0f, 0f, 0f);
 
+            AttachRowSelection(valueRoot, rowImage);
             InputField valueInput = valueRoot.AddComponent<InputField>();
             valueInput.targetGraphic = valueHitArea;
             valueInput.lineType = InputField.LineType.SingleLine;
             valueInput.contentType = InputField.ContentType.DecimalNumber;
 
             Text valueLabel = NewText(
-                "Value", valueRoot.transform, option.Value, 15,
+                "Value", valueRoot.transform, option.Value, 16,
                 TextAnchor.MiddleCenter);
             Stretch(valueLabel.rectTransform);
             valueLabel.supportRichText = false;
@@ -578,8 +677,11 @@ namespace HospitalModUpdateChecker
                     ": " +
                     error);
                 _status.color = new Color(1f, .48f, .48f, 1f);
-                _status.text = Loc("error") + ": " +
-                    Loc("processing_error");
+                _status.text = string.Equals(error,
+                        "HMUC_NEW_CONFIG_FORMAT", StringComparison.Ordinal)
+                    ? UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.ConfigSchemaMigrationAlertId)
+                    : Loc("error") + ": " + Loc("processing_error");
             }
         }
 
@@ -606,6 +708,7 @@ namespace HospitalModUpdateChecker
             _overlay = null;
             _source = null;
             _session = null;
+            _selectedRow = null;
             _status = null;
             _saveButton = null;
             _windowRect = null;
@@ -638,7 +741,12 @@ namespace HospitalModUpdateChecker
             {
                 _optionTooltip = NewBox(
                     "OptionTooltip", _windowRect,
-                    new Color(.09f, .11f, .14f, .98f));
+                    TooltipColor());
+                Image tooltipBackground =
+                    _optionTooltip.GetComponent<Image>();
+                if (tooltipBackground != null)
+                    tooltipBackground.raycastTarget = false;
+
                 RectTransform root =
                     _optionTooltip.GetComponent<RectTransform>();
                 root.anchorMin = root.anchorMax =
@@ -691,15 +799,31 @@ namespace HospitalModUpdateChecker
                 float tooltipHalfWidth = tooltipRect.rect.width * .5f;
                 float tooltipHalfHeight = tooltipRect.rect.height * .5f;
 
+                float minY =
+                    -halfHeight + tooltipHalfHeight + 8f;
+                float maxY =
+                    halfHeight - tooltipHalfHeight - 8f;
+
+                // Prefer above the pointer. For the first section there may
+                // not be enough room; in that case place the tooltip below
+                // instead of clamping it back across the hovered header.
+                float aboveY =
+                    pointer.y + tooltipHalfHeight + 18f;
+                float belowY =
+                    pointer.y - tooltipHalfHeight - 18f;
+                float tooltipY =
+                    aboveY <= maxY
+                        ? aboveY
+                        : belowY >= minY
+                            ? belowY
+                            : Mathf.Clamp(aboveY, minY, maxY);
+
                 tooltipRect.anchoredPosition = new Vector2(
                     Mathf.Clamp(
                         pointer.x,
                         -halfWidth + tooltipHalfWidth + 8f,
                         halfWidth - tooltipHalfWidth - 8f),
-                    Mathf.Clamp(
-                        pointer.y + tooltipHalfHeight + 18f,
-                        -halfHeight + tooltipHalfHeight + 8f,
-                        halfHeight - tooltipHalfHeight - 8f));
+                    tooltipY);
             }
 
             _optionTooltip.SetActive(true);
@@ -751,11 +875,128 @@ namespace HospitalModUpdateChecker
             }
         }
 
+        internal static void SelectRow(Image row)
+        {
+            if (row == null || row == _selectedRow)
+                return;
+
+            if (_selectedRow != null)
+                _selectedRow.color = NormalRowColor;
+
+            _selectedRow = row;
+            _selectedRow.color =
+                new Color(
+                    .3137255f, .3137255f, .43137255f, .88235295f);
+        }
+
+        private static void AttachRowSelection(GameObject target, Image row)
+        {
+            ConfigRowSelection tracker =
+                target.AddComponent<ConfigRowSelection>();
+            tracker.Initialize(row);
+        }
+
+        // Confirmed from the exported vanilla Options, Save/Load,
+        // FileLabel, TooltipSmall and Gauge prefabs.
+        private static Color PanelColor()
+        {
+            return new Color(
+                .93333334f, .93333334f, .93333334f, 1f);
+        }
+
+        private static Color DarkPanelColor()
+        {
+            return new Color(
+                .15294118f, .16078432f, .21176471f, 1f);
+        }
+
+        private static Color ScrollbarTrackColor()
+        {
+            // Exact dark scrollbar background from the exported UI:
+            // RGB 50, 50, 70 (#323246).
+            return new Color(
+                .19607843f, .19607843f, .27450982f, 1f);
+        }
+
+        private static void ApplyMenuScrollbarColors(
+            Scrollbar scrollbar)
+        {
+            if (scrollbar == null)
+                return;
+            ColorBlock colors = scrollbar.colors;
+            colors.normalColor =
+                new Color(.3137255f, .3137255f, .43137255f, 1f);
+            colors.highlightedColor =
+                new Color(.47058824f, .47058824f, .64705884f, 1f);
+            colors.pressedColor =
+                new Color(.47058824f, .47058824f, .64705884f, 1f);
+            // Permanent scrollbar: keep the same handle colour if Unity
+            // disables interaction because the content already fits.
+            colors.disabledColor =
+                new Color(.3137255f, .3137255f, .43137255f, 1f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = .1f;
+            scrollbar.colors = colors;
+        }
+
         private static Color HeadingColor()
         {
-            if (UISettings.Instance != null)
-                return UISettings.Instance.THEME_COLOR_PANEL_HEADING;
-            return new Color(.25f, .29f, .34f, 1f);
+            return DarkPanelColor();
+        }
+
+        private static Color TooltipColor()
+        {
+            return new Color(
+                .3019608f, .3019608f, .3019608f, .9411765f);
+        }
+
+        private static Color GaugeBackColor()
+        {
+            // OptionsSliderPanel/GaugeBgr: light unused portion.
+            return new Color(
+                .75881094f, .78753847f, .8207547f, 1f);
+        }
+
+        private static Color GaugeFrontColor()
+        {
+            // OptionsSliderPanel/GaugePanel: dark filled portion.
+            return new Color(
+                .3137255f, .3137255f, .43137255f, 1f);
+        }
+
+        private static Color ButtonTextColor()
+        {
+            return DarkPanelColor();
+        }
+
+        private static void ApplyLightButtonColors(Button button)
+        {
+            if (button == null)
+                return;
+            ColorBlock colors = button.colors;
+            colors.normalColor =
+                new Color(.88235295f, .88235295f, .88235295f, 1f);
+            colors.highlightedColor =
+                new Color(.9607843f, .9607843f, .9607843f, 1f);
+            colors.pressedColor =
+                new Color(.78431374f, .78431374f, .78431374f, 1f);
+            colors.disabledColor =
+                new Color(.78431374f, .78431374f, .78431374f, .5019608f);
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
+        }
+
+        private static void ApplyTransparentButtonColors(Button button)
+        {
+            if (button == null)
+                return;
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.clear;
+            colors.highlightedColor = Color.clear;
+            colors.pressedColor = Color.clear;
+            colors.disabledColor = Color.clear;
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
         }
 
         private static GameObject NewBox(
@@ -773,15 +1014,10 @@ namespace HospitalModUpdateChecker
             string name, Transform parent, string text,
             int fontSize, TextAnchor alignment)
         {
-            GameObject go = UnityEngine.Object.Instantiate(_source.gameObject);
-            go.name = name;
-            go.transform.SetParent(parent, false);
-            go.SetActive(true);
-            LocalizedTextController localized =
-                go.GetComponent<LocalizedTextController>();
-            if (localized != null)
-                localized.enabled = false;
-            Text label = go.GetComponent<Text>();
+            Text label =
+                TitleScreenUpdatePanel.CreateHomeTextClone(
+                    _source, name, parent);
+            GameObject go = label.gameObject;
             label.text = text ?? "";
             label.fontSize = fontSize;
             label.color = Color.white;
@@ -803,6 +1039,10 @@ namespace HospitalModUpdateChecker
             rect.sizeDelta = new Vector2(0f, 36f);
             Button button = root.AddComponent<Button>();
             button.targetGraphic = root.GetComponent<Image>();
+            button.onClick.AddListener(delegate
+            {
+                TitleScreenUpdatePanel.PlayNativeClick();
+            });
             return root;
         }
 
@@ -817,7 +1057,8 @@ namespace HospitalModUpdateChecker
             string name, Transform parent, string label,
             Vector2 size, Vector2 offset, Action action, bool top)
         {
-            GameObject root = NewBox(name, parent, HeadingColor());
+            GameObject root = NewBox(
+                name, parent, Color.white);
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax =
                 top ? new Vector2(1f, 1f) : new Vector2(1f, 0f);
@@ -826,10 +1067,16 @@ namespace HospitalModUpdateChecker
             rect.sizeDelta = size;
             Button button = root.AddComponent<Button>();
             button.targetGraphic = root.GetComponent<Image>();
-            button.onClick.AddListener(delegate { action(); });
+            ApplyLightButtonColors(button);
+            button.onClick.AddListener(delegate
+            {
+                TitleScreenUpdatePanel.PlayNativeClick();
+                action();
+            });
             Text text = NewText(
-                "Text", root.transform, label, 15,
+                "Text", root.transform, label, 16,
                 TextAnchor.MiddleCenter);
+            text.color = ButtonTextColor();
             Stretch(text.rectTransform);
             return button;
         }
@@ -897,6 +1144,22 @@ namespace HospitalModUpdateChecker
                 : UpdatePanelLocalization.Get(stringId);
         }
 
+    }
+
+    internal sealed class ConfigRowSelection : MonoBehaviour, IPointerDownHandler
+    {
+        private Image _row;
+
+        internal void Initialize(Image row)
+        {
+            _row = row;
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (eventData.button == PointerEventData.InputButton.Left)
+                ConfigEditorPanel.SelectRow(_row);
+        }
     }
 
     internal sealed class ConfigOptionTooltipHover : MonoBehaviour

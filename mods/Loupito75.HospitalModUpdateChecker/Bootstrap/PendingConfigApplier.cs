@@ -182,12 +182,34 @@ namespace HospitalModUpdateChecker.Bootstrap
                 throw new FormatException("The configuration root has changed.");
 
             int changed = 0;
-            ApplyRequestedChanges(
-                original.DocumentElement,
-                requested.DocumentElement,
-                current.DocumentElement,
-                original.DocumentElement.Name,
-                ref changed);
+            try
+            {
+                ApplyRequestedChanges(
+                    original.DocumentElement,
+                    requested.DocumentElement,
+                    current.DocumentElement,
+                    original.DocumentElement.Name,
+                    ref changed);
+            }
+            catch (FormatException)
+            {
+                // A signed mod update may have relocated uniquely named XML
+                // options after the user staged edits against the old schema.
+                // Restart with an untouched copy: no partial rebase survives.
+                current = LoadSafe(config);
+                changed = 0;
+                XmlDocument trustedTemplate =
+                    LoadTrustedTemplate(config);
+
+                ApplyRelocatedScalarEdits(
+                    original.DocumentElement,
+                    requested.DocumentElement,
+                    current.DocumentElement,
+                    trustedTemplate == null
+                        ? null
+                        : trustedTemplate.DocumentElement,
+                    ref changed);
+            }
 
             if (changed == 0)
             {
@@ -256,6 +278,590 @@ namespace HospitalModUpdateChecker.Bootstrap
             {
                 if (File.Exists(temp))
                     File.Delete(temp);
+            }
+        }
+
+        private sealed class EditedScalar
+        {
+            internal string Path;
+            internal string Name;
+            internal string OriginalValue;
+            internal string DesiredValue;
+            internal bool EnabledAttribute;
+            internal string NamespaceUri;
+        }
+
+        // This conservative fallback is only used if the normal three-way
+        // rebase rejects a schema change. Edited lists, repeated elements
+        // and type changes remain unsupported and the pending request stays.
+        private static void ApplyRelocatedScalarEdits(
+            XmlElement original, XmlElement requested,
+            XmlElement current, XmlElement trustedTemplate,
+            ref int changed)
+        {
+            List<EditedScalar> edits = new List<EditedScalar>();
+            CollectScalarEdits(original, requested,
+                string.Empty, edits);
+
+            Dictionary<string, int> originalCounts =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+            CountLeafNames(original, originalCounts);
+
+            int relocated = 0;
+            int retired = 0;
+            for (int i = 0; i < edits.Count; i++)
+            {
+                EditedScalar edit = edits[i];
+                XmlElement actual = FindUniquePath(current, edit.Path);
+                if (actual == null)
+                {
+                    if (IsRetiredScalarEdit(
+                            trustedTemplate,
+                            edit))
+                    {
+                        retired++;
+                        continue;
+                    }
+
+                    int number;
+                    if (!originalCounts.TryGetValue(edit.Name, out number))
+                        throw new FormatException(
+                            "Edited option disappeared: " + edit.Name);
+                    actual = number == 1
+                        ? FindUniqueNamedScalar(current, edit.Name)
+                        : FindByUniqueParentSuffix(
+                            original, current, edit.Path, edit.Name);
+                    relocated++;
+                }
+
+                string actualValue;
+                bool attribute;
+                if (!TryScalarValue(actual, out actualValue, out attribute) ||
+                    attribute != edit.EnabledAttribute ||
+                    actual.NamespaceURI != edit.NamespaceUri)
+                    throw new FormatException(
+                        "Edited option changed its type: " + edit.Path);
+
+                if (!string.Equals(actualValue, edit.OriginalValue,
+                        StringComparison.Ordinal) &&
+                    !string.Equals(actualValue, edit.DesiredValue,
+                        StringComparison.Ordinal))
+                    throw new FormatException(
+                        "Conflicting XML edit: " + edit.Path);
+
+                if (string.Equals(actualValue, edit.DesiredValue,
+                        StringComparison.Ordinal))
+                    continue;
+
+                if (attribute)
+                    actual.SetAttribute("Enabled", edit.DesiredValue);
+                else
+                    SetLeafText(actual, edit.DesiredValue);
+                changed++;
+            }
+
+            if (relocated == 0 && retired == 0)
+                throw new FormatException(
+                    "XML rebase failed without an unambiguous schema relocation.");
+        }
+
+        private static XmlDocument LoadTrustedTemplate(
+            string config)
+        {
+            try
+            {
+                ConfigTemplateSafety.Snapshot state;
+
+                if (!ConfigTemplateSafety.TryReadState(
+                        config,
+                        out state) ||
+                    !ConfigTemplateSafety.IsTrustedSnapshot(
+                        config,
+                        state))
+                {
+                    return null;
+                }
+
+                return LoadSafe(
+                    ConfigTemplateSafety.TemplatePath(
+                        config));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool IsRetiredScalarEdit(
+            XmlElement trustedTemplateRoot,
+            EditedScalar edit)
+        {
+            if (trustedTemplateRoot == null ||
+                edit == null)
+            {
+                return false;
+            }
+
+            return CountScalarLeavesByName(
+                    trustedTemplateRoot,
+                    edit.Name) == 0;
+        }
+
+        private static int CountScalarLeavesByName(
+            XmlElement root,
+            string name)
+        {
+            if (root == null ||
+                string.IsNullOrEmpty(name))
+            {
+                return 0;
+            }
+
+            int count = 0;
+
+            foreach (XmlNode node in root.ChildNodes)
+            {
+                XmlElement element =
+                    node as XmlElement;
+
+                if (element == null)
+                    continue;
+
+                if (HasElementChildren(element))
+                {
+                    count += CountScalarLeavesByName(
+                        element,
+                        name);
+                    continue;
+                }
+
+                if (IsCollectionLeafEntry(element) ||
+                    !string.Equals(
+                        element.Name,
+                        name,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                string value;
+                bool attribute;
+
+                if (TryScalarValue(
+                        element,
+                        out value,
+                        out attribute))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static void CollectScalarEdits(
+            XmlElement original, XmlElement requested,
+            string path, List<EditedScalar> edits)
+        {
+            if (original == null || requested == null ||
+                original.Name != requested.Name ||
+                original.NamespaceURI != requested.NamespaceURI ||
+                original.Attributes.Count != requested.Attributes.Count)
+                throw new FormatException(
+                    "The staged XML schema was modified unexpectedly.");
+
+            string currentPath = path.Length == 0
+                ? original.Name : path + "/" + original.Name;
+            foreach (XmlAttribute attr in original.Attributes)
+                if (requested.Attributes[attr.Name] == null)
+                    throw new FormatException(
+                        "The staged XML attributes changed unexpectedly.");
+
+            List<XmlElement> before = ElementChildren(original);
+            List<XmlElement> after = ElementChildren(requested);
+            if (before.Count != after.Count)
+                throw new FormatException(
+                    "Edited XML collections cannot be relocated.");
+
+            if (before.Count != 0)
+            {
+                foreach (XmlAttribute attr in original.Attributes)
+                    if (attr.Value != requested.GetAttribute(attr.Name))
+                        throw new FormatException(
+                            "Complex XML attributes cannot be relocated.");
+
+                Dictionary<string, int> counts =
+                    new Dictionary<string, int>(StringComparer.Ordinal);
+                for (int i = 0; i < before.Count; i++)
+                {
+                    if (before[i].Name != after[i].Name)
+                        throw new FormatException(
+                            "Edited XML collections cannot be relocated.");
+                    int count;
+                    counts.TryGetValue(before[i].Name, out count);
+                    counts[before[i].Name] = count + 1;
+                }
+                for (int i = 0; i < before.Count; i++)
+                {
+                    if (counts[before[i].Name] > 1)
+                    {
+                        if (before[i].OuterXml != after[i].OuterXml)
+                            throw new FormatException(
+                                "Edited repeated XML cannot be relocated.");
+                        continue;
+                    }
+                    CollectScalarEdits(before[i], after[i],
+                        currentPath, edits);
+                }
+                return;
+            }
+
+            string oldValue, newValue;
+            bool oldAttribute, newAttribute;
+            bool oldValid = TryScalarValue(
+                original, out oldValue, out oldAttribute);
+            bool newValid = TryScalarValue(
+                requested, out newValue, out newAttribute);
+            if (!oldValid || !newValid ||
+                oldAttribute != newAttribute)
+            {
+                if (original.OuterXml != requested.OuterXml)
+                    throw new FormatException(
+                        "Unsupported edited XML structure.");
+                return;
+            }
+            if (!string.Equals(oldValue, newValue,
+                StringComparison.Ordinal))
+                edits.Add(new EditedScalar
+                {
+                    Path = currentPath,
+                    Name = original.Name,
+                    OriginalValue = oldValue,
+                    DesiredValue = newValue,
+                    EnabledAttribute = oldAttribute,
+                    NamespaceUri = original.NamespaceURI
+                });
+        }
+
+        private static List<XmlElement> ElementChildren(XmlElement element)
+        {
+            List<XmlElement> result = new List<XmlElement>();
+            foreach (XmlNode child in element.ChildNodes)
+            {
+                XmlElement entry = child as XmlElement;
+                if (entry != null)
+                    result.Add(entry);
+            }
+            return result;
+        }
+
+        private static bool TryScalarValue(
+            XmlElement element, out string value, out bool attribute)
+        {
+            value = null;
+            attribute = false;
+            if (element == null || HasElementChildren(element))
+                return false;
+
+            if (element.Attributes.Count == 1 &&
+                element.HasAttribute("Enabled"))
+            {
+                bool enabled;
+                if (!bool.TryParse(element.GetAttribute("Enabled"), out enabled))
+                    return false;
+                foreach (XmlNode node in element.ChildNodes)
+                {
+                    if (node.NodeType == XmlNodeType.Text &&
+                        !string.IsNullOrEmpty(node.Value) &&
+                        node.Value.Trim().Length > 0)
+                        return false;
+                    if (node.NodeType != XmlNodeType.Text &&
+                        node.NodeType != XmlNodeType.Whitespace &&
+                        node.NodeType != XmlNodeType.SignificantWhitespace &&
+                        node.NodeType != XmlNodeType.Comment)
+                        return false;
+                }
+                attribute = true;
+                value = enabled ? "true" : "false";
+                return true;
+            }
+            if (element.Attributes.Count != 0)
+                return false;
+            foreach (XmlNode node in element.ChildNodes)
+                if (node.NodeType != XmlNodeType.Text &&
+                    node.NodeType != XmlNodeType.Whitespace &&
+                    node.NodeType != XmlNodeType.SignificantWhitespace &&
+                    node.NodeType != XmlNodeType.Comment)
+                    return false;
+            value = element.InnerText;
+            return true;
+        }
+
+        private static bool IsCollectionLeafEntry(
+            XmlElement element)
+        {
+            if (element == null)
+                return false;
+
+            XmlElement parent =
+                element.ParentNode as XmlElement;
+
+            if (parent == null)
+                return false;
+
+            if (HasHmucMultilineListMetadata(parent))
+                return true;
+
+            int sameName = 0;
+            int elementCount = 0;
+            bool onlySameLeafName = true;
+
+            foreach (XmlNode node in parent.ChildNodes)
+            {
+                XmlElement sibling =
+                    node as XmlElement;
+
+                if (sibling == null)
+                    continue;
+
+                elementCount++;
+
+                if (HasElementChildren(sibling) ||
+                    !string.Equals(
+                        sibling.Name,
+                        element.Name,
+                        StringComparison.Ordinal))
+                {
+                    onlySameLeafName = false;
+                }
+
+                if (string.Equals(
+                        sibling.Name,
+                        element.Name,
+                        StringComparison.Ordinal))
+                {
+                    sameName++;
+                }
+            }
+
+            if (sameName > 1)
+                return true;
+
+            if (elementCount > 0 &&
+                onlySameLeafName &&
+                (element.Name == "Value" ||
+                 element.Name == "Id" ||
+                 element.Name == "Tag" ||
+                 element.Name == "Room"))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasHmucMultilineListMetadata(
+            XmlElement element)
+        {
+            if (element == null)
+                return false;
+
+            for (XmlNode node = element.PreviousSibling;
+                 node != null &&
+                 node.NodeType != XmlNodeType.Element;
+                 node = node.PreviousSibling)
+            {
+                XmlComment comment =
+                    node as XmlComment;
+
+                if (comment == null)
+                    continue;
+
+                string text =
+                    (comment.Value ??
+                        string.Empty).Trim();
+
+                if (!text.StartsWith(
+                        "@HMUC:set",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                return text.IndexOf(
+                        "control=\"multiline-list\"",
+                        StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    text.IndexOf(
+                        "control='multiline-list'",
+                        StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            return false;
+        }
+
+        private static void CountLeafNames(
+            XmlElement parent, Dictionary<string, int> counts)
+        {
+            foreach (XmlNode child in parent.ChildNodes)
+            {
+                XmlElement element = child as XmlElement;
+                if (element == null)
+                    continue;
+                if (HasElementChildren(element))
+                {
+                    CountLeafNames(element, counts);
+                    continue;
+                }
+                if (IsCollectionLeafEntry(element))
+                    continue;
+
+                string unused;
+                bool attribute;
+                if (!TryScalarValue(element, out unused, out attribute))
+                    continue;
+                int count;
+                counts.TryGetValue(element.Name, out count);
+                counts[element.Name] = count + 1;
+            }
+        }
+
+        private static XmlElement FindUniquePath(
+            XmlElement root, string path)
+        {
+            string[] parts = path.Split('/');
+            if (parts.Length == 0 || root.Name != parts[0])
+                return null;
+            XmlElement current = root;
+            for (int i = 1; i < parts.Length; i++)
+            {
+                XmlElement found = null;
+                foreach (XmlNode child in current.ChildNodes)
+                {
+                    XmlElement candidate = child as XmlElement;
+                    if (candidate == null || candidate.Name != parts[i])
+                        continue;
+                    if (found != null)
+                        throw new FormatException(
+                            "Ambiguous XML option path: " + path);
+                    found = candidate;
+                }
+                if (found == null)
+                    return null;
+                current = found;
+            }
+            return current;
+        }
+
+        private sealed class ScalarLocation
+        {
+            internal string Path;
+            internal XmlElement Element;
+        }
+
+        private static XmlElement FindByUniqueParentSuffix(
+            XmlElement oldRoot, XmlElement currentRoot,
+            string oldPath, string name)
+        {
+            List<ScalarLocation> oldSettings =
+                new List<ScalarLocation>();
+            List<ScalarLocation> currentSettings =
+                new List<ScalarLocation>();
+            CollectNamedLocations(
+                oldRoot, oldRoot.Name, name, oldSettings);
+            CollectNamedLocations(
+                currentRoot, currentRoot.Name, name, currentSettings);
+
+            string[] pieces = oldPath.Split('/');
+            // Keep at least the parent and unchanged variable name.
+            // Suffix matching is allowed only when exactly one option
+            // matches in the source AND in the updated configuration.
+            for (int start = 1; start < pieces.Length - 1; start++)
+            {
+                string suffix = string.Join(
+                    "/", pieces, start, pieces.Length - start);
+                int oldMatches = 0;
+                int newMatches = 0;
+                XmlElement found = null;
+                for (int i = 0; i < oldSettings.Count; i++)
+                    if (HasPathSuffix(oldSettings[i].Path, suffix))
+                        oldMatches++;
+                for (int i = 0; i < currentSettings.Count; i++)
+                    if (HasPathSuffix(currentSettings[i].Path, suffix))
+                    {
+                        newMatches++;
+                        found = currentSettings[i].Element;
+                    }
+                if (oldMatches == 1 && newMatches == 1)
+                    return found;
+            }
+
+            throw new FormatException(
+                "Ambiguous XML option relocation: " + oldPath);
+        }
+
+        private static bool HasPathSuffix(string path, string suffix)
+        {
+            return string.Equals(path, suffix, StringComparison.Ordinal) ||
+                path.EndsWith("/" + suffix, StringComparison.Ordinal);
+        }
+
+        private static void CollectNamedLocations(
+            XmlElement root, string path, string name,
+            List<ScalarLocation> result)
+        {
+            foreach (XmlNode child in root.ChildNodes)
+            {
+                XmlElement element = child as XmlElement;
+                if (element == null)
+                    continue;
+                string location = path + "/" + element.Name;
+                if (HasElementChildren(element))
+                {
+                    CollectNamedLocations(
+                        element, location, name, result);
+                    continue;
+                }
+                if (!IsCollectionLeafEntry(element) &&
+                    element.Name == name)
+                    result.Add(new ScalarLocation
+                    {
+                        Path = location,
+                        Element = element
+                    });
+            }
+        }
+
+        private static XmlElement FindUniqueNamedScalar(
+            XmlElement root, string name)
+        {
+            XmlElement match = null;
+            FindScalarMatches(root, name, ref match);
+            if (match == null)
+                throw new FormatException(
+                    "Edited XML option no longer exists: " + name);
+            return match;
+        }
+
+        private static void FindScalarMatches(
+            XmlElement root, string name, ref XmlElement match)
+        {
+            foreach (XmlNode child in root.ChildNodes)
+            {
+                XmlElement element = child as XmlElement;
+                if (element == null)
+                    continue;
+                if (HasElementChildren(element))
+                {
+                    FindScalarMatches(element, name, ref match);
+                    continue;
+                }
+                if (IsCollectionLeafEntry(element) ||
+                    element.Name != name)
+                    continue;
+                if (match != null)
+                    throw new FormatException(
+                        "Ambiguous XML option name: " + name);
+                match = element;
             }
         }
 
