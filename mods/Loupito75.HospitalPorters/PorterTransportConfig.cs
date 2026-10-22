@@ -24,7 +24,6 @@ namespace HospitalPorters
         private const int DefaultSampleOccupiedRoomRetryCooldownMinMinutes = 15;
         private const int DefaultSampleOccupiedRoomRetryCooldownMaxMinutes = 30;
         private const bool DefaultPatientCrossDepartmentHelp = true;
-        // Keep these defaults optional so existing configs remain compatible.
         private const int DefaultPatientCrossDepartmentHelpBaseChance = 70;
         private const int DefaultPatientCrossDepartmentStationFloorBonus = 10;
         private const int DefaultPatientCrossDepartmentCurrentFloorBonus = 20;
@@ -100,156 +99,205 @@ namespace HospitalPorters
                         "The XML root element must be <HospitalPorters>.");
                 }
 
-                Dictionary<string, XmlElement> settings =
-                    new Dictionary<string, XmlElement>();
+                ValidateChildren(
+                    root,
+                    "PatientTransport",
+                    "SampleTransport",
+                    "Diagnostics");
 
-                for (int i = 0; i < root.ChildNodes.Count; i++)
-                {
-                    XmlNode node = root.ChildNodes[i];
-                    if (node.NodeType == XmlNodeType.Comment ||
-                        node.NodeType == XmlNodeType.Whitespace ||
-                        node.NodeType == XmlNodeType.SignificantWhitespace)
-                    {
-                        continue;
-                    }
+                XmlElement patientTransport =
+                    GetRequiredSection(root, "PatientTransport");
+                XmlElement patientFallback =
+                    GetRequiredSection(patientTransport, "Fallback");
+                XmlElement patientCrossDepartmentHelp =
+                    GetRequiredSection(
+                        patientTransport,
+                        "CrossDepartmentHelp");
 
-                    XmlElement element = node as XmlElement;
-                    if (element == null ||
-                        element.Attributes.Count != 0 ||
-                        !IsKnownSetting(element.Name) ||
-                        settings.ContainsKey(element.Name))
-                    {
-                        throw new FormatException(
-                            "The Hospital Porters configuration contains an unknown or duplicate setting.");
-                    }
+                ValidateChildren(
+                    patientTransport,
+                    "Fallback",
+                    "CrossDepartmentHelp");
+                ValidateChildren(
+                    patientFallback,
+                    "PatientFallbackRetries",
+                    "PatientFallbackRetryMinutes");
+                ValidateChildren(
+                    patientCrossDepartmentHelp,
+                    "PatientCrossDepartmentHelp",
+                    "PatientCrossDepartmentHelpBaseChance",
+                    "PatientCrossDepartmentStationFloorBonus",
+                    "PatientCrossDepartmentCurrentFloorBonus",
+                    "PatientCrossDepartmentWaitingBonus");
 
-                    settings.Add(element.Name, element);
-                }
-
-                SampleFallbackRetries = ReadInt(
-                    settings,
-                    "SampleFallbackRetries",
-                    0,
-                    10);
-                SampleFallbackRetryMinutes = ReadInt(
-                    settings,
-                    "SampleFallbackRetryMinutes",
-                    1,
-                    60);
-                SampleFallbackRetryRandomnessMinutes = ReadOptionalInt(
-                    settings,
-                    "SampleFallbackRetryRandomnessMinutes",
-                    DefaultSampleFallbackRetryRandomnessMinutes,
-                    0,
-                    60);
                 PatientFallbackRetries = ReadInt(
-                    settings,
+                    patientFallback,
                     "PatientFallbackRetries",
                     0,
                     10);
                 PatientFallbackRetryMinutes = ReadInt(
-                    settings,
+                    patientFallback,
                     "PatientFallbackRetryMinutes",
                     1,
                     60);
-                SampleTourMaxSamples = ReadOptionalInt(
-                    settings,
-                    "SampleTourMaxSamples",
-                    DefaultSampleTourMaxSamples,
-                    1,
-                    10);
-                SampleTourSearchDistance = ReadOptionalInt(
-                    settings,
-                    "SampleTourSearchDistance",
-                    DefaultSampleTourSearchDistance,
-                    1,
-                    200);
-                SampleOccupiedRoomTimeoutMinutes = ReadOptionalInt(
-                    settings,
-                    "SampleOccupiedRoomTimeoutMinutes",
-                    DefaultSampleOccupiedRoomTimeoutMinutes,
+                PatientCrossDepartmentHelp = ReadBool(
+                    patientCrossDepartmentHelp,
+                    "PatientCrossDepartmentHelp");
+                PatientCrossDepartmentHelpBaseChance = ReadInt(
+                    patientCrossDepartmentHelp,
+                    "PatientCrossDepartmentHelpBaseChance",
                     0,
-                    240);
-                SampleOccupiedRoomTimeoutRandomnessMinutes = ReadOptionalInt(
-                    settings,
+                    100);
+                PatientCrossDepartmentStationFloorBonus = ReadInt(
+                    patientCrossDepartmentHelp,
+                    "PatientCrossDepartmentStationFloorBonus",
+                    0,
+                    50);
+                PatientCrossDepartmentCurrentFloorBonus = ReadInt(
+                    patientCrossDepartmentHelp,
+                    "PatientCrossDepartmentCurrentFloorBonus",
+                    0,
+                    50);
+                PatientCrossDepartmentWaitingBonus = ReadInt(
+                    patientCrossDepartmentHelp,
+                    "PatientCrossDepartmentWaitingBonus",
+                    0,
+                    50);
+
+                XmlElement sampleTransport =
+                    GetRequiredSection(root, "SampleTransport");
+                XmlElement sampleFallback =
+                    GetRequiredSection(sampleTransport, "Fallback");
+                XmlElement sampleTours =
+                    GetRequiredSection(sampleTransport, "Tours");
+                XmlElement sampleOccupiedRooms =
+                    GetRequiredSection(
+                        sampleTransport,
+                        "OccupiedRooms");
+                XmlElement sampleCrossDepartmentHelp =
+                    GetRequiredSection(
+                        sampleTransport,
+                        "CrossDepartmentHelp");
+
+                ValidateChildren(
+                    sampleTransport,
+                    "Fallback",
+                    "Tours",
+                    "OccupiedRooms",
+                    "CrossDepartmentHelp");
+                ValidateChildren(
+                    sampleFallback,
+                    "SampleFallbackRetries",
+                    "SampleFallbackRetryMinutes",
+                    "SampleFallbackRetryRandomnessMinutes");
+                ValidateChildren(
+                    sampleTours,
+                    "SampleTourMaxSamples",
+                    "SampleTourSearchDistance");
+                ValidateChildren(
+                    sampleOccupiedRooms,
+                    "SampleOccupiedRoomTimeoutMinutes",
                     "SampleOccupiedRoomTimeoutRandomnessMinutes",
-                    DefaultSampleOccupiedRoomTimeoutRandomnessMinutes,
+                    "SampleOccupiedRoomPreAssignmentWaitChance",
+                    "SampleOccupiedRoomRetryCooldownMinMinutes",
+                    "SampleOccupiedRoomRetryCooldownMaxMinutes");
+                ValidateChildren(
+                    sampleCrossDepartmentHelp,
+                    "SampleCrossDepartmentHelp",
+                    "SampleCrossDepartmentHelpBaseChance",
+                    "SampleCrossDepartmentStationFloorBonus",
+                    "SampleCrossDepartmentCurrentFloorBonus",
+                    "SampleCrossDepartmentWaitingBonus");
+
+                SampleFallbackRetries = ReadInt(
+                    sampleFallback,
+                    "SampleFallbackRetries",
+                    0,
+                    10);
+                SampleFallbackRetryMinutes = ReadInt(
+                    sampleFallback,
+                    "SampleFallbackRetryMinutes",
+                    1,
+                    60);
+                SampleFallbackRetryRandomnessMinutes = ReadInt(
+                    sampleFallback,
+                    "SampleFallbackRetryRandomnessMinutes",
                     0,
                     60);
-                SampleOccupiedRoomPreAssignmentWaitChance = ReadOptionalInt(
-                    settings,
+                SampleTourMaxSamples = ReadInt(
+                    sampleTours,
+                    "SampleTourMaxSamples",
+                    1,
+                    10);
+                SampleTourSearchDistance = ReadInt(
+                    sampleTours,
+                    "SampleTourSearchDistance",
+                    1,
+                    200);
+                SampleOccupiedRoomTimeoutMinutes = ReadInt(
+                    sampleOccupiedRooms,
+                    "SampleOccupiedRoomTimeoutMinutes",
+                    0,
+                    240);
+                SampleOccupiedRoomTimeoutRandomnessMinutes = ReadInt(
+                    sampleOccupiedRooms,
+                    "SampleOccupiedRoomTimeoutRandomnessMinutes",
+                    0,
+                    60);
+                SampleOccupiedRoomPreAssignmentWaitChance = ReadInt(
+                    sampleOccupiedRooms,
                     "SampleOccupiedRoomPreAssignmentWaitChance",
-                    DefaultSampleOccupiedRoomPreAssignmentWaitChance, 0, 100);
-                SampleOccupiedRoomRetryCooldownMinMinutes = ReadOptionalInt(
-                    settings,
+                    0,
+                    100);
+                SampleOccupiedRoomRetryCooldownMinMinutes = ReadInt(
+                    sampleOccupiedRooms,
                     "SampleOccupiedRoomRetryCooldownMinMinutes",
-                    DefaultSampleOccupiedRoomRetryCooldownMinMinutes, 0, 240);
-                SampleOccupiedRoomRetryCooldownMaxMinutes = ReadOptionalInt(
-                    settings,
+                    0,
+                    240);
+                SampleOccupiedRoomRetryCooldownMaxMinutes = ReadInt(
+                    sampleOccupiedRooms,
                     "SampleOccupiedRoomRetryCooldownMaxMinutes",
-                    DefaultSampleOccupiedRoomRetryCooldownMaxMinutes, 0, 240);
+                    0,
+                    240);
                 if (SampleOccupiedRoomRetryCooldownMaxMinutes <
                     SampleOccupiedRoomRetryCooldownMinMinutes)
                 {
                     throw new FormatException(
                         "The occupied-room retry cooldown maximum must be >= its minimum.");
                 }
-                PatientCrossDepartmentHelp = ReadOptionalBool(
-                    settings,
-                    "PatientCrossDepartmentHelp",
-                    DefaultPatientCrossDepartmentHelp);
-                PatientCrossDepartmentHelpBaseChance = ReadOptionalInt(
-                    settings,
-                    "PatientCrossDepartmentHelpBaseChance",
-                    DefaultPatientCrossDepartmentHelpBaseChance,
-                    0, 100);
-                PatientCrossDepartmentStationFloorBonus = ReadOptionalInt(
-                    settings,
-                    "PatientCrossDepartmentStationFloorBonus",
-                    DefaultPatientCrossDepartmentStationFloorBonus,
-                    0, 50);
-                PatientCrossDepartmentCurrentFloorBonus = ReadOptionalInt(
-                    settings,
-                    "PatientCrossDepartmentCurrentFloorBonus",
-                    DefaultPatientCrossDepartmentCurrentFloorBonus,
-                    0, 50);
-                PatientCrossDepartmentWaitingBonus = ReadOptionalInt(
-                    settings,
-                    "PatientCrossDepartmentWaitingBonus",
-                    DefaultPatientCrossDepartmentWaitingBonus,
-                    0, 50);
-                SampleCrossDepartmentHelp = ReadOptionalBool(
-                    settings,
-                    "SampleCrossDepartmentHelp",
-                    DefaultSampleCrossDepartmentHelp);
-                SampleCrossDepartmentHelpBaseChance = ReadOptionalInt(
-                    settings,
+
+                SampleCrossDepartmentHelp = ReadBool(
+                    sampleCrossDepartmentHelp,
+                    "SampleCrossDepartmentHelp");
+                SampleCrossDepartmentHelpBaseChance = ReadInt(
+                    sampleCrossDepartmentHelp,
                     "SampleCrossDepartmentHelpBaseChance",
-                    DefaultSampleCrossDepartmentHelpBaseChance,
                     0,
                     100);
-                SampleCrossDepartmentStationFloorBonus = ReadOptionalInt(
-                    settings,
+                SampleCrossDepartmentStationFloorBonus = ReadInt(
+                    sampleCrossDepartmentHelp,
                     "SampleCrossDepartmentStationFloorBonus",
-                    DefaultSampleCrossDepartmentStationFloorBonus,
                     0,
                     50);
-                SampleCrossDepartmentCurrentFloorBonus = ReadOptionalInt(
-                    settings,
+                SampleCrossDepartmentCurrentFloorBonus = ReadInt(
+                    sampleCrossDepartmentHelp,
                     "SampleCrossDepartmentCurrentFloorBonus",
-                    DefaultSampleCrossDepartmentCurrentFloorBonus,
                     0,
                     50);
-                SampleCrossDepartmentWaitingBonus = ReadOptionalInt(
-                    settings,
+                SampleCrossDepartmentWaitingBonus = ReadInt(
+                    sampleCrossDepartmentHelp,
                     "SampleCrossDepartmentWaitingBonus",
-                    DefaultSampleCrossDepartmentWaitingBonus,
                     0,
                     50);
-                EnableDiagnostics = ReadOptionalBool(
-                    settings,
-                    "EnableDiagnostics",
-                    DefaultEnableDiagnostics);
+
+                XmlElement diagnostics =
+                    GetRequiredSection(root, "Diagnostics");
+                ValidateChildren(
+                    diagnostics,
+                    "EnableDiagnostics");
+                EnableDiagnostics = ReadBool(
+                    diagnostics,
+                    "EnableDiagnostics");
 
                 LogCurrentValues("Loaded configuration");
             }
@@ -314,47 +362,97 @@ namespace HospitalPorters
             EnableDiagnostics = DefaultEnableDiagnostics;
         }
 
-        private static bool IsKnownSetting(
+        private static XmlElement GetRequiredSection(
+            XmlElement parent,
             string name)
         {
-            return
-                name == "SampleFallbackRetries" ||
-                name == "SampleFallbackRetryMinutes" ||
-                name == "SampleFallbackRetryRandomnessMinutes" ||
-                name == "PatientFallbackRetries" ||
-                name == "PatientFallbackRetryMinutes" ||
-                name == "SampleTourMaxSamples" ||
-                name == "SampleTourSearchDistance" ||
-                name == "SampleOccupiedRoomTimeoutMinutes" ||
-                name == "SampleOccupiedRoomTimeoutRandomnessMinutes" ||
-                name == "SampleOccupiedRoomPreAssignmentWaitChance" ||
-                name == "SampleOccupiedRoomRetryCooldownMinMinutes" ||
-                name == "SampleOccupiedRoomRetryCooldownMaxMinutes" ||
-                name == "PatientCrossDepartmentHelp" ||
-                name == "PatientCrossDepartmentHelpBaseChance" ||
-                name == "PatientCrossDepartmentStationFloorBonus" ||
-                name == "PatientCrossDepartmentCurrentFloorBonus" ||
-                name == "PatientCrossDepartmentWaitingBonus" ||
-                name == "SampleCrossDepartmentHelp" ||
-                name == "SampleCrossDepartmentHelpBaseChance" ||
-                name == "SampleCrossDepartmentStationFloorBonus" ||
-                name == "SampleCrossDepartmentCurrentFloorBonus" ||
-                name == "SampleCrossDepartmentWaitingBonus" ||
-                name == "EnableDiagnostics";
-        }
+            XmlElement result = null;
+            for (int i = 0; i < parent.ChildNodes.Count; i++)
+            {
+                XmlElement element =
+                    parent.ChildNodes[i] as XmlElement;
+                if (element == null ||
+                    element.Name != name)
+                {
+                    continue;
+                }
 
-        private static int ReadInt(
-            Dictionary<string, XmlElement> settings,
-            string name,
-            int minimum,
-            int maximum)
-        {
-            XmlElement element;
-            if (!settings.TryGetValue(name, out element))
+                if (result != null)
+                {
+                    throw new FormatException(
+                        "Duplicate <" + name + "> section.");
+                }
+
+                if (element.Attributes.Count != 0)
+                {
+                    throw new FormatException(
+                        "<" + name + "> must not have attributes.");
+                }
+
+                result = element;
+            }
+
+            if (result == null)
             {
                 throw new FormatException(
-                    "Missing <" + name + "> setting.");
+                    "Missing <" + name + "> section.");
             }
+
+            return result;
+        }
+
+        private static void ValidateChildren(
+            XmlElement parent,
+            params string[] allowedNames)
+        {
+            Dictionary<string, bool> allowed =
+                new Dictionary<string, bool>(
+                    StringComparer.Ordinal);
+            for (int i = 0; i < allowedNames.Length; i++)
+            {
+                allowed.Add(allowedNames[i], false);
+            }
+
+            for (int i = 0; i < parent.ChildNodes.Count; i++)
+            {
+                XmlNode node = parent.ChildNodes[i];
+                if (node.NodeType == XmlNodeType.Comment ||
+                    node.NodeType == XmlNodeType.Whitespace ||
+                    node.NodeType == XmlNodeType.SignificantWhitespace)
+                {
+                    continue;
+                }
+
+                XmlElement element = node as XmlElement;
+                if (element == null ||
+                    element.Attributes.Count != 0 ||
+                    !allowed.ContainsKey(element.Name) ||
+                    allowed[element.Name])
+                {
+                    throw new FormatException(
+                        "The <" + parent.Name +
+                        "> section contains an unknown or duplicate element.");
+                }
+
+                allowed[element.Name] = true;
+            }
+
+            foreach (KeyValuePair<string, bool> entry in allowed)
+            {
+                if (!entry.Value)
+                {
+                    throw new FormatException(
+                        "Missing <" + entry.Key +
+                        "> in <" + parent.Name + ">.");
+                }
+            }
+        }
+
+        private static XmlElement GetRequiredValue(
+            XmlElement parent,
+            string name)
+        {
+            XmlElement element = GetRequiredSection(parent, name);
 
             for (int i = 0; i < element.ChildNodes.Count; i++)
             {
@@ -365,14 +463,26 @@ namespace HospitalPorters
                     node.NodeType != XmlNodeType.Comment)
                 {
                     throw new FormatException(
-                        name + " must contain only an integer value.");
+                        name + " must contain only a scalar value.");
                 }
             }
 
+            return element;
+        }
+
+        private static int ReadInt(
+            XmlElement parent,
+            string name,
+            int minimum,
+            int maximum)
+        {
+            XmlElement element =
+                GetRequiredValue(parent, name);
+
             int value;
             if (!int.TryParse(
-                element.InnerText.Trim(),
-                out value) ||
+                    element.InnerText.Trim(),
+                    out value) ||
                 value < minimum ||
                 value > maximum)
             {
@@ -388,67 +498,17 @@ namespace HospitalPorters
             return value;
         }
 
-        private static int ReadOptionalInt(
-            Dictionary<string, XmlElement> settings,
-            string name,
-            int defaultValue,
-            int minimum,
-            int maximum)
+        private static bool ReadBool(
+            XmlElement parent,
+            string name)
         {
-            XmlElement element;
-            if (!settings.TryGetValue(name, out element))
-            {
-                return defaultValue;
-            }
-
-            for (int i = 0; i < element.ChildNodes.Count; i++)
-            {
-                XmlNode node = element.ChildNodes[i];
-                if (node.NodeType != XmlNodeType.Text &&
-                    node.NodeType != XmlNodeType.Whitespace &&
-                    node.NodeType != XmlNodeType.SignificantWhitespace &&
-                    node.NodeType != XmlNodeType.Comment)
-                {
-                    throw new FormatException(name + " must contain only an integer value.");
-                }
-            }
-
-            int value;
-            if (!int.TryParse(element.InnerText.Trim(), out value) ||
-                value < minimum || value > maximum)
-            {
-                throw new FormatException(
-                    name + " must be an integer from " + minimum + " to " + maximum + ".");
-            }
-            return value;
-        }
-
-        private static bool ReadOptionalBool(
-            Dictionary<string, XmlElement> settings,
-            string name,
-            bool defaultValue)
-        {
-            XmlElement element;
-            if (!settings.TryGetValue(name, out element))
-            {
-                return defaultValue;
-            }
-
-            for (int i = 0; i < element.ChildNodes.Count; i++)
-            {
-                XmlNode node = element.ChildNodes[i];
-                if (node.NodeType != XmlNodeType.Text &&
-                    node.NodeType != XmlNodeType.Whitespace &&
-                    node.NodeType != XmlNodeType.SignificantWhitespace &&
-                    node.NodeType != XmlNodeType.Comment)
-                {
-                    throw new FormatException(
-                        name + " must contain only true or false.");
-                }
-            }
+            XmlElement element =
+                GetRequiredValue(parent, name);
 
             bool value;
-            if (!bool.TryParse(element.InnerText.Trim(), out value))
+            if (!bool.TryParse(
+                    element.InnerText.Trim(),
+                    out value))
             {
                 throw new FormatException(
                     name + " must be true or false.");

@@ -1,65 +1,121 @@
 <?xml version="1.0" encoding="utf-8"?>
 <HospitalPorters>
-  <!-- Number of retries before a waiting laboratory sample may fall back to the native Lab Specialist. Accepted range: 0-10. Default: 2. -->
-  <SampleFallbackRetries>2</SampleFallbackRetries>
+  <!-- @HMUC:desc Controls hospitalized-patient transport fallback and cross-department Porter help. -->
+  <PatientTransport>
+    <!-- @HMUC:desc Controls when an unclaimed patient transport is released back to native Nurse handling. -->
+    <Fallback>
+      <!-- @HMUC:set label="Patient fallback retries" control="slider" min="0" max="10" step="1" -->
+      <!-- @HMUC:desc Number of retries before a waiting patient transport may fall back to native Nurse behavior. -->
+      <PatientFallbackRetries>1</PatientFallbackRetries>
 
-  <!-- Base in-game minutes between laboratory-sample fallback retries. Accepted range: 1-60. Default: 10. -->
-  <SampleFallbackRetryMinutes>10</SampleFallbackRetryMinutes>
+      <!-- @HMUC:set label="Patient fallback retry minutes" control="slider" min="1" max="60" step="1" -->
+      <!-- @HMUC:desc In-game minutes between patient-transport fallback retries. -->
+      <PatientFallbackRetryMinutes>2</PatientFallbackRetryMinutes>
+    </Fallback>
 
-  <!-- Stable plus/minus variation applied independently to each Sample fallback retry interval. Accepted range: 0-60. Default: 3. With the defaults, each retry occurs after 7-13 in-game minutes. -->
-  <SampleFallbackRetryRandomnessMinutes>3</SampleFallbackRetryRandomnessMinutes>
+    <!-- @HMUC:desc Controls opportunistic Patient Porter help from another department after local Porters fail. -->
+    <CrossDepartmentHelp>
+      <!-- @HMUC:set label="Patient cross-department help" control="checkbox" -->
+      <!-- @HMUC:desc Allows foreign Patient Porters to help after all local Patient Porters fail. -->
+      <PatientCrossDepartmentHelp>true</PatientCrossDepartmentHelp>
 
-  <!-- Number of retries before a waiting patient transport may fall back to the native Nurse behavior. Accepted range: 0-10. Default: 1. -->
-  <PatientFallbackRetries>1</PatientFallbackRetries>
+      <!-- @HMUC:set label="Patient foreign-help base chance" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Base chance for a foreign Porter to accept an eligible patient transport. -->
+      <PatientCrossDepartmentHelpBaseChance>70</PatientCrossDepartmentHelpBaseChance>
 
-  <!-- In-game minutes between patient-transport fallback retries. Accepted range: 1-60. Default: 2. -->
-  <PatientFallbackRetryMinutes>2</PatientFallbackRetryMinutes>
+      <!-- @HMUC:set label="Patient station-floor bonus" control="slider" min="0" max="50" step="5" -->
+      <!-- @HMUC:desc Bonus when the helper's Porter Station is on the patient's floor. -->
+      <PatientCrossDepartmentStationFloorBonus>10</PatientCrossDepartmentStationFloorBonus>
 
-  <!-- Patient foreign help is only considered after all local Patient Porters fail. Each Porter + Patient/destination/vehicle roll is stable across scans. Defaults are configurable below. -->
-  <PatientCrossDepartmentHelp>true</PatientCrossDepartmentHelp>
-  <!-- Base chance, 0-100. Default: 70. -->
-  <PatientCrossDepartmentHelpBaseChance>70</PatientCrossDepartmentHelpBaseChance>
-  <!-- Bonus when the helper's Porter Station is on the patient's floor, 0-50. Default: 10. -->
-  <PatientCrossDepartmentStationFloorBonus>10</PatientCrossDepartmentStationFloorBonus>
-  <!-- Bonus when the helper is currently on the patient's floor. This is a preference, not a hard floor restriction. Accepted range: 0-50. Default: 20. -->
-  <PatientCrossDepartmentCurrentFloorBonus>20</PatientCrossDepartmentCurrentFloorBonus>
-  <!-- Bonus when the transport has reached an HPO Patient fallback retry, 0-50. Default: 20. -->
-  <PatientCrossDepartmentWaitingBonus>20</PatientCrossDepartmentWaitingBonus>
+      <!-- @HMUC:set label="Patient current-floor bonus" control="slider" min="0" max="50" step="5" -->
+      <!-- @HMUC:desc Bonus when the helper is already physically on the patient's floor. -->
+      <PatientCrossDepartmentCurrentFloorBonus>20</PatientCrossDepartmentCurrentFloorBonus>
 
-  <!-- Maximum number of physical sample bundles carried in one Porter tour. Lab procedures from the same patient and the same source room count as one sample, even when stored on different furniture. Accepted range: 1-10. Default: 5. Set to 1 for single-sample trips. -->
-  <SampleTourMaxSamples>5</SampleTourMaxSamples>
+      <!-- @HMUC:set label="Patient waiting bonus" control="slider" min="0" max="50" step="5" -->
+      <!-- @HMUC:desc Bonus when the patient transport has reached an HPO fallback retry. -->
+      <PatientCrossDepartmentWaitingBonus>20</PatientCrossDepartmentWaitingBonus>
+    </CrossDepartmentHelp>
+  </PatientTransport>
 
-  <!-- Maximum staff-pathfinding distance used when searching for the next sample after the first pickup. Accepted range: 1-200. Default: 20. -->
-  <SampleTourSearchDistance>20</SampleTourSearchDistance>
+  <!-- @HMUC:desc Controls laboratory-sample transport fallback, tours, occupied-room handling and cross-department help. -->
+  <SampleTransport>
+    <!-- @HMUC:desc Controls when an unclaimed sample transport is released back to native Lab Specialist handling. -->
+    <Fallback>
+      <!-- @HMUC:set label="Sample fallback retries" control="slider" min="0" max="10" step="1" -->
+      <!-- @HMUC:desc Number of retries before a waiting laboratory sample may fall back to the native Lab Specialist. -->
+      <SampleFallbackRetries>2</SampleFallbackRetries>
 
-  <!-- Base in-game minutes a Porter may keep a sample claimed while its short-procedure room remains occupied. HPO still rechecks continuously and resumes immediately when the room becomes free. Accepted range: 0-240. Default: 40. Set to 0 to release as soon as the Porter has evacuated the room. -->
-  <SampleOccupiedRoomTimeoutMinutes>40</SampleOccupiedRoomTimeoutMinutes>
+      <!-- @HMUC:set label="Sample fallback retry minutes" control="slider" min="1" max="60" step="1" -->
+      <!-- @HMUC:desc Base in-game minutes between laboratory-sample fallback retries. -->
+      <SampleFallbackRetryMinutes>10</SampleFallbackRetryMinutes>
 
-  <!-- Random plus/minus variation added once when the occupied-room wait actually starts. Accepted range: 0-60. Default: 5. With the defaults, each wait lasts 35-45 in-game minutes. -->
-  <SampleOccupiedRoomTimeoutRandomnessMinutes>5</SampleOccupiedRoomTimeoutRandomnessMinutes>
+      <!-- @HMUC:set label="Sample fallback retry variation" control="slider" min="0" max="60" step="1" -->
+      <!-- @HMUC:desc Stable plus/minus variation applied independently to each sample fallback retry interval. -->
+      <SampleFallbackRetryRandomnessMinutes>3</SampleFallbackRetryRandomnessMinutes>
+    </Fallback>
 
-  <!-- Chance in percent that an available Porter will wait outside an already-occupied sample source room, only after checking all free-room work. One choice per physical sample/blocked episode. Accepted range: 0-100. Default: 30. -->
-  <SampleOccupiedRoomPreAssignmentWaitChance>30</SampleOccupiedRoomPreAssignmentWaitChance>
+    <!-- @HMUC:desc Controls how a Sample Cart tour can add compatible samples after its first pickup. -->
+    <Tours>
+      <!-- @HMUC:set label="Maximum samples per tour" control="slider" min="1" max="10" step="1" -->
+      <!-- @HMUC:desc Maximum number of physical sample bundles carried during one Porter sample tour. -->
+      <SampleTourMaxSamples>5</SampleTourMaxSamples>
 
-  <!-- In-game minutes of cooldown between the first occupied-room wait timeout and the second Porter attempt. Defaults: 15-30. Both endpoints are inclusive. Accepted range for each: 0-240; maximum must be >= minimum. -->
-  <SampleOccupiedRoomRetryCooldownMinMinutes>15</SampleOccupiedRoomRetryCooldownMinMinutes>
-  <SampleOccupiedRoomRetryCooldownMaxMinutes>30</SampleOccupiedRoomRetryCooldownMaxMinutes>
+      <!-- @HMUC:set label="Sample tour search distance" control="slider" min="1" max="200" step="1" -->
+      <!-- @HMUC:desc Maximum staff-pathfinding distance used when searching for another sample after the first pickup. -->
+      <SampleTourSearchDistance>20</SampleTourSearchDistance>
+    </Tours>
 
-  <!-- Enables opportunistic Sample help across departments. Local Sample work keeps priority. Accepted values: true/false. Default: true. -->
-  <SampleCrossDepartmentHelp>true</SampleCrossDepartmentHelp>
+    <!-- @HMUC:desc Controls Porter behavior when a short-procedure sample source room is occupied. -->
+    <OccupiedRooms>
+      <!-- @HMUC:set label="Occupied-room sample timeout" control="slider" min="0" max="240" step="5" -->
+      <!-- @HMUC:desc Base in-game minutes a Porter may keep a sample claimed while its short-procedure source room remains occupied. -->
+      <SampleOccupiedRoomTimeoutMinutes>40</SampleOccupiedRoomTimeoutMinutes>
 
-  <!-- Base acceptance chance for the first foreign Sample pickup. The roll is stable for a Porter + physical sample bundle, so repeated scans do not reroll it. Accepted range: 0-100. Default: 30. -->
-  <SampleCrossDepartmentHelpBaseChance>30</SampleCrossDepartmentHelpBaseChance>
+      <!-- @HMUC:set label="Occupied-room timeout variation" control="slider" min="0" max="60" step="1" -->
+      <!-- @HMUC:desc Random plus/minus variation applied once when an occupied-room sample wait begins. -->
+      <SampleOccupiedRoomTimeoutRandomnessMinutes>5</SampleOccupiedRoomTimeoutRandomnessMinutes>
 
-  <!-- Bonus when the foreign sample is on the same floor as the Porter's assigned Porter Station. This is a preference, not a hard floor restriction. Accepted range: 0-50. Default: 20. -->
-  <SampleCrossDepartmentStationFloorBonus>20</SampleCrossDepartmentStationFloorBonus>
+      <!-- @HMUC:set label="Occupied-room pre-assignment wait chance" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Chance that an available Porter waits outside an occupied sample source room after free-room work is exhausted. -->
+      <SampleOccupiedRoomPreAssignmentWaitChance>30</SampleOccupiedRoomPreAssignmentWaitChance>
 
-  <!-- Bonus when the Porter is already physically on the sample's floor. Accepted range: 0-50. Default: 20. -->
-  <SampleCrossDepartmentCurrentFloorBonus>20</SampleCrossDepartmentCurrentFloorBonus>
+      <!-- @HMUC:set label="Occupied-room retry cooldown min" control="slider" min="0" max="240" step="5" -->
+      <!-- @HMUC:desc Minimum in-game cooldown before the second Porter attempt after an occupied-room wait timeout. -->
+      <SampleOccupiedRoomRetryCooldownMinMinutes>15</SampleOccupiedRoomRetryCooldownMinMinutes>
 
-  <!-- Bonus after the physical sample has already progressed through an HPO fallback interval or is on its one permitted occupied-room retry. Accepted range: 0-50. Default: 15. -->
-  <SampleCrossDepartmentWaitingBonus>15</SampleCrossDepartmentWaitingBonus>
+      <!-- @HMUC:set label="Occupied-room retry cooldown max" control="slider" min="0" max="240" step="5" -->
+      <!-- @HMUC:desc Maximum in-game cooldown before the second Porter attempt after an occupied-room wait timeout. -->
+      <SampleOccupiedRoomRetryCooldownMaxMinutes>30</SampleOccupiedRoomRetryCooldownMaxMinutes>
+    </OccupiedRooms>
 
-  <!-- Enables compact troubleshooting logs for transport assignment, fallback, completion and save/load recovery. Accepted values: true/false. Default: false. -->
-  <EnableDiagnostics>false</EnableDiagnostics>
+    <!-- @HMUC:desc Controls opportunistic Sample Porter help from another department after local work keeps priority. -->
+    <CrossDepartmentHelp>
+      <!-- @HMUC:set label="Sample cross-department help" control="checkbox" -->
+      <!-- @HMUC:desc Allows opportunistic sample transport help across departments while local sample work keeps priority. -->
+      <SampleCrossDepartmentHelp>true</SampleCrossDepartmentHelp>
+
+      <!-- @HMUC:set label="Sample foreign-help base chance" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Base acceptance chance for the first eligible foreign sample pickup. -->
+      <SampleCrossDepartmentHelpBaseChance>30</SampleCrossDepartmentHelpBaseChance>
+
+      <!-- @HMUC:set label="Sample station-floor bonus" control="slider" min="0" max="50" step="5" -->
+      <!-- @HMUC:desc Bonus when the foreign sample is on the same floor as the Porter's assigned Porter Station. -->
+      <SampleCrossDepartmentStationFloorBonus>20</SampleCrossDepartmentStationFloorBonus>
+
+      <!-- @HMUC:set label="Sample current-floor bonus" control="slider" min="0" max="50" step="5" -->
+      <!-- @HMUC:desc Bonus when the Porter is already physically on the foreign sample's floor. -->
+      <SampleCrossDepartmentCurrentFloorBonus>20</SampleCrossDepartmentCurrentFloorBonus>
+
+      <!-- @HMUC:set label="Sample waiting bonus" control="slider" min="0" max="50" step="5" -->
+      <!-- @HMUC:desc Bonus after the physical sample has progressed through an HPO fallback interval or occupied-room retry. -->
+      <SampleCrossDepartmentWaitingBonus>15</SampleCrossDepartmentWaitingBonus>
+    </CrossDepartmentHelp>
+  </SampleTransport>
+
+  <!-- @HMUC:desc Controls optional troubleshooting output. -->
+  <Diagnostics>
+    <!-- @HMUC:set label="Diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Enables compact troubleshooting logs for Porter assignment, fallback, completion and save/load recovery. -->
+    <EnableDiagnostics>false</EnableDiagnostics>
+  </Diagnostics>
 </HospitalPorters>

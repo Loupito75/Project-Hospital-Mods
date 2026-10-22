@@ -160,15 +160,16 @@ namespace HospitalPorters
         private const float SampleRoomWaitIdealDistance = 3.5f;
         private const float SampleRoomWaitMaximumDistance = 7f;
         private const float SampleRoomWaitNearDoorDistance = 2f;
-        private const float SampleRoomWaitNearDoorPenalty = 50f;
-        private const float SampleRoomWaitAnyDoorPenalty = 100f;
-        private const float SampleRoomWaitWallPreferenceBonus = 10f;
-
-        private static readonly FieldInfo NurseEntityField =
-            AccessTools.Field(typeof(BehaviorNurse), "m_entity");
 
         private static readonly Dictionary<Entity, PorterSampleTransportJob> Jobs =
             new Dictionary<Entity, PorterSampleTransportJob>();
+
+        // Updated only by the existing periodic orphan-cart recovery pass.
+        // Door/lookahead/animation hot paths validate this direct reference
+        // in O(1) and never rescan floors.
+        private static readonly Dictionary<Entity, TileObject>
+            AttachedOrphanCarts =
+                new Dictionary<Entity, TileObject>();
 
         // Unity unscaled realtime; never serialized. The first idle check,
         // including after loading, always executes immediately.
@@ -240,6 +241,7 @@ namespace HospitalPorters
         internal static void Reset()
         {
             Jobs.Clear();
+            AttachedOrphanCarts.Clear();
             NextOrphanedCartRecoveryTimes.Clear();
             NativeLabSampleBundles.Clear();
             FallbackWaits.Clear();
@@ -258,6 +260,90 @@ namespace HospitalPorters
         internal static bool IsBusy(Entity porter)
         {
             return porter != null && Jobs.ContainsKey(porter);
+        }
+
+        internal static bool IsShowingSampleRoomWaitingBubble(
+            Entity porter)
+        {
+            if (porter == null)
+            {
+                return false;
+            }
+
+            PorterSampleTransportJob job;
+            return Jobs.TryGetValue(porter, out job) &&
+                job != null &&
+                job.ShowingSampleRoomWaitingBubble;
+        }
+
+        internal static bool HasAttachedMissionCart(Entity porter)
+        {
+            if (porter == null)
+            {
+                return false;
+            }
+
+            PorterSampleTransportJob job;
+            if (!Jobs.TryGetValue(porter, out job) ||
+                job == null)
+            {
+                if (AttachedOrphanCarts.Count == 0)
+                {
+                    return false;
+                }
+
+                TileObject orphanCart;
+                if (!AttachedOrphanCarts.TryGetValue(
+                        porter, out orphanCart) ||
+                    orphanCart == null ||
+                    orphanCart.m_state == null)
+                {
+                    return false;
+                }
+
+                return orphanCart.User == porter &&
+                    orphanCart.m_state.m_moving &&
+                    orphanCart.IsAttachedToCharacter();
+            }
+
+            if (job.Cart == null ||
+                job.Cart.m_state == null)
+            {
+                return false;
+            }
+
+            TileObject cart = job.Cart;
+            return cart.User == porter &&
+                cart.m_state.m_moving &&
+                cart.IsAttachedToCharacter();
+        }
+
+        internal static void TrackOrphanCartState(
+            Entity porter,
+            TileObject cart)
+        {
+            if (porter == null)
+            {
+                return;
+            }
+
+            if (cart != null &&
+                cart.m_state != null &&
+                !Jobs.ContainsKey(porter) &&
+                cart.User == porter &&
+                cart.m_state.m_moving &&
+                cart.IsAttachedToCharacter())
+            {
+                AttachedOrphanCarts[porter] = cart;
+                return;
+            }
+
+            TileObject tracked;
+            if (AttachedOrphanCarts.TryGetValue(porter, out tracked) &&
+                (cart == null || tracked == cart))
+            {
+                AttachedOrphanCarts.Remove(porter);
+            }
         }
 
         internal static bool IsSampleContinuationWindowOpen(
@@ -1461,6 +1547,7 @@ namespace HospitalPorters
             }
 
             Jobs[porter] = job;
+            AttachedOrphanCarts.Remove(porter);
             NextOrphanedCartRecoveryTimes.Remove(porter);
 
             // WaitingForStandUpBeforeCart is intentionally transient. Rebuild
@@ -1521,10 +1608,11 @@ namespace HospitalPorters
             }
         }
 
-        internal static bool UpdateActiveMission(BehaviorNurse nurse)
+        internal static bool UpdateActiveMission(
+            BehaviorNurse nurse,
+            Entity porter)
         {
-            Entity porter = GetEntity(nurse);
-            if (!PorterIdentity.IsPorter(porter))
+            if (porter == null)
             {
                 return false;
             }
@@ -1544,6 +1632,11 @@ namespace HospitalPorters
                 {
                     NextOrphanedCartRecoveryTimes[porter] =
                         now + OrphanedCartRecoveryIntervalSeconds;
+
+                    // Clear the previous safety reference before the existing
+                    // recovery pass. The pass refreshes it only if a cart is
+                    // still physically attached afterwards.
+                    TrackOrphanCartState(porter, null);
                     PorterSampleCartRuntime.RecoverOrphanedCartForPorter(
                         porter);
                 }
@@ -1557,10 +1650,27 @@ namespace HospitalPorters
             return true;
         }
 
-        internal static void TryAssignFromIdlePorter(BehaviorNurse nurse)
+        internal static void TryAssignFromIdlePorter(
+            BehaviorNurse nurse,
+            Entity porter)
         {
-            Entity porter = GetEntity(nurse);
-            if (!IsAvailablePorter(porter, null))
+            // Ineligible Nurse states never need employee/role/station
+            // resolution or a sample-candidate search.
+            if (nurse == null ||
+                nurse.m_state == null ||
+                (nurse.m_state.m_nurseState != NurseState.Idle &&
+                 nurse.m_state.m_nurseState != NurseState.GoingToWorkplace &&
+                 nurse.m_state.m_nurseState != NurseState.FinishedProcedure) ||
+                nurse.m_state.m_currentPatient != null)
+            {
+                return;
+            }
+
+            if (!IsAvailablePorter(
+                    porter,
+                    null,
+                    false,
+                    true))
             {
                 return;
             }
@@ -1568,8 +1678,10 @@ namespace HospitalPorters
             LabProcedure localFree;
             LabProcedure foreignFree;
             List<PorterBlockedSampleCandidate> blockedCandidates;
+            // This Porter has already passed availability; StartJob still
+            // revalidates before changing any reservation or destination.
             ScanSampleCandidatesForPorter(
-                porter, 2, true,
+                porter, 2, true, false, true,
                 out localFree, out foreignFree, out blockedCandidates);
 
             // Same priority as 1.0.2.41, but only ONE scan: local free,
@@ -1940,9 +2052,12 @@ namespace HospitalPorters
             }
 
             Entity patient = procedure.m_state.m_patient.GetEntity();
-            if (patient == null ||
-                patient.GetComponent<HospitalizationComponent>() == null ||
-                !patient.GetComponent<HospitalizationComponent>().IsHospitalized() ||
+            HospitalizationComponent hospitalization =
+                patient == null
+                    ? null
+                    : patient.GetComponent<HospitalizationComponent>();
+            if (hospitalization == null ||
+                !hospitalization.IsHospitalized() ||
                 IsProcedureClaimed(procedure) ||
                 IsHandledByLabSpecialist(procedure))
             {
@@ -1976,13 +2091,6 @@ namespace HospitalPorters
                 "; examination=" +
                 procedure.m_state.m_examination.Entry.DatabaseID +
                 "; action=requeued orphaned delivery.");
-        }
-
-        private static Entity GetEntity(BehaviorNurse nurse)
-        {
-            return nurse == null || object.ReferenceEquals(NurseEntityField, null)
-                ? null
-                : NurseEntityField.GetValue(nurse) as Entity;
         }
 
         private static bool HasConfiguredReachableSamplePorter(
@@ -2892,7 +3000,7 @@ namespace HospitalPorters
             out List<PorterBlockedSampleCandidate> blockedCandidates)
         {
             ScanSampleCandidatesForPorter(
-                porter, departmentScope, includeBlocked, false,
+                porter, departmentScope, includeBlocked, false, false,
                 out localFree, out foreignFree, out blockedCandidates);
         }
 
@@ -2901,6 +3009,7 @@ namespace HospitalPorters
             int departmentScope,
             bool includeBlocked,
             bool stopOnFirstFree,
+            bool availabilityAlreadyValidated,
             out LabProcedure localFree,
             out LabProcedure foreignFree,
             out List<PorterBlockedSampleCandidate> blockedCandidates)
@@ -2908,7 +3017,8 @@ namespace HospitalPorters
             localFree = null;
             foreignFree = null;
             blockedCandidates = null;
-            if (!IsAvailablePorter(porter, null))
+            if (!availabilityAlreadyValidated &&
+                !IsAvailablePorter(porter, null))
             {
                 return;
             }
@@ -3102,7 +3212,7 @@ namespace HospitalPorters
             LabProcedure foreign;
             List<PorterBlockedSampleCandidate> ignored;
             ScanSampleCandidatesForPorter(
-                porter, 2, false, true,
+                porter, 2, false, true, false,
                 out local, out foreign, out ignored);
             return local != null || foreign != null;
         }
@@ -3120,6 +3230,7 @@ namespace HospitalPorters
                 foreignDepartmentOnly ? 1 : 0,
                 false,
                 true,
+                false,
                 out local,
                 out foreign,
                 out ignored);
@@ -3931,45 +4042,6 @@ namespace HospitalPorters
                 tileUser == porter;
         }
 
-        private static bool HasNearbySampleRoomWaitDoor(
-            Floor floor,
-            Vector2i position)
-        {
-            if (floor == null)
-            {
-                return false;
-            }
-
-            for (int x = position.m_x - 1;
-                 x <= position.m_x + 1;
-                 x++)
-            {
-                for (int y = position.m_y - 1;
-                     y <= position.m_y + 1;
-                     y++)
-                {
-                    if (x < 0 ||
-                        y < 0 ||
-                        x >= floor.Size.m_x ||
-                        y >= floor.Size.m_y)
-                    {
-                        continue;
-                    }
-
-                    TileWalls walls =
-                        floor.GetWallsSafe(x, y);
-                    if (walls != null &&
-                        (walls.m_doorSW != null ||
-                         walls.m_doorSE != null))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
         private static bool HasAdjacentSampleRoomWaitWall(
             Floor floor,
             Vector2i position)
@@ -4367,10 +4439,31 @@ namespace HospitalPorters
                 return false;
             }
 
+            int bestDoorFrontTier =
+                int.MaxValue;
+            int bestDoorNearTier =
+                int.MaxValue;
+            int bestWallTier =
+                int.MaxValue;
+            int bestAnchorTier =
+                int.MaxValue;
             float bestScore =
                 float.MaxValue;
             float bestRouteDistance =
                 float.MaxValue;
+            TileObject stagingCart =
+                job == null
+                    ? null
+                    : job.Cart;
+            if (stagingCart == null ||
+                stagingCart.m_state == null ||
+                !stagingCart.m_state.m_moving ||
+                !stagingCart.IsAttachedToCharacter() ||
+                stagingCart.User != porter)
+            {
+                stagingCart = null;
+            }
+
             int minX =
                 Math.Max(
                     0,
@@ -4417,16 +4510,6 @@ namespace HospitalPorters
                         continue;
                     }
 
-                    if (!CanStageAttachedSampleCartAtWaitTile(
-                            porter,
-                            job,
-                            floor,
-                            sourceRoom,
-                            candidate))
-                    {
-                        continue;
-                    }
-
                     // A candidate farther than the native max in a
                     // straight line cannot pass the exact route limit.
                     float dx = x - doorwayAnchor.m_x;
@@ -4434,6 +4517,46 @@ namespace HospitalPorters
                     if (dx * dx + dy * dy >
                         SampleRoomWaitMaximumDistance *
                         SampleRoomWaitMaximumDistance)
+                    {
+                        continue;
+                    }
+
+                    int doorFrontTier;
+                    int doorNearTier;
+                    PorterDoorPlacementRules
+                        .GetPorterAndCartDoorExposure(
+                            floor,
+                            candidate,
+                            stagingCart,
+                            out doorFrontTier,
+                            out doorNearTier);
+                    int wallTier =
+                        HasAdjacentSampleRoomWaitWall(
+                            floor,
+                            candidate)
+                            ? 0
+                            : 1;
+
+                    // These tiers outrank every route-derived tie-breaker.
+                    // If they are already worse than the current valid best,
+                    // no cart-orientation check or pathfinding can make this
+                    // candidate win.
+                    if (doorFrontTier > bestDoorFrontTier ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier > bestDoorNearTier) ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier == bestDoorNearTier &&
+                         wallTier > bestWallTier))
+                    {
+                        continue;
+                    }
+
+                    if (!CanStageAttachedSampleCartAtWaitTile(
+                            porter,
+                            job,
+                            floor,
+                            sourceRoom,
+                            candidate))
                     {
                         continue;
                     }
@@ -4452,37 +4575,42 @@ namespace HospitalPorters
                         continue;
                     }
 
-                    // Score depends on the door route, not the Porter
-                    // route. Skip the second expensive route when this
-                    // position cannot improve the chosen wait tile.
+                    int anchorTier =
+                        routeDistance <
+                            SampleRoomWaitNearDoorDistance
+                            ? 1
+                            : 0;
+
+                    // Rank exact door frontage before proximity and wall
+                    // preference. This mirrors Smart Transport Wait: a clear
+                    // open position always beats a wall-preferred position
+                    // that would put the Porter or any possible attached-cart
+                    // footprint directly in front of either side of a door.
                     float score =
                         Math.Abs(
                             routeDistance -
                             SampleRoomWaitIdealDistance);
-                    if (routeDistance <
-                        SampleRoomWaitNearDoorDistance)
-                    {
-                        score +=
-                            SampleRoomWaitNearDoorPenalty;
-                    }
 
-                    if (HasNearbySampleRoomWaitDoor(
-                            floor,
-                            candidate))
-                    {
-                        score +=
-                            SampleRoomWaitAnyDoorPenalty;
-                    }
-                    else if (HasAdjacentSampleRoomWaitWall(
-                                 floor,
-                                 candidate))
-                    {
-                        score -=
-                            SampleRoomWaitWallPreferenceBonus;
-                    }
-
-                    if (score > bestScore ||
-                        (score == bestScore &&
+                    if (doorFrontTier > bestDoorFrontTier ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier > bestDoorNearTier) ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier == bestDoorNearTier &&
+                         wallTier > bestWallTier) ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier == bestDoorNearTier &&
+                         wallTier == bestWallTier &&
+                         anchorTier > bestAnchorTier) ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier == bestDoorNearTier &&
+                         wallTier == bestWallTier &&
+                         anchorTier == bestAnchorTier &&
+                         score > bestScore) ||
+                        (doorFrontTier == bestDoorFrontTier &&
+                         doorNearTier == bestDoorNearTier &&
+                         wallTier == bestWallTier &&
+                         anchorTier == bestAnchorTier &&
+                         score == bestScore &&
                          routeDistance >= bestRouteDistance))
                     {
                         continue;
@@ -4500,6 +4628,10 @@ namespace HospitalPorters
                         continue;
                     }
 
+                    bestDoorFrontTier = doorFrontTier;
+                    bestDoorNearTier = doorNearTier;
+                    bestWallTier = wallTier;
+                    bestAnchorTier = anchorTier;
                     bestScore = score;
                     bestRouteDistance = routeDistance;
                     waitTile = candidate;
@@ -7163,7 +7295,8 @@ namespace HospitalPorters
             return IsAvailablePorter(
                 porter,
                 procedure,
-                allowPostDeliveryReturn: false);
+                false,
+                false);
         }
 
         private static bool IsAvailablePorter(
@@ -7171,8 +7304,23 @@ namespace HospitalPorters
             LabProcedure procedure,
             bool allowPostDeliveryReturn)
         {
+            return IsAvailablePorter(
+                porter,
+                procedure,
+                allowPostDeliveryReturn,
+                false);
+        }
+
+        private static bool IsAvailablePorter(
+            Entity porter,
+            LabProcedure procedure,
+            bool allowPostDeliveryReturn,
+            bool porterIdentityValidated)
+        {
             bool busy = IsBusy(porter);
-            if (!PorterIdentity.IsPorter(porter) ||
+            if (porter == null ||
+                (!porterIdentityValidated &&
+                 !PorterIdentity.IsPorter(porter)) ||
                 PorterPatientContinuationRuntime.IsBusy(porter) ||
                 (busy &&
                  !(allowPostDeliveryReturn &&
@@ -7192,11 +7340,14 @@ namespace HospitalPorters
                 Database.Instance.GetEntry<GameDBEmployeeRole>(
                     PorterIds.SampleTransportRole);
             if (nurse == null ||
+                nurse.m_state == null ||
                 employee == null ||
+                employee.m_state == null ||
                 walk == null ||
                 role == null ||
                 employee.IsFired() ||
                 employee.ShouldGoToTraining() ||
+                DayTime.Instance == null ||
                 employee.m_state.m_shift != DayTime.Instance.GetShift() ||
                 employee.m_state.m_homeRoom == null ||
                 !PorterStationRegistry.IsPorterStation(
@@ -7335,6 +7486,7 @@ namespace HospitalPorters
 
             ClearFallbackTracking(procedure);
             Jobs[porter] = job;
+            AttachedOrphanCarts.Remove(porter);
             NextOrphanedCartRecoveryTimes.Remove(porter);
 
             ShowSampleBubble(porter, procedure);
@@ -7674,29 +7826,28 @@ namespace HospitalPorters
                 return;
             }
 
+            // The source/cart checks above remain live on every update.
+            // Defer the cart use tile until the native route can advance.
+            if (job.WaitingForStandUpBeforeCart && walk.IsSitting())
+            {
+                // The exit animation must finish before starting a cart route.
+                if (!walk.IsBusy())
+                {
+                    walk.StandUp();
+                }
+                return;
+            }
+
+            if (walk.IsBusy())
+            {
+                return;
+            }
+
             Vector2i cartUseTile =
                 ToTile(job.Cart.GetDefaultUsePosition());
 
             if (job.WaitingForStandUpBeforeCart)
             {
-                // StandingUp remains busy and keeps m_objectSittingOn until
-                // vanilla finishes the exit animation. Once vanilla has fully
-                // cleared the seat and settled its old seat destination, start
-                // the cart route from the Porter's real standing tile.
-                if (walk.IsSitting())
-                {
-                    if (!walk.IsBusy())
-                    {
-                        walk.StandUp();
-                    }
-                    return;
-                }
-
-                if (walk.IsBusy())
-                {
-                    return;
-                }
-
                 job.WaitingForStandUpBeforeCart = false;
                 job.RouteRecoveryAttempts = 0;
                 walk.SetDestination(
@@ -7713,11 +7864,6 @@ namespace HospitalPorters
                     "; floor=" +
                     job.Cart.GetFloorIndex() +
                     ".");
-                return;
-            }
-
-            if (walk.IsBusy())
-            {
                 return;
             }
 
@@ -9369,6 +9515,7 @@ namespace HospitalPorters
                 job.HasStationReturnTarget = false;
             }
             Jobs.Remove(porter);
+            AttachedOrphanCarts.Remove(porter);
             NextOrphanedCartRecoveryTimes.Remove(porter);
             if (nurse != null)
             {
@@ -9629,7 +9776,9 @@ namespace HospitalPorters
             Entity porter,
             BehaviorNurse nurse)
         {
-            if (!PorterIdentity.IsPorter(porter) ||
+            if (porter == null ||
+                nurse == null ||
+                nurse.m_state == null ||
                 nurse.m_state.m_nurseState != NurseState.Idle)
             {
                 return;
@@ -9860,11 +10009,26 @@ namespace HospitalPorters
                     ? null
                     : speech.GetPersistentData() as SpeechComponentPersistentData;
 
-            return state != null &&
+            if (state == null || state.m_displayTime >= 0f)
+            {
+                return false;
+            }
+
+            bool customBubble =
+                state.m_speechBubble != null &&
+                state.m_bubbleIconIndex == -1 &&
+                string.Equals(
+                    state.m_bubbleIconAssetID,
+                    PorterVisuals.SampleRoomOccupiedBubbleAsset,
+                    StringComparison.Ordinal);
+
+            bool vanillaFallback =
                 state.m_speechBubble == null &&
                 state.m_bubbleTextureIndex == SampleRoomWaitBubbleIndex &&
                 state.m_bubbleIconIndex == -1 &&
                 state.m_bubbleIconAssetID == null;
+
+            return customBubble || vanillaFallback;
         }
 
         private static void ShowSampleRoomWaitingBubble(
@@ -9895,7 +10059,20 @@ namespace HospitalPorters
                 return;
             }
 
-            speech.SetBubble(SampleRoomWaitBubbleIndex);
+            if (PorterVisuals.HasLoadedTexture(
+                    PorterVisuals.SampleRoomOccupiedBubbleAsset))
+            {
+                speech.SetBubble(
+                    "BUBBLE_EMPTY",
+                    PorterVisuals.SampleRoomOccupiedBubbleAsset);
+            }
+            else
+            {
+                // Safe fallback for an incomplete installation: keep the
+                // previous vanilla atlas bubble instead of losing feedback.
+                speech.SetBubble(SampleRoomWaitBubbleIndex);
+            }
+
             job.ShowingSampleRoomWaitingBubble = true;
         }
 
@@ -9972,32 +10149,61 @@ namespace HospitalPorters
         new Type[] { typeof(float) })]
     internal static class PorterSampleTransportNurseUpdatePatch
     {
+        private struct NurseUpdateState
+        {
+            internal Entity Porter;
+            internal bool Handled;
+        }
+
         private static bool Prefix(
             BehaviorNurse __instance,
-            ref bool __state)
+            ref NurseUpdateState __state)
         {
-            __state =
-                PorterPatientContinuationRuntime.UpdateActiveReturn(__instance) ||
-                PorterSampleTransportRuntime.UpdateActiveMission(__instance);
-            return !__state;
+            __state.Porter =
+                PorterIdleResting.GetEntity(__instance);
+            __state.Handled = false;
+
+            if (!PorterIdentity.IsPorter(__state.Porter))
+            {
+                __state.Porter = null;
+                return true;
+            }
+
+            __state.Handled =
+                PorterPatientContinuationRuntime.UpdateActiveReturn(
+                    __instance,
+                    __state.Porter) ||
+                PorterSampleTransportRuntime.UpdateActiveMission(
+                    __instance,
+                    __state.Porter);
+            return !__state.Handled;
         }
 
         private static void Postfix(
             BehaviorNurse __instance,
-            bool __state)
+            NurseUpdateState __state)
         {
-            PorterPatientContinuationRuntime.OnNurseUpdated(__instance);
-            if (!__state)
+            if (__state.Porter == null)
             {
-                if (PorterNeedsRuntime.TryStartNativeIdleActivity(
-                        __instance))
-                {
-                    return;
-                }
-
-                PorterSampleTransportRuntime.TryAssignFromIdlePorter(
-                    __instance);
+                return;
             }
+
+            PorterPatientContinuationRuntime.OnNurseUpdated(
+                __instance,
+                __state.Porter);
+
+            if (!__state.Handled &&
+                !PorterNeedsRuntime.TryStartNativeIdleActivity(
+                    __instance,
+                    __state.Porter))
+            {
+                PorterSampleTransportRuntime.TryAssignFromIdlePorter(
+                    __instance,
+                    __state.Porter);
+            }
+
+            PorterIdleWorkstationVisuals.UpdateKnownPorter(
+                __state.Porter);
         }
     }
 
@@ -10157,11 +10363,21 @@ namespace HospitalPorters
             LabProcedure __instance,
             ref LabProcedureState __state)
         {
-            PorterSampleTransportRuntime.RecoverOrphanedDelivery(__instance);
-            __state = __instance == null ||
-                __instance.m_state == null
-                    ? LabProcedureState.Finished
-                    : __instance.m_state.m_labProcedureState;
+            if (__instance == null ||
+                __instance.m_state == null)
+            {
+                __state = LabProcedureState.Finished;
+                return;
+            }
+
+            if (__instance.m_state.m_labProcedureState ==
+                LabProcedureState.SampleBeingDelivered)
+            {
+                PorterSampleTransportRuntime.RecoverOrphanedDelivery(
+                    __instance);
+            }
+
+            __state = __instance.m_state.m_labProcedureState;
         }
 
         private static void Postfix(

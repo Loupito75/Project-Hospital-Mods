@@ -72,9 +72,11 @@ namespace HospitalPorters
         internal static void ResetForBaseLoad()
         {
             s_loaded = false;
+            PorterIdentity.ResetCachedOccupation();
             PorterHiringState.Reset();
             PorterCandidatePool.Clear(destroyEntities: true);
             PorterSampleTransportRuntime.Reset();
+            PorterFullSpeechBubblePatch.Reset();
             PorterIdleWorkstationVisuals.Reset();
             StretcherDestinationPatch.ResetFallbackTracking();
         }
@@ -102,8 +104,10 @@ namespace HospitalPorters
             {
                 database.ReadFiles(pluginRoot, add: true);
 
+                GameDBOccupation porterOccupation =
+                    database.GetEntry<GameDBOccupation>(PorterIds.Occupation);
                 bool valid =
-                    database.GetEntry<GameDBOccupation>(PorterIds.Occupation) != null &&
+                    porterOccupation != null &&
                     database.GetEntry<GameDBSkill>(PorterIds.PorterQualification) != null &&
                     database.GetEntry<GameDBRoomType>(PorterIds.PorterStationRoom) != null &&
                     database.GetEntry<GameDBClothingStyle>(PorterIds.MaleClothingStyle) != null &&
@@ -118,6 +122,7 @@ namespace HospitalPorters
                 s_loaded = valid;
                 if (valid)
                 {
+                    PorterIdentity.CacheOccupation(porterOccupation);
                     PlayerProfile.Instance.FillNotificationLevels();
                     PorterStationRegistry.Register(database);
                     PorterDiagnostics.Log("database initialized.");
@@ -141,6 +146,20 @@ namespace HospitalPorters
 
     internal static class PorterIdentity
     {
+        // An occupation pointer already caches its database entry.
+        // This avoids repeated DatabaseID.ToString() and string comparison.
+        private static GameDBOccupation s_porterOccupation;
+
+        internal static void CacheOccupation(GameDBOccupation occupation)
+        {
+            s_porterOccupation = occupation;
+        }
+
+        internal static void ResetCachedOccupation()
+        {
+            s_porterOccupation = null;
+        }
+
         internal static bool IsPorter(Entity entity)
         {
             CharacterPersonalInfoComponent personalInfoComponent = entity?.GetComponent<CharacterPersonalInfoComponent>();
@@ -149,8 +168,19 @@ namespace HospitalPorters
                 return false;
             }
 
-            GameDBOccupation occupation = personalInfoComponent.m_personalInfo.m_occupation.Entry;
-            return occupation != null && occupation.DatabaseID.ToString() == PorterIds.Occupation;
+            GameDBOccupation occupation =
+                personalInfoComponent.m_personalInfo.m_occupation.Entry;
+            if (occupation == null)
+            {
+                return false;
+            }
+
+            // Database reload resets this reference; before HPO data is
+            // fully loaded, retain the original ID-based fallback.
+            GameDBOccupation porterOccupation = s_porterOccupation;
+            return porterOccupation != null
+                ? object.ReferenceEquals(occupation, porterOccupation)
+                : occupation.DatabaseID.ToString() == PorterIds.Occupation;
         }
 
         internal static bool SetPorterOccupation(Entity entity)

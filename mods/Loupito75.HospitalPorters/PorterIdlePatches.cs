@@ -27,16 +27,46 @@ namespace HospitalPorters
             out EmployeeComponent employee,
             out Room station)
         {
+            return TryGetPorterStation(
+                porter,
+                out employee,
+                out station,
+                true);
+        }
+
+        internal static bool TryGetKnownPorterStation(
+            Entity porter,
+            out EmployeeComponent employee,
+            out Room station)
+        {
+            return TryGetPorterStation(
+                porter,
+                out employee,
+                out station,
+                false);
+        }
+
+        private static bool TryGetPorterStation(
+            Entity porter,
+            out EmployeeComponent employee,
+            out Room station,
+            bool validateIdentity)
+        {
             employee = porter == null
                 ? null
                 : porter.GetComponent<EmployeeComponent>();
-            station = employee == null || employee.m_state.m_homeRoom == null
-                ? null
-                : employee.m_state.m_homeRoom.GetEntity();
+            station = employee == null ||
+                employee.m_state == null ||
+                employee.m_state.m_homeRoom == null
+                    ? null
+                    : employee.m_state.m_homeRoom.GetEntity();
 
-            return PorterIdentity.IsPorter(porter) &&
+            return
+                (!validateIdentity ||
+                 PorterIdentity.IsPorter(porter)) &&
                 employee != null &&
                 station != null &&
+                station.m_roomPersistentData != null &&
                 station.m_roomPersistentData.m_roomType != null &&
                 PorterStationRegistry.IsPorterStation(
                     station.m_roomPersistentData.m_roomType.Entry) &&
@@ -296,9 +326,9 @@ namespace HospitalPorters
             ActivePcByPorter.Clear();
         }
 
-        internal static void Update(Entity porter)
+        internal static void UpdateKnownPorter(Entity porter)
         {
-            if (!PorterIdentity.IsPorter(porter))
+            if (porter == null)
             {
                 return;
             }
@@ -315,7 +345,7 @@ namespace HospitalPorters
 
             EmployeeComponent employee;
             Room station;
-            if (!PorterIdleResting.TryGetPorterStation(
+            if (!PorterIdleResting.TryGetKnownPorterStation(
                     porter,
                     out employee,
                     out station))
@@ -590,24 +620,6 @@ namespace HospitalPorters
             {
                 animation.ForceFrame(active ? 1 : 0);
             }
-        }
-    }
-
-    [HarmonyPatch(
-        typeof(BehaviorNurse),
-        nameof(BehaviorNurse.Update),
-        new Type[] { typeof(float) })]
-    internal static class PorterIdleWorkstationVisualPatch
-    {
-        private static void Postfix(BehaviorNurse __instance)
-        {
-            Entity porter = PorterIdleResting.GetEntity(__instance);
-            if (!PorterIdentity.IsPorter(porter))
-            {
-                return;
-            }
-
-            PorterIdleWorkstationVisuals.Update(porter);
         }
     }
 

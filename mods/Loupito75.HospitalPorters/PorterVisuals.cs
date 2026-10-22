@@ -41,6 +41,8 @@ namespace HospitalPorters
         internal const string StationAsset = "HPO_ASSET_PORTER_STATION";
         internal const string StationLockedAsset = "HPO_ASSET_PORTER_STATION_LOCKED";
         internal const string StationFloorAsset = "HPO_ASSET_PORTER_STATION_FLOOR";
+        internal const string SampleRoomOccupiedBubbleAsset =
+            "HPO_ASSET_PORTER_SAMPLE_ROOM_OCCUPIED_BUBBLE";
 
         private static Sprite s_levelEmptySprite;
         private static Sprite s_levelFullSprite;
@@ -480,7 +482,7 @@ namespace HospitalPorters
             return cached;
         }
 
-        private static bool HasLoadedTexture(string assetId)
+        internal static bool HasLoadedTexture(string assetId)
         {
             StreamingAssetManager assets = StreamingAssetManager.GetInstance();
             return assets != null &&
