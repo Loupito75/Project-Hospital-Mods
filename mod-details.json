@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 2,
-  "updatedUtc": "2026-10-22T03:02:04Z",
-  "expiresUtc": "2027-01-20T03:02:04Z",
+  "manifestRevision": 3,
+  "updatedUtc": "2026-10-22T03:36:18Z",
+  "expiresUtc": "2027-01-20T03:36:18Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -24,8 +24,8 @@
     },
     {
       "guid": "loupito75.HospitalFlowOptimizer",
-      "version": "1.0.0",
-      "description": "Project Hospital resource-flow optimization mod powered by BepInEx and Harmony.",
+      "version": "1.1.0",
+      "description": "Improves hospital flow by distributing doctors, rooms, laboratory work, staff needs and transport tasks more efficiently while preserving Project Hospital's normal medical and pathfinding rules.",
       "whatsNew": ""
     },
     {

@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 12,
-  "updatedUtc": "2026-10-22T03:02:04Z",
-  "expiresUtc": "2027-01-20T03:02:04Z",
+  "manifestRevision": 13,
+  "updatedUtc": "2026-10-22T03:36:18Z",
+  "expiresUtc": "2027-01-20T03:36:18Z",
   "packages": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -70,11 +70,11 @@
     {
       "guid": "loupito75.HospitalFlowOptimizer",
       "name": "Hospital Flow Optimizer",
-      "version": "1.0.0",
-      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalFlowOptimizer-v1.0.0/Loupito75.HospitalFlowOptimizer-v1.0.0.zip",
-      "sha256": "a38ba27908202a676ee74195e5434f982d9f223aca4f2d3e78b2363b7150a017",
-      "packageBytes": 484785,
-      "maximumUnpackedBytes": 584006,
+      "version": "1.1.0",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalFlowOptimizer-v1.1.0/Loupito75.HospitalFlowOptimizer-v1.1.0.zip",
+      "sha256": "375e0e501dd8517ca909fa693848d0026851b3ade7cd5931849a7b006e036066",
+      "packageBytes": 496626,
+      "maximumUnpackedBytes": 607784,
       "installDirectory": "Loupito75.HospitalFlowOptimizer",
       "archiveRoot": "Loupito75.HospitalFlowOptimizer",
       "pluginFile": "Loupito75.HospitalFlowOptimizer.dll",
@@ -86,7 +86,8 @@
         "Database/ModStringTableEn.xml",
         "Loupito75.HospitalFlowOptimizer.dll",
         "preview.png",
-        "README_NEVER_MISS_AN_UPDATE.txt"
+        "README_NEVER_MISS_AN_UPDATE.txt",
+        "Textures/UI/hfo_patient_wait_bubble.png"
       ],
       "removeFiles": []
     },
