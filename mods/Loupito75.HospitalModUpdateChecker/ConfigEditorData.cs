@@ -40,6 +40,8 @@ namespace HospitalModUpdateChecker
         internal XmlDocument Document;
         internal readonly List<ConfigEditOption> Options =
             new List<ConfigEditOption>();
+        internal readonly Dictionary<string, string> SectionDescriptions =
+            new Dictionary<string, string>(StringComparer.Ordinal);
     }
 
     internal static class ConfigEditorData
@@ -130,6 +132,8 @@ namespace HospitalModUpdateChecker
                 result.PluginName = plugin.Metadata.Name;
                 result.Document = document;
                 Collect(document.DocumentElement, "", result.Options);
+                CollectSectionDescriptions(
+                    document.DocumentElement, "", result.SectionDescriptions);
 
                 if (result.Options.Count == 0)
                 {
@@ -157,6 +161,59 @@ namespace HospitalModUpdateChecker
                 document.DocumentElement == null)
                 throw new FormatException("Unsupported XML document or DTD.");
             return document;
+        }
+
+        // Section metadata is read-only. No XML element, label or value is rewritten.
+        private static void CollectSectionDescriptions(
+            XmlElement parent, string path,
+            Dictionary<string, string> descriptions)
+        {
+            foreach (XmlNode node in parent.ChildNodes)
+            {
+                XmlElement element = node as XmlElement;
+                if (element == null)
+                    continue;
+
+                string childPath = path.Length == 0
+                    ? element.Name : path + "/" + element.Name;
+
+                bool hasChildElements = false;
+                foreach (XmlNode child in element.ChildNodes)
+                {
+                    if (child.NodeType == XmlNodeType.Element)
+                    {
+                        hasChildElements = true;
+                        break;
+                    }
+                }
+
+                if (!hasChildElements)
+                    continue;
+
+                string description = ReadSectionDescription(element);
+                if (description.Length > 0)
+                    descriptions[childPath.Replace("/", " > ")] = description;
+
+                CollectSectionDescriptions(element, childPath, descriptions);
+            }
+        }
+
+        private static string ReadSectionDescription(XmlElement element)
+        {
+            // Only HMUC-owned section descriptions, never option metadata.
+            for (XmlNode node = element.PreviousSibling;
+                 node != null && node.NodeType != XmlNodeType.Element;
+                 node = node.PreviousSibling)
+            {
+                if (node.NodeType != XmlNodeType.Comment)
+                    continue;
+
+                string comment = (node.Value ?? string.Empty).Trim();
+                if (comment.StartsWith(
+                    "@HMUC:desc", StringComparison.OrdinalIgnoreCase))
+                    return comment.Substring(10).Trim();
+            }
+            return string.Empty;
         }
 
         private static void Collect(
@@ -691,6 +748,25 @@ namespace HospitalModUpdateChecker
                 string path = session.ConfigPath;
                 if (!File.Exists(path))
                     throw new IOException("The original configuration is missing.");
+
+                // An installed signed template is authoritative for the
+                // new XML structure. Do not stage an edit that would silently
+                // perpetuate an older layout after a failed migration.
+                ConfigTemplateSafety.Snapshot state;
+                if (ConfigTemplateSafety.TryReadState(path, out state) &&
+                    ConfigTemplateSafety.IsTrustedSnapshot(path, state))
+                {
+                    string issue;
+                    if (!ConfigTemplateSafety.MatchesTemplate(path, out issue) ||
+                        !ConfigTemplateSafety.MatchesDocument(
+                            session.Document,
+                            ConfigTemplateSafety.TemplatePath(path), out issue))
+                    {
+                        error = "HMUC_NEW_CONFIG_FORMAT";
+                        return false;
+                    }
+                }
+
                 string pending = path + ".newconfig";
                 string baseline = path + ".newconfig.base";
                 if (!File.Exists(pending))

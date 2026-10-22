@@ -52,6 +52,9 @@ namespace HospitalModUpdateChecker
         internal string Guid;
         internal string Name;
         internal string Version;
+        // Optional in old result files. Missing mode means legacy update.
+        internal string Mode;
+        internal string PreviousVersion;
         internal string Status;
         internal string ConfigWarning;
         internal readonly List<string> AddedSettings =
@@ -989,6 +992,18 @@ namespace HospitalModUpdateChecker
         {
             if (update == null ||
                 Plugin.Instance == null)
+            {
+                return;
+            }
+
+            // Debug mode can expose a synthetic update for HMUC itself to
+            // exercise the real priority/banner UI. It is presentation-only
+            // and must never reach package lookup, retry or staging.
+            if (UpdateCheckerConfig.Debug &&
+                string.Equals(
+                    update.Guid,
+                    Plugin.PluginGuid,
+                    StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -1989,6 +2004,37 @@ namespace HospitalModUpdateChecker
                     result.Version =
                         node.GetAttribute("version");
 
+                    string mode = node.GetAttribute("mode");
+                    result.Mode =
+                        string.Equals(mode, "install",
+                            StringComparison.Ordinal)
+                            ? "install" : "update";
+
+                    // Previous version is optional display information,
+                    // never part of trust/installation decisions.
+                    string previous =
+                        node.GetAttribute("previousVersion");
+                    result.PreviousVersion = string.Empty;
+                    if (!string.IsNullOrEmpty(previous) &&
+                        previous.Length <= 32)
+                    {
+                        try
+                        {
+                            result.PreviousVersion =
+                                new Version(previous).ToString();
+                        }
+                        catch (ArgumentException)
+                        {
+                            // Old or manually edited result: no prior version.
+                        }
+                        catch (FormatException)
+                        {
+                        }
+                        catch (OverflowException)
+                        {
+                        }
+                    }
+
                     result.Status =
                         node.GetAttribute("status");
 
@@ -2515,6 +2561,23 @@ namespace HospitalModUpdateChecker
             operation.SetAttribute(
                 "mode",
                 freshInstall ? "install" : "update");
+
+            // Record the actual installed BepInEx version when staging an
+            // update. This is optional; old pending queues remain readable.
+            if (!freshInstall)
+            {
+                PluginInfo installed;
+                if (Chainloader.PluginInfos.TryGetValue(
+                        package.Guid, out installed) &&
+                    installed != null &&
+                    installed.Metadata != null &&
+                    installed.Metadata.Version != null)
+                {
+                    operation.SetAttribute(
+                        "previousVersion",
+                        installed.Metadata.Version.ToString());
+                }
+            }
 
             operation.SetAttribute(
                 "stagingDirectory",

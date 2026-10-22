@@ -29,11 +29,6 @@ namespace HospitalModUpdateChecker
         private const int RequestTimeoutSeconds = 10;
         private const ulong MaximumManifestBytes = 65536UL;
         private const ulong MaximumNewsManifestBytes = 32768UL;
-        private const double CheckIntervalHours = 24.0;
-        private const string LastSuccessfulCheckKey =
-            "Loupito75.HospitalModUpdateChecker.LastSuccessfulCheckUtcTicks";
-        private const string LastSuccessfulNewsCheckKey =
-            "Loupito75.HospitalModUpdateChecker.LastSuccessfulNewsCheckUtcTicks";
         private const string CachedNewsManifestKey =
             "Loupito75.HospitalModUpdateChecker.CachedNewsManifest";
 
@@ -49,7 +44,6 @@ namespace HospitalModUpdateChecker
             "    {\"guid\":\"debug.HospitalPatientLife\",\"name\":\"Hospital Patient Life\",\"author\":\"Loupito75\",\"version\":\"1.0.0\"},\n" +
             "    {\"guid\":\"debug.HospitalTrafficControl\",\"name\":\"Hospital Traffic Control\",\"author\":\"Loupito75\",\"version\":\"1.3.0\"},\n" +
             "    {\"guid\":\"debug.HospitalShiftHandover\",\"name\":\"Hospital Shift Handover\",\"author\":\"Loupito75\",\"version\":\"1.1.1\"},\n" +
-            "    {\"guid\":\"debug.HospitalModUpdateChecker\",\"name\":\"Hospital Mod Update Checker\",\"author\":\"Loupito75\",\"version\":\"1.1.0\"},\n" +
             "    {\"guid\":\"debug.HospitalRadio\",\"name\":\"Hospital Radio\",\"author\":\"Loupito75\",\"version\":\"1.0.0\"},\n" +
             "    {\"guid\":\"debug.HospitalPorters\",\"name\":\"Hospital Porters\",\"author\":\"Loupito75\",\"version\":\"1.0.1\"},\n" +
             "    {\"guid\":\"debug.HospitalVeryLongModNameForLayoutTesting\",\"name\":\"Hospital Very Long Mod Name For Layout And Scrolling Tests\",\"author\":\"Loupito75\",\"version\":\"2.4.7\"}\n" +
@@ -146,7 +140,7 @@ namespace HospitalModUpdateChecker
                 LoadDebugUpdateManifest();
                 TitleScreenUpdatePanel.Refresh();
             }
-            else if (ShouldCheckNow())
+            else
             {
                 IEnumerator updateRoutine = CheckUpdateManifest();
 
@@ -154,12 +148,6 @@ namespace HospitalModUpdateChecker
                 {
                     yield return updateRoutine.Current;
                 }
-            }
-            else
-            {
-                _availableUpdates.Clear();
-                UpdateState = RemoteContentState.Cached;
-                TitleScreenUpdatePanel.Refresh();
             }
 
             if (!UpdateCheckerConfig.Debug)
@@ -170,6 +158,43 @@ namespace HospitalModUpdateChecker
                 while (packageRoutine.MoveNext())
                 {
                     yield return packageRoutine.Current;
+                }
+            }
+
+            if (!UpdateCheckerConfig.Debug)
+            {
+                // Optional descriptive catalog must never prevent updates
+                // or news when its own network/parse/cache handling fails.
+                IEnumerator detailsRoutine = ModDetailsCatalog.Refresh();
+                try
+                {
+                    while (true)
+                    {
+                        bool next;
+                        object current = null;
+                        try
+                        {
+                            next = detailsRoutine.MoveNext();
+                            if (next)
+                                current = detailsRoutine.Current;
+                        }
+                        catch (Exception exception)
+                        {
+                            Plugin.Log.LogWarning(
+                                "Optional signed mod details unavailable: " +
+                                exception.GetType().Name);
+                            break;
+                        }
+                        if (!next)
+                            break;
+                        yield return current;
+                    }
+                }
+                finally
+                {
+                    IDisposable disposable = detailsRoutine as IDisposable;
+                    if (disposable != null)
+                        disposable.Dispose();
                 }
             }
 
@@ -184,16 +209,6 @@ namespace HospitalModUpdateChecker
             if (UpdateCheckerConfig.Debug)
             {
                 LoadDebugNewsManifest();
-                TitleScreenUpdatePanel.Refresh();
-                yield break;
-            }
-
-            if (UpdateCheckerConfig.CheckEveryLaunch)
-            {
-                InvalidateSuccessfulNewsCheckTime();
-            }
-            else if (TryLoadFreshCachedNews())
-            {
                 TitleScreenUpdatePanel.Refresh();
                 yield break;
             }
@@ -296,17 +311,6 @@ namespace HospitalModUpdateChecker
                     ? RemoteContentState.Empty
                     : RemoteContentState.Ready;
 
-                if (!UpdateCheckerConfig.CheckEveryLaunch)
-                {
-                    if (_availableUpdates.Count == 0)
-                    {
-                        SaveSuccessfulCheckTime();
-                    }
-                    else
-                    {
-                        InvalidateSuccessfulCheckTime();
-                    }
-                }
             }
             finally
             {
@@ -358,12 +362,85 @@ namespace HospitalModUpdateChecker
                         entry.Version));
             }
 
+            // Debug preview for the updater itself. Use the real HMUC GUID so
+            // sorting and the update-HMUC-first banner follow the exact
+            // production path, while using the actually loaded version as
+            // the starting point.
+            Version hmucInstalledVersion = null;
+            PluginInfo hmucPlugin;
+            if (Chainloader.PluginInfos.TryGetValue(
+                    Plugin.PluginGuid,
+                    out hmucPlugin) &&
+                hmucPlugin != null &&
+                hmucPlugin.Metadata != null)
+            {
+                hmucInstalledVersion =
+                    hmucPlugin.Metadata.Version;
+            }
+
+            if (hmucInstalledVersion == null)
+            {
+                try
+                {
+                    hmucInstalledVersion =
+                        new Version(
+                            Plugin.PluginVersion);
+                }
+                catch
+                {
+                    hmucInstalledVersion = null;
+                }
+            }
+
+            if (hmucInstalledVersion != null)
+            {
+                _availableUpdates.Add(
+                    new AvailableUpdate(
+                        Plugin.PluginGuid,
+                        Plugin.PluginName,
+                        Plugin.PluginAuthor,
+                        hmucInstalledVersion,
+                        CreateDebugHmucAvailableVersion(
+                            hmucInstalledVersion)));
+            }
+
             SortAvailableUpdates();
 
             UpdateState = _availableUpdates.Count == 0
                 ? RemoteContentState.Empty
                 : RemoteContentState.Ready;
 
+        }
+
+        private static Version CreateDebugHmucAvailableVersion(
+            Version installedVersion)
+        {
+            int build = Math.Max(0, installedVersion.Build);
+            int revision = Math.Max(0, installedVersion.Revision);
+
+            if (revision < int.MaxValue)
+            {
+                return new Version(
+                    installedVersion.Major,
+                    installedVersion.Minor,
+                    build,
+                    revision + 1);
+            }
+
+            if (build < int.MaxValue)
+            {
+                return new Version(
+                    installedVersion.Major,
+                    installedVersion.Minor,
+                    build + 1,
+                    0);
+            }
+
+            return new Version(
+                installedVersion.Major,
+                installedVersion.Minor + 1,
+                0,
+                0);
         }
 
         private static void LoadDebugNewsManifest()
@@ -483,73 +560,6 @@ namespace HospitalModUpdateChecker
             }
         }
 
-        private static bool TryLoadFreshCachedNews()
-        {
-            if (!PlayerPrefs.HasKey(
-                    LastSuccessfulNewsCheckKey))
-            {
-                return false;
-            }
-
-            long ticks;
-            if (!long.TryParse(
-                    PlayerPrefs.GetString(
-                        LastSuccessfulNewsCheckKey),
-                    NumberStyles.Integer,
-                    CultureInfo.InvariantCulture,
-                    out ticks) ||
-                ticks <= 0)
-            {
-                return false;
-            }
-
-            try
-            {
-                DateTime lastCheckUtc =
-                    new DateTime(
-                        ticks,
-                        DateTimeKind.Utc);
-
-                DateTime nowUtc = DateTime.UtcNow;
-
-                if (lastCheckUtc > nowUtc)
-                {
-                    Plugin.Log.LogWarning(
-                        "Cached news-check timestamp is in the future; ignoring it.");
-
-                    InvalidateSuccessfulNewsCheckTime();
-                    return false;
-                }
-
-                if (nowUtc
-                    .Subtract(lastCheckUtc)
-                    .TotalHours >= CheckIntervalHours)
-                {
-                    return false;
-                }
-            }
-            catch
-            {
-                InvalidateSuccessfulNewsCheckTime();
-                return false;
-            }
-
-            NewsManifest manifest;
-
-            if (!TryLoadCachedNewsManifest(
-                    out manifest))
-            {
-                ClearNewsCache();
-                return false;
-            }
-
-            ApplyNewsManifest(
-                manifest,
-                true);
-
-            return true;
-        }
-
         private static bool TryUseCachedNewsFallback(
             string failure)
         {
@@ -604,6 +614,11 @@ namespace HospitalModUpdateChecker
                     "Cached news manifest was rejected: " +
                     parseError);
 
+                PlayerPrefs.SetString(
+                    CachedNewsManifestKey,
+                    string.Empty);
+                PlayerPrefs.Save();
+
                 manifest = null;
                 return false;
             }
@@ -641,96 +656,7 @@ namespace HospitalModUpdateChecker
                 CachedNewsManifestKey,
                 manifestText ?? string.Empty);
 
-            if (!UpdateCheckerConfig.CheckEveryLaunch)
-            {
-                PlayerPrefs.SetString(
-                    LastSuccessfulNewsCheckKey,
-                    DateTime.UtcNow.Ticks.ToString(
-                        CultureInfo.InvariantCulture));
-            }
-
             PlayerPrefs.Save();
-        }
-
-        private static void InvalidateSuccessfulNewsCheckTime()
-        {
-            if (!PlayerPrefs.HasKey(
-                    LastSuccessfulNewsCheckKey))
-            {
-                return;
-            }
-
-            if (PlayerPrefs.GetString(
-                    LastSuccessfulNewsCheckKey) == "0")
-            {
-                return;
-            }
-
-            PlayerPrefs.SetString(
-                LastSuccessfulNewsCheckKey,
-                "0");
-
-            PlayerPrefs.Save();
-        }
-
-        private static void ClearNewsCache()
-        {
-            PlayerPrefs.SetString(
-                LastSuccessfulNewsCheckKey,
-                "0");
-
-            PlayerPrefs.SetString(
-                CachedNewsManifestKey,
-                string.Empty);
-
-            PlayerPrefs.Save();
-        }
-
-        private static bool ShouldCheckNow()
-        {
-            if (UpdateCheckerConfig.CheckEveryLaunch)
-            {
-                InvalidateSuccessfulCheckTime();
-                return true;
-            }
-
-            if (!PlayerPrefs.HasKey(LastSuccessfulCheckKey))
-            {
-                return true;
-            }
-
-            long ticks;
-            if (!long.TryParse(
-                    PlayerPrefs.GetString(LastSuccessfulCheckKey),
-                    NumberStyles.Integer,
-                    CultureInfo.InvariantCulture,
-                    out ticks) ||
-                ticks <= 0)
-            {
-                return true;
-            }
-
-            try
-            {
-                DateTime lastCheckUtc =
-                    new DateTime(ticks, DateTimeKind.Utc);
-                DateTime nowUtc = DateTime.UtcNow;
-
-                if (lastCheckUtc > nowUtc)
-                {
-                    Plugin.Log.LogWarning(
-                        "Cached update-check timestamp is in the future; ignoring it.");
-                    return true;
-                }
-
-                return nowUtc
-                    .Subtract(lastCheckUtc)
-                    .TotalHours >= CheckIntervalHours;
-            }
-            catch
-            {
-                return true;
-            }
         }
 
         private static void SortAvailableUpdates()
@@ -739,6 +665,18 @@ namespace HospitalModUpdateChecker
                 AvailableUpdate left,
                 AvailableUpdate right)
             {
+                // The updater must be updated and the game restarted before
+                // users are advised to stage other mod updates. Identify it
+                // by the real BepInEx GUID, never by its display name.
+                bool leftIsHmuc = left != null &&
+                    string.Equals(left.Guid, Plugin.PluginGuid,
+                        StringComparison.OrdinalIgnoreCase);
+                bool rightIsHmuc = right != null &&
+                    string.Equals(right.Guid, Plugin.PluginGuid,
+                        StringComparison.OrdinalIgnoreCase);
+                if (leftIsHmuc != rightIsHmuc)
+                    return leftIsHmuc ? -1 : 1;
+
                 string leftName =
                     left == null
                         ? string.Empty
@@ -777,34 +715,6 @@ namespace HospitalModUpdateChecker
             });
         }
 
-        private static void SaveSuccessfulCheckTime()
-        {
-            PlayerPrefs.SetString(
-                LastSuccessfulCheckKey,
-                DateTime.UtcNow.Ticks.ToString(
-                    CultureInfo.InvariantCulture));
-
-            PlayerPrefs.Save();
-        }
-
-        private static void InvalidateSuccessfulCheckTime()
-        {
-            if (!PlayerPrefs.HasKey(LastSuccessfulCheckKey))
-            {
-                return;
-            }
-
-            if (PlayerPrefs.GetString(LastSuccessfulCheckKey) == "0")
-            {
-                return;
-            }
-
-            PlayerPrefs.SetString(
-                LastSuccessfulCheckKey,
-                "0");
-
-            PlayerPrefs.Save();
-        }
     }
 
     internal sealed class AvailableUpdate

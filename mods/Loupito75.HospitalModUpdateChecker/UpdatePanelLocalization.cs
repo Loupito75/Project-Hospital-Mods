@@ -9,6 +9,7 @@ namespace HospitalModUpdateChecker
         internal const string NewsTitleId = "L75_HMUC_NEWS_TITLE";
         internal const string UpdatesTitleId = "L75_HMUC_UPDATES_TITLE";
         internal const string PluginsTitleId = "L75_HMUC_PLUGINS_TITLE";
+        internal const string AuthorCreditId = "L75_HMUC_AUTHOR_CREDIT";
         internal const string ConfigureTooltipId = "L75_HMUC_CONFIGURE_TOOLTIP";
         internal const string ConfigureActionId = "L75_HMUC_CONFIGURE_ACTION";
         internal const string RecommendedTitleId = "L75_HMUC_RECOMMENDED_TITLE";
@@ -25,6 +26,8 @@ namespace HospitalModUpdateChecker
         internal const string StatusWarningId = "L75_HMUC_STATUS_WARNING";
         internal const string StatusErrorId = "L75_HMUC_STATUS_ERROR";
         internal const string UnknownAuthorId = "L75_HMUC_UNKNOWN_AUTHOR";
+        internal const string HmucPriorityNoticeId = "L75_HMUC_UPDATE_HMUC_PRIORITY";
+        internal const string HmucPriorityRestartId = "L75_HMUC_UPDATE_HMUC_RESTART";
         internal const string UpdateActionId = "L75_HMUC_UPDATE_ACTION";
         internal const string CancelActionId = "L75_HMUC_CANCEL_ACTION";
         internal const string RetryActionId = "L75_HMUC_RETRY_ACTION";
@@ -45,6 +48,8 @@ namespace HospitalModUpdateChecker
         internal const string NotEnoughSpaceId = "L75_HMUC_NOT_ENOUGH_SPACE";
         internal const string InstallSucceededId = "L75_HMUC_INSTALL_SUCCEEDED";
         internal const string InstallFailedId = "L75_HMUC_INSTALL_FAILED";
+        internal const string NewInstallSucceededId = "L75_HMUC_NEW_INSTALL_SUCCEEDED";
+        internal const string NewInstallFailedId = "L75_HMUC_NEW_INSTALL_FAILED";
         internal const string ConfigAddedId = "L75_HMUC_CONFIG_ADDED";
         internal const string ConfigWarningId = "L75_HMUC_CONFIG_WARNING";
         internal const string ConfigHoverHelpId = "L75_HMUC_CONFIG_HOVER_HELP";
@@ -57,6 +62,8 @@ namespace HospitalModUpdateChecker
         internal const string ConfigErrorId = "L75_HMUC_CONFIG_ERROR";
         internal const string ConfigNoEditableId = "L75_HMUC_CONFIG_NO_EDITABLE";
         internal const string ConfigProcessingErrorId = "L75_HMUC_CONFIG_PROCESSING_ERROR";
+        internal const string ConfigSchemaMigrationAlertId = "L75_HMUC_CONFIG_SCHEMA_ALERT";
+        internal const string ConfigSchemaIssuesHeadingId = "L75_HMUC_CONFIG_SCHEMA_ISSUES";
 
         private sealed class Translation
         {
@@ -598,6 +605,19 @@ namespace HospitalModUpdateChecker
                 return ConfigureTooltipTranslations["en"];
             }
 
+            if (stringId == ConfigSchemaMigrationAlertId ||
+                stringId == ConfigSchemaIssuesHeadingId)
+            {
+                bool french = language == "fr";
+                if (stringId == ConfigSchemaMigrationAlertId)
+                    return french
+                        ? "Attention : nouveau format XML détecté, migration impossible. Vérifiez le fichier XML et le journal BepInEx."
+                        : "Warning: new XML settings format detected; migration failed. Check the XML file and BepInEx log.";
+                return french
+                    ? "Attention : configuration XML non migrée. Vérifiez les fichiers et le journal BepInEx :"
+                    : "Warning: XML settings could not be migrated. Check the files and BepInEx log:";
+            }
+
             string configEditorValue;
             if (TryGetConfigEditorString(
                     language,
@@ -708,6 +728,16 @@ namespace HospitalModUpdateChecker
                 return installerValue;
             }
 
+            // Existing translations have a fixed 22-entry contract.
+            // Newly introduced message IDs use the English fallback until
+            // translated, without changing legacy locale arrays.
+            if (EnglishInstallerStrings.TryGetValue(
+                    stringId,
+                    out installerValue))
+            {
+                return installerValue;
+            }
+
             return stringId;
         }
 
@@ -717,6 +747,9 @@ namespace HospitalModUpdateChecker
                 new Dictionary<string, string>(
                     StringComparer.Ordinal);
 
+            values[AuthorCreditId] = "by";
+            values[HmucPriorityNoticeId] = "HMUC UPDATE RECOMMENDED: Update Hospital Mod Update Checker first, then RESTART Project Hospital before updating any other mods.";
+            values[HmucPriorityRestartId] = "HMUC UPDATE QUEUED: RESTART Project Hospital to install HMUC before updating your other mods.";
             values[UpdateActionId] = "Update";
             values[CancelActionId] = "Cancel";
             values[RetryActionId] = "Retry";
@@ -737,6 +770,8 @@ namespace HospitalModUpdateChecker
             values[NotEnoughSpaceId] = "Not enough free disk space to prepare this update.";
             values[InstallSucceededId] = "Update installed successfully.";
             values[InstallFailedId] = "Update installation failed; the previous version was preserved or restored.";
+            values[NewInstallSucceededId] = "New mod installed successfully.";
+            values[NewInstallFailedId] = "New mod installation failed. See the BepInEx log.";
             values[ConfigAddedId] = "New configuration options added:";
             values[ConfigWarningId] = "The existing configuration could not be migrated safely and was left unchanged.";
 
@@ -749,6 +784,8 @@ namespace HospitalModUpdateChecker
                 new Dictionary<string, string>(
                     StringComparer.Ordinal);
 
+            values[HmucPriorityNoticeId] = "MISE À JOUR HMUC RECOMMANDÉE : mettez d'abord Hospital Mod Update Checker à jour, puis REDÉMARREZ Project Hospital avant de mettre à jour les autres mods.";
+            values[HmucPriorityRestartId] = "MISE À JOUR HMUC EN ATTENTE : REDÉMARREZ Project Hospital pour installer HMUC avant de mettre à jour les autres mods.";
             values[UpdateActionId] = "Mettre à jour";
             values[CancelActionId] = "Annuler";
             values[RetryActionId] = "Réessayer";
@@ -768,7 +805,9 @@ namespace HospitalModUpdateChecker
             values[InstallPreparationErrorId] = "La mise à jour n'a pas pu être préparée en toute sécurité. Voir le journal BepInEx.";
             values[NotEnoughSpaceId] = "Espace disque insuffisant pour préparer cette mise à jour.";
             values[InstallSucceededId] = "Mise à jour installée avec succès.";
-            values[InstallFailedId] = "Échec de l'installation ; la version précédente a été conservée ou restaurée.";
+            values[InstallFailedId] = "Échec de la mise à jour ; la version précédente a été conservée ou restaurée.";
+            values[NewInstallSucceededId] = "Nouveau mod installé avec succès.";
+            values[NewInstallFailedId] = "Échec de l'installation du nouveau mod. Consultez le journal BepInEx.";
             values[ConfigAddedId] = "Nouvelles options de configuration ajoutées :";
             values[ConfigWarningId] = "La configuration existante n'a pas pu être migrée en toute sécurité et a été laissée inchangée.";
 

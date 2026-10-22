@@ -19,13 +19,15 @@ namespace HospitalModUpdateChecker
         private const float SectionGap = 12f;
         private const float SectionHeaderHeight = 34f;
         private const float SectionContentGap = 8f;
-        private const float ScrollbarWidth = 16f;
+        private const float ScrollbarWidth = 24f;
         private const float ContentPadding = 8f;
 
         private const float NewsSectionHeight = 230f;
         private const float UpdatesSectionHeight = 272f;
         private const float PluginsSectionHeight = 272f;
 
+        private const float HmucPriorityBannerHeight = 78f;
+        private const float HmucPriorityBannerOffset = 84f;
         private const float UpdateRowHeight = 88f;
         private const float UpdateRowGap = 8f;
         private const float ActionButtonWidth = 112f;
@@ -65,8 +67,12 @@ namespace HospitalModUpdateChecker
             new List<LoadedPluginDisplayEntry>();
         private static readonly List<GameObject> _pluginRows =
             new List<GameObject>();
+        private static string _lastClickedPluginKey;
         private static GameObject _configGearTooltip;
         private static Text _configGearTooltipText;
+        private static GameObject _metadataTooltip;
+        private static Text _metadataTooltipText;
+        private static ModMetadataTooltipHover _metadataTooltipOwner;
 
         private static TitleScreenController _controller;
         private static GameObject _panel;
@@ -76,6 +82,8 @@ namespace HospitalModUpdateChecker
         private static SectionView _pluginsSection;
         private static readonly List<UpdateRowView> _updateRows =
             new List<UpdateRowView>();
+        private static GameObject _hmucPriorityBanner;
+        private static Text _hmucPriorityText;
         private static bool _dismissedForSession;
 
         internal static void Attach(TitleScreenController controller)
@@ -144,6 +152,7 @@ namespace HospitalModUpdateChecker
                         row.Update);
                 }
             }
+            RefreshHmucPriorityMessage();
             RecommendedModsPanel.UpdateState();
         }
 
@@ -235,8 +244,73 @@ namespace HospitalModUpdateChecker
                 return false;
             }
 
+            CreateHmucPriorityBanner(sourceText);
+            CreateAuthorCredit(sourceText);
+
             _panel.SetActive(false);
             return true;
+        }
+
+        private static void CreateAuthorCredit(
+            Text sourceText)
+        {
+            if (_pluginsSection == null ||
+                _pluginsSection.Root == null ||
+                sourceText == null)
+            {
+                return;
+            }
+
+            // Native Project Hospital prefab text objects are simple UI
+            // objects (RectTransform + CanvasRenderer + Text). Do the same
+            // here instead of cloning the full m_modErrorText GameObject so
+            // the footer credit cannot inherit unrelated behaviour/layout.
+            GameObject creditObject =
+                new GameObject("AuthorCredit");
+
+            creditObject.transform.SetParent(
+                _pluginsSection.Root.transform,
+                false);
+
+            RectTransform rect =
+                creditObject.AddComponent<RectTransform>();
+
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition =
+                new Vector2(0f, -1f);
+            rect.sizeDelta =
+                new Vector2(220f, 17f);
+
+            creditObject.AddComponent<CanvasRenderer>();
+
+            Text credit =
+                creditObject.AddComponent<Text>();
+
+            credit.font = sourceText.font;
+            credit.material = sourceText.material;
+            credit.text =
+                UpdatePanelLocalization.Get(
+                    UpdatePanelLocalization.AuthorCreditId) +
+                " " +
+                Plugin.PluginAuthor;
+            credit.alignment = TextAnchor.MiddleRight;
+            credit.fontStyle = FontStyle.Italic;
+            credit.fontSize =
+                Math.Max(sourceText.fontSize - 1, 11);
+            credit.lineSpacing = 1f;
+            credit.supportRichText = false;
+            credit.horizontalOverflow =
+                HorizontalWrapMode.Overflow;
+            credit.verticalOverflow =
+                VerticalWrapMode.Overflow;
+            credit.resizeTextForBestFit = false;
+            credit.color = GetVanillaButtonTextColor();
+            credit.raycastTarget = false;
+            credit.maskable = false;
+
+            creditObject.transform.SetAsLastSibling();
         }
 
         private static void CreateHeader(Text sourceText)
@@ -276,19 +350,22 @@ namespace HospitalModUpdateChecker
             headingTextRect.anchorMin = Vector2.zero;
             headingTextRect.anchorMax = Vector2.one;
             headingTextRect.pivot = new Vector2(0.5f, 0.5f);
-            headingTextRect.anchoredPosition =
-                new Vector2(14f, 0f);
-            headingTextRect.sizeDelta =
-                new Vector2(-58f, 0f);
+            headingTextRect.anchoredPosition = Vector2.zero;
+            headingTextRect.sizeDelta = Vector2.zero;
+            // SaveMapPrefab title starts about 8.65 UI units from the
+            // heading edge. Keep the dashboard title aligned the same way
+            // while reserving room for the shared close button.
+            headingTextRect.offsetMin = new Vector2(9f, 0f);
+            headingTextRect.offsetMax = new Vector2(-50f, 0f);
 
             headingText.text =
                 UpdatePanelLocalization.Get(
-                    UpdatePanelLocalization.DashboardTitleId);
+                    UpdatePanelLocalization.DashboardTitleId).ToUpperInvariant();
 
             headingText.alignment = TextAnchor.MiddleLeft;
             headingText.fontStyle = FontStyle.Bold;
             headingText.fontSize =
-                Math.Max(sourceText.fontSize, 16);
+                Math.Max(sourceText.fontSize + 1, 17);
             headingText.raycastTarget = false;
 
             CreateCloseButton(
@@ -326,6 +403,8 @@ namespace HospitalModUpdateChecker
             Image background =
                 root.AddComponent<Image>();
 
+            // Keep the section content dark while only the title strip
+            // uses the light vanilla panel colour.
             background.color = GetSectionColor();
             background.raycastTarget = true;
 
@@ -370,11 +449,12 @@ namespace HospitalModUpdateChecker
             titleRect.sizeDelta =
                 new Vector2(-ContentPadding * 2f, 0f);
 
-            titleText.text = title;
+            titleText.text = (title ?? string.Empty).ToUpperInvariant();
             titleText.alignment = TextAnchor.MiddleLeft;
             titleText.fontStyle = FontStyle.Bold;
             titleText.fontSize =
-                Math.Max(sourceText.fontSize + 1, 15);
+                Math.Max(sourceText.fontSize + 2, 16);
+            titleText.color = GetVanillaButtonTextColor();
             titleText.raycastTarget = false;
 
             GameObject viewportObject =
@@ -428,9 +508,10 @@ namespace HospitalModUpdateChecker
             content.verticalOverflow =
                 VerticalWrapMode.Overflow;
             content.supportRichText = true;
+            content.color = Color.white;
             content.raycastTarget = false;
             content.fontSize =
-                Math.Max(sourceText.fontSize, 13);
+                Math.Max(sourceText.fontSize + 1, 14);
 
             Scrollbar scrollbar =
                 CreateScrollbar(
@@ -453,6 +534,8 @@ namespace HospitalModUpdateChecker
             scrollRect.inertia = true;
             scrollRect.scrollSensitivity = 24f;
             scrollRect.verticalScrollbar = scrollbar;
+            scrollRect.verticalScrollbarVisibility =
+                ScrollRect.ScrollbarVisibility.Permanent;
 
             return new SectionView
             {
@@ -490,9 +573,8 @@ namespace HospitalModUpdateChecker
             Image background =
                 scrollbarObject.AddComponent<Image>();
 
-            Color backgroundColor = Color.black;
-            backgroundColor.a = 0.20f;
-            background.color = backgroundColor;
+            background.color =
+                GetVanillaScrollbarTrackColor();
 
             GameObject slidingArea =
                 new GameObject("SlidingArea");
@@ -508,7 +590,11 @@ namespace HospitalModUpdateChecker
             slidingRect.anchorMax = Vector2.one;
             slidingRect.pivot = new Vector2(0.5f, 0.5f);
             slidingRect.anchoredPosition = Vector2.zero;
-            slidingRect.sizeDelta = new Vector2(-4f, -4f);
+            // Native WorkshopUploadPanel geometry: the sliding area is
+            // inset by 10 units on every side, while the handle expands by
+            // the same amount. This preserves Scrollbar calculations while
+            // leaving no visible border around the handle.
+            slidingRect.sizeDelta = new Vector2(-20f, -20f);
 
             GameObject handle =
                 new GameObject("Handle");
@@ -524,14 +610,14 @@ namespace HospitalModUpdateChecker
             handleRect.anchorMax = Vector2.one;
             handleRect.pivot = new Vector2(0.5f, 0.5f);
             handleRect.anchoredPosition = Vector2.zero;
-            handleRect.sizeDelta = Vector2.zero;
+            handleRect.sizeDelta = new Vector2(20f, 20f);
 
             Image handleImage =
                 handle.AddComponent<Image>();
 
-            Color handleColor = Color.white;
-            handleColor.a = 0.60f;
-            handleImage.color = handleColor;
+            // Keep the graphic white so the Scrollbar ColorBlock
+            // produces the exact serialized vanilla colours.
+            handleImage.color = Color.white;
 
             Scrollbar scrollbar =
                 scrollbarObject.AddComponent<Scrollbar>();
@@ -540,6 +626,7 @@ namespace HospitalModUpdateChecker
             scrollbar.targetGraphic = handleImage;
             scrollbar.direction =
                 Scrollbar.Direction.BottomToTop;
+            ApplyVanillaScrollbarColors(scrollbar);
 
             return scrollbar;
         }
@@ -570,6 +657,117 @@ namespace HospitalModUpdateChecker
             section.ScrollRect.verticalNormalizedPosition = 1f;
         }
 
+        // Persistent advisory directly beneath the Updates heading.
+        // Unlike a scroll-row tooltip it remains visible while scrolling,
+        // without blocking or changing other mods' update buttons.
+        private static void CreateHmucPriorityBanner(Text sourceText)
+        {
+            if (_updatesSection == null || sourceText == null)
+                return;
+
+            _hmucPriorityBanner =
+                new GameObject("HmucUpdateFirstNotice");
+            _hmucPriorityBanner.transform.SetParent(
+                _updatesSection.Root.transform, false);
+
+            RectTransform rect =
+                _hmucPriorityBanner.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(
+                0f, -(SectionHeaderHeight + SectionContentGap));
+            rect.sizeDelta =
+                new Vector2(0f, HmucPriorityBannerHeight);
+
+            Image background =
+                _hmucPriorityBanner.AddComponent<Image>();
+            Color noticeColor = Color.Lerp(
+                GetSectionHeaderColor(),
+                new Color(0.55f, 0.34f, 0.13f, 1f), 0.7f);
+            noticeColor.a = 0.98f;
+            background.color = noticeColor;
+            background.raycastTarget = false;
+
+            _hmucPriorityText = CreateTextClone(
+                sourceText, "NoticeText",
+                _hmucPriorityBanner.transform);
+            RectTransform textRect =
+                _hmucPriorityText.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.anchoredPosition = Vector2.zero;
+            textRect.sizeDelta =
+                new Vector2(-ContentPadding * 2f, -8f);
+            _hmucPriorityText.color =
+                new Color(1f, 0.95f, 0.78f, 1f);
+            _hmucPriorityText.alignment = TextAnchor.MiddleLeft;
+            _hmucPriorityText.fontStyle = FontStyle.Bold;
+            _hmucPriorityText.fontSize =
+                Math.Max(sourceText.fontSize + 1, 14);
+            _hmucPriorityText.horizontalOverflow =
+                HorizontalWrapMode.Wrap;
+            _hmucPriorityText.verticalOverflow =
+                VerticalWrapMode.Truncate;
+            _hmucPriorityText.supportRichText = false;
+            _hmucPriorityText.raycastTarget = false;
+            _hmucPriorityBanner.SetActive(false);
+        }
+
+        private static void SetHmucPriorityBannerVisible(bool visible)
+        {
+            if (_updatesSection == null ||
+                _hmucPriorityBanner == null)
+                return;
+
+            _hmucPriorityBanner.SetActive(visible);
+            float offset = visible ? HmucPriorityBannerOffset : 0f;
+            float top = SectionHeaderHeight + SectionContentGap;
+            float availableHeight = UpdatesSectionHeight - top -
+                ContentPadding - offset;
+
+            _updatesSection.Viewport.anchoredPosition =
+                new Vector2(
+                    -ScrollbarWidth * 0.5f + ContentPadding * 0.5f,
+                    -(top + offset));
+            _updatesSection.Viewport.sizeDelta =
+                new Vector2(
+                    -ScrollbarWidth - ContentPadding * 3f,
+                    availableHeight);
+
+            Scrollbar scrollbar =
+                _updatesSection.ScrollRect.verticalScrollbar;
+            if (scrollbar != null)
+            {
+                RectTransform scrollRect =
+                    scrollbar.GetComponent<RectTransform>();
+                scrollRect.anchoredPosition =
+                    new Vector2(-ContentPadding, -(top + offset));
+                scrollRect.sizeDelta =
+                    new Vector2(ScrollbarWidth, availableHeight);
+            }
+
+            RefreshHmucPriorityMessage();
+        }
+
+        private static void RefreshHmucPriorityMessage()
+        {
+            if (_hmucPriorityBanner == null ||
+                !_hmucPriorityBanner.activeSelf ||
+                _hmucPriorityText == null)
+                return;
+
+            PackageOperation operation =
+                PackageUpdateManager.GetOperation(Plugin.PluginGuid);
+            bool pendingRestart = operation != null &&
+                operation.State == PackageOperationState.PendingRestart;
+            _hmucPriorityText.text = UpdatePanelLocalization.Get(
+                pendingRestart
+                    ? UpdatePanelLocalization.HmucPriorityRestartId
+                    : UpdatePanelLocalization.HmucPriorityNoticeId);
+        }
+
         private static void RefreshUpdatesSection()
         {
             DestroyUpdateRows();
@@ -582,6 +780,22 @@ namespace HospitalModUpdateChecker
             bool hasUpdates =
                 UpdateChecker.UpdateState == RemoteContentState.Ready &&
                 updates.Count > 0;
+
+            bool hasHmucUpdate = false;
+            if (hasUpdates)
+            {
+                for (int i = 0; i < updates.Count; i++)
+                {
+                    if (updates[i] != null &&
+                        string.Equals(updates[i].Guid, Plugin.PluginGuid,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasHmucUpdate = true;
+                        break;
+                    }
+                }
+            }
+            SetHmucPriorityBannerVisible(hasHmucUpdate);
 
             string summary = hasUpdates
                 ? BuildInstallResultsText()
@@ -651,11 +865,63 @@ namespace HospitalModUpdateChecker
             Image background =
                 root.AddComponent<Image>();
 
-            Color rowColor =
-                GetHeadingColor();
-            rowColor.a = 0.22f;
-            background.color = rowColor;
-            background.raycastTarget = false;
+            background.color = GetVanillaRowColor(false);
+            background.raycastTarget = true;
+
+            float textRightInset =
+                ActionButtonWidth +
+                ContentPadding * 2f;
+
+            Text nameText =
+                CreateTextClone(
+                    _sourceText,
+                    "UpdateName",
+                    root.transform);
+            nameText.text = "\u2022 " + (update.Name ?? string.Empty);
+            nameText.alignment = TextAnchor.MiddleLeft;
+            nameText.fontSize =
+                Math.Max(_sourceText.fontSize + 1, 14);
+            nameText.supportRichText = false;
+            RectTransform nameRect =
+                nameText.GetComponent<RectTransform>();
+            nameRect.anchorMin = nameRect.anchorMax =
+                new Vector2(0f, 1f);
+            nameRect.pivot = new Vector2(0f, 1f);
+            nameRect.anchoredPosition = new Vector2(0f, -5f);
+            nameRect.sizeDelta = new Vector2(
+                Math.Min(
+                    nameText.preferredWidth + 4f,
+                    PanelWidth - textRightInset - 70f),
+                24f);
+            AttachModMetadataHover(
+                nameText.gameObject,
+                ModDetailsCatalog.WhatsNew(
+                    update.Guid,
+                    update.AvailableVersion));
+
+            Text authorText =
+                CreateTextClone(
+                    _sourceText,
+                    "UpdateAuthor",
+                    root.transform);
+            authorText.text =
+                " (" + (update.Author ?? string.Empty) + ")";
+            authorText.alignment = TextAnchor.MiddleLeft;
+            authorText.fontSize = nameText.fontSize;
+            authorText.supportRichText = false;
+            RectTransform authorRect =
+                authorText.GetComponent<RectTransform>();
+            authorRect.anchorMin = authorRect.anchorMax =
+                new Vector2(0f, 1f);
+            authorRect.pivot = new Vector2(0f, 1f);
+            authorRect.anchoredPosition =
+                new Vector2(nameRect.sizeDelta.x, -5f);
+            authorRect.sizeDelta = new Vector2(
+                Math.Max(
+                    0f,
+                    PanelWidth - textRightInset -
+                    nameRect.sizeDelta.x - 70f),
+                24f);
 
             Text text =
                 CreateTextClone(
@@ -666,26 +932,19 @@ namespace HospitalModUpdateChecker
             RectTransform textRect =
                 text.GetComponent<RectTransform>();
 
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
+            textRect.anchorMin = new Vector2(0f, 0f);
+            textRect.anchorMax = new Vector2(1f, 1f);
             textRect.pivot = new Vector2(0.5f, 0.5f);
-            float textLeftInset = 0f;
-            float textRightInset =
-                ActionButtonWidth +
-                ContentPadding * 2f;
-
             textRect.anchoredPosition =
-                new Vector2(
-                    (textLeftInset - textRightInset) * 0.5f,
-                    ProgressBarHeight * 0.5f);
+                new Vector2(-textRightInset * 0.5f, -10f);
             textRect.sizeDelta =
                 new Vector2(
-                    -(textLeftInset + textRightInset),
-                    -(ProgressBarHeight + 8f));
+                    -textRightInset,
+                    -(ProgressBarHeight + 31f));
 
             text.alignment = TextAnchor.UpperLeft;
             text.fontSize =
-                Math.Max(_sourceText.fontSize, 13);
+                Math.Max(_sourceText.fontSize + 1, 14);
             text.supportRichText = true;
 
             Button button;
@@ -717,10 +976,8 @@ namespace HospitalModUpdateChecker
             Image progressBackground =
                 progressRoot.AddComponent<Image>();
 
-            Color progressBackgroundColor =
+            progressBackground.color =
                 GetHeadingColor();
-            progressBackgroundColor.a = 0.34f;
-            progressBackground.color = progressBackgroundColor;
             progressBackground.raycastTarget = false;
 
             GameObject fill =
@@ -798,15 +1055,13 @@ namespace HospitalModUpdateChecker
             Image image =
                 buttonObject.AddComponent<Image>();
 
-            Color color =
-                GetSectionHeaderColor();
-            color.a = 0.95f;
-            image.color = color;
+            image.color = Color.white;
 
             button =
                 buttonObject.AddComponent<Button>();
 
             button.targetGraphic = image;
+            ApplyVanillaLightButtonColors(button);
 
             AvailableUpdate captured =
                 update;
@@ -814,6 +1069,7 @@ namespace HospitalModUpdateChecker
             button.onClick.AddListener(
                 delegate
                 {
+                    PlayNativeClick();
                     PackageUpdateManager.StartOrCancel(
                         captured);
                 });
@@ -837,6 +1093,7 @@ namespace HospitalModUpdateChecker
             buttonText.fontStyle = FontStyle.Bold;
             buttonText.fontSize =
                 Math.Max(_sourceText.fontSize, 12);
+            buttonText.color = GetVanillaButtonTextColor();
             buttonText.raycastTarget = false;
         }
 
@@ -856,11 +1113,7 @@ namespace HospitalModUpdateChecker
             StringBuilder builder =
                 new StringBuilder();
 
-            builder.Append("\u2022 ");
-            builder.Append(update.Name);
-            builder.Append(" (");
-            builder.Append(update.Author);
-            builder.Append(")\n   v");
+            builder.Append("   v");
             builder.Append(update.InstalledVersion);
             builder.Append(" \u2192 <b>v");
             builder.Append(update.AvailableVersion);
@@ -973,6 +1226,18 @@ namespace HospitalModUpdateChecker
                 }
             }
 
+            // The synthetic HMUC self-update exists only to preview
+            // the production sorting/banner/layout path in Debug mode.
+            // Never let its action button become clickable.
+            if (UpdateCheckerConfig.Debug &&
+                string.Equals(
+                    update.Guid,
+                    Plugin.PluginGuid,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                interactable = false;
+            }
+
             row.Button.interactable =
                 interactable;
             row.ButtonText.text =
@@ -1044,6 +1309,16 @@ namespace HospitalModUpdateChecker
                 }
             }
 
+            if (UpdateCheckerConfig.Debug &&
+                string.Equals(
+                    update.Guid,
+                    Plugin.PluginGuid,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return UpdatePanelLocalization.Get(
+                    UpdatePanelLocalization.ReadyToUpdateId);
+            }
+
             if (PackageUpdateManager.CatalogState ==
                 PackageCatalogState.Loading)
             {
@@ -1082,11 +1357,6 @@ namespace HospitalModUpdateChecker
             IList<InstallResultDisplay> results =
                 PackageUpdateManager.LastResults;
 
-            if (results.Count == 0)
-            {
-                return string.Empty;
-            }
-
             StringBuilder builder =
                 new StringBuilder();
 
@@ -1105,21 +1375,39 @@ namespace HospitalModUpdateChecker
                     builder.Append("\n\n");
                 }
 
+                bool isNewInstall = string.Equals(
+                    result.Mode, "install", StringComparison.Ordinal);
+                bool failed = string.Equals(
+                    result.Status, "failure", StringComparison.Ordinal);
+
                 builder.Append("\u2022 <b>");
-                builder.Append(result.Name);
+                builder.Append(
+                    ModDetailsCatalog.SanitizeDisplayText(result.Name, 128));
                 builder.Append(" ");
-                builder.Append(result.Version);
+
+                // Only show a version transition after a successful
+                // update, never as proof of an unsuccessful swap.
+                if (!isNewInstall && !failed &&
+                    !string.IsNullOrEmpty(result.PreviousVersion) &&
+                    !string.Equals(result.PreviousVersion, result.Version,
+                        StringComparison.Ordinal))
+                {
+                    builder.Append(result.PreviousVersion);
+                    builder.Append(" \u2192 ");
+                }
+
+                builder.Append(
+                    ModDetailsCatalog.SanitizeDisplayText(result.Version, 32));
                 builder.Append("</b>");
 
-                if (string.Equals(
-                        result.Status,
-                        "failure",
-                        StringComparison.Ordinal))
+                if (failed)
                 {
                     builder.Append("\n   <i>");
                     builder.Append(
                         UpdatePanelLocalization.Get(
-                            UpdatePanelLocalization.InstallFailedId));
+                            isNewInstall
+                                ? UpdatePanelLocalization.NewInstallFailedId
+                                : UpdatePanelLocalization.InstallFailedId));
                     builder.Append("</i>");
                     continue;
                 }
@@ -1127,7 +1415,9 @@ namespace HospitalModUpdateChecker
                 builder.Append("\n   <i>");
                 builder.Append(
                     UpdatePanelLocalization.Get(
-                        UpdatePanelLocalization.InstallSucceededId));
+                        isNewInstall
+                            ? UpdatePanelLocalization.NewInstallSucceededId
+                            : UpdatePanelLocalization.InstallSucceededId));
                 builder.Append("</i>");
 
                 if (result.AddedSettings.Count > 0)
@@ -1156,6 +1446,39 @@ namespace HospitalModUpdateChecker
                             UpdatePanelLocalization.ConfigWarningId));
                     builder.Append("</i>");
                 }
+            }
+
+            // Persistent warnings are shown once per title-screen view,
+            // not as periodic popups. A resolved config clears its marker.
+            try
+            {
+                string pluginRoot = System.IO.Path.Combine(
+                    Paths.BepInExRootPath, "plugins");
+                IList<string> warnings =
+                    ConfigTemplateSafety.ReadWarningModNames(pluginRoot);
+                if (warnings.Count > 0)
+                {
+                    if (builder.Length > 0)
+                        builder.Append("\n\n");
+                    builder.Append("<b>");
+                    builder.Append(UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.ConfigSchemaIssuesHeadingId));
+                    builder.Append("</b>");
+                    for (int j = 0; j < warnings.Count; j++)
+                    {
+                        builder.Append("\n   \u2022 ");
+                        builder.Append((warnings[j] ?? string.Empty)
+                            .Replace("&", "&amp;")
+                            .Replace("<", "&lt;")
+                            .Replace(">", "&gt;"));
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.LogWarning(
+                    "HMUC cannot display stored XML migration warnings: " +
+                    exception.Message);
             }
 
             return builder.ToString();
@@ -1438,33 +1761,86 @@ namespace HospitalModUpdateChecker
                     new Vector2(0f, -i * (rowHeight + gap));
                 rect.sizeDelta = new Vector2(0f, rowHeight);
                 Image background = row.AddComponent<Image>();
-                Color rowColor = GetHeadingColor();
-                rowColor.a = .23f;
-                background.color = rowColor;
-                background.raycastTarget = false;
+                background.color =
+                    GetVanillaRowColor(
+                        GetPluginKey(entry) == _lastClickedPluginKey);
+                background.raycastTarget = true;
+                Button rowButton = row.AddComponent<Button>();
+                rowButton.targetGraphic = background;
+                // A row is selectable even when this mod has no XML editor.
+                LoadedPluginDisplayEntry clickedEntry = entry;
+                rowButton.onClick.AddListener(delegate
+                {
+                    SelectPluginRow(clickedEntry);
+                });
 
                 string configPath;
                 bool configurable = entry.Plugin != null &&
                     ConfigEditorData.TryFindConfig(
                         entry.Plugin, out configPath);
+                int pluginFontSize = Math.Max(
+                    _sourceText.fontSize + 1, 13);
+                float pluginRightInset = configurable ? 118f : 8f;
+
+                Text nameText = CreateTextClone(
+                    _sourceText, "PluginName", row.transform);
+                nameText.text = "\u2022 " + (entry.Name ?? string.Empty);
+                nameText.alignment = TextAnchor.MiddleLeft;
+                nameText.supportRichText = false;
+                nameText.fontSize = pluginFontSize;
+                RectTransform nameRect = nameText.rectTransform;
+                nameRect.anchorMin = nameRect.anchorMax =
+                    new Vector2(0f, 1f);
+                nameRect.pivot = new Vector2(0f, 1f);
+                nameRect.anchoredPosition = new Vector2(0f, -3f);
+                nameRect.sizeDelta = new Vector2(
+                    Math.Min(
+                        nameText.preferredWidth + 4f,
+                        PanelWidth - pluginRightInset - 80f),
+                    24f);
+
+                Text authorText = CreateTextClone(
+                    _sourceText, "PluginAuthor", row.transform);
+                authorText.text =
+                    " (" + (entry.Author ?? string.Empty) + ")";
+                authorText.alignment = TextAnchor.MiddleLeft;
+                authorText.supportRichText = false;
+                authorText.fontSize = pluginFontSize;
+                RectTransform authorRect = authorText.rectTransform;
+                authorRect.anchorMin = authorRect.anchorMax =
+                    new Vector2(0f, 1f);
+                authorRect.pivot = new Vector2(0f, 1f);
+                authorRect.anchoredPosition =
+                    new Vector2(nameRect.sizeDelta.x, -3f);
+                authorRect.sizeDelta = new Vector2(
+                    Math.Max(
+                        0f,
+                        PanelWidth - pluginRightInset -
+                        nameRect.sizeDelta.x - 80f),
+                    24f);
+
                 Text description = CreateTextClone(
                     _sourceText, "PluginDescription", row.transform);
                 RectTransform textRect = description.rectTransform;
-                textRect.anchorMin = Vector2.zero;
-                textRect.anchorMax = Vector2.one;
-                textRect.offsetMin = new Vector2(0f, 2f);
-                textRect.offsetMax =
-                    new Vector2(configurable ? -118f : -8f, -2f);
+                textRect.anchorMin = new Vector2(0f, 0f);
+                textRect.anchorMax = new Vector2(1f, 0f);
+                textRect.pivot = new Vector2(.5f, 0f);
+                textRect.anchoredPosition =
+                    new Vector2(-pluginRightInset * .5f, 3f);
+                textRect.sizeDelta =
+                    new Vector2(-pluginRightInset, 26f);
                 description.alignment = TextAnchor.MiddleLeft;
                 description.supportRichText = true;
-                description.fontSize = Math.Max(
-                    _sourceText.fontSize, 12);
+                description.fontSize = pluginFontSize;
                 description.raycastTarget = false;
+                description.text =
+                    "   " + FormatLogStatus(entry.Status) +
+                    " - v" + entry.Version;
 
-                StringBuilder text = new StringBuilder();
-                AppendLoadedPluginLine(text, entry.Name, entry.Author,
-                    entry.Version, entry.Status);
-                description.text = text.ToString();
+                if (entry.Plugin != null)
+                    AttachModMetadataHover(
+                        nameText.gameObject,
+                        GetInstalledPluginDescription(entry.Plugin));
 
                 if (configurable)
                 {
@@ -1479,16 +1855,14 @@ namespace HospitalModUpdateChecker
                     buttonRect.anchoredPosition = new Vector2(-7f, 0f);
                     buttonRect.sizeDelta = new Vector2(104f, 30f);
                     Image image = buttonRoot.AddComponent<Image>();
-                    image.color = GetSectionHeaderColor();
+                    image.color = Color.white;
                     Button button = buttonRoot.AddComponent<Button>();
                     button.targetGraphic = image;
-                    // Native delay is safe on the title-screen; the tooltip
-                    // itself uses the HMUC canvas rather than a gameplay prefab.
-                    buttonRoot.AddComponent<HoverTooltipDelay>();
-                    buttonRoot.AddComponent<ConfigGearTooltipHover>();
+                    ApplyVanillaLightButtonColors(button);
                     PluginInfo selected = entry.Plugin;
                     button.onClick.AddListener(delegate
                     {
+                        SelectPluginRow(clickedEntry);
                         HideConfigGearTooltip();
                         ConfigEditorPanel.Open(selected,
                             _controller.m_canvas.transform,
@@ -1504,7 +1878,8 @@ namespace HospitalModUpdateChecker
                     caption.text = UpdatePanelLocalization.Get(
                         UpdatePanelLocalization.ConfigureActionId);
                     caption.alignment = TextAnchor.MiddleCenter;
-                    caption.fontSize = Math.Max(_sourceText.fontSize, 13);
+                    caption.fontSize = Math.Max(_sourceText.fontSize + 1, 14);
+                    caption.color = GetVanillaButtonTextColor();
                     caption.raycastTarget = false;
                 }
                 _pluginRows.Add(row);
@@ -1513,8 +1888,190 @@ namespace HospitalModUpdateChecker
             _pluginsSection.ScrollRect.verticalNormalizedPosition = 1f;
         }
 
+        private static string GetPluginKey(LoadedPluginDisplayEntry entry)
+        {
+            if (entry.Plugin != null && entry.Plugin.Metadata != null &&
+                !string.IsNullOrEmpty(entry.Plugin.Metadata.GUID))
+                return "guid:" + entry.Plugin.Metadata.GUID;
+            return "name:" + (entry.Name ?? string.Empty);
+        }
+
+        private static void SelectPluginRow(LoadedPluginDisplayEntry entry)
+        {
+            if (entry == null)
+                return;
+
+            PlayNativeClick();
+            _lastClickedPluginKey = GetPluginKey(entry);
+            // Update the existing images; do not rebuild/reposition the
+            // scrollbar or reset the user's current scroll position.
+            for (int i = 0; i < _pluginRows.Count && i < _pluginEntries.Count; i++)
+            {
+                GameObject row = _pluginRows[i];
+                if (row == null)
+                    continue;
+                Image image = row.GetComponent<Image>();
+                if (image == null)
+                    continue;
+                image.color = GetVanillaRowColor(
+                    GetPluginKey(_pluginEntries[i]) ==
+                    _lastClickedPluginKey);
+            }
+        }
+
+        internal static void PlayNativeClick()
+        {
+            if (UISoundManager.sm_instance != null)
+                UISoundManager.sm_instance.PlaySoundEvent(
+                    "SFX_UI_BEEP");
+        }
+
+        internal static void AttachModMetadataHover(
+            GameObject target, string information)
+        {
+            if (target == null || string.IsNullOrEmpty(information))
+                return;
+
+            Graphic graphic = target.GetComponent<Graphic>();
+            if (graphic != null)
+                graphic.raycastTarget = true;
+
+            // The native tooltip delay is enforced by the game. Metadata
+            // hover targets are deliberately limited to the visible mod name.
+            // Click handling remains on the parent row/button.
+            target.AddComponent<HoverTooltipDelay>();
+            ModMetadataTooltipHover hover =
+                target.AddComponent<ModMetadataTooltipHover>();
+            hover.Content = information;
+        }
+
+        private static string GetInstalledPluginDescription(PluginInfo plugin)
+        {
+            if (plugin == null || plugin.Instance == null)
+                return string.Empty;
+            try
+            {
+                object[] attrs = plugin.Instance.GetType().Assembly
+                    .GetCustomAttributes(
+                        typeof(AssemblyDescriptionAttribute), false);
+                if (attrs.Length == 0)
+                    return string.Empty;
+                AssemblyDescriptionAttribute metadata =
+                    attrs[0] as AssemblyDescriptionAttribute;
+                if (metadata == null)
+                    return string.Empty;
+                return ModDetailsCatalog.SanitizeDisplayText(
+                    metadata.Description, 700);
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+
+        internal static void ShowModMetadataTooltip(
+            ModMetadataTooltipHover owner, string information)
+        {
+            if (owner == null || string.IsNullOrEmpty(information) ||
+                _panel == null || !_panel.activeSelf ||
+                _sourceText == null || _controller == null ||
+                _controller.m_canvas == null || ConfigEditorPanel.IsOpen ||
+                (_configGearTooltip != null &&
+                 _configGearTooltip.activeSelf))
+            {
+                HideModMetadataTooltip(owner);
+                return;
+            }
+
+            if (_metadataTooltip == null)
+            {
+                _metadataTooltip = new GameObject("ModMetadataTooltip");
+                _metadataTooltip.transform.SetParent(_panel.transform, false);
+                RectTransform rectangle =
+                    _metadataTooltip.AddComponent<RectTransform>();
+                rectangle.anchorMin = new Vector2(.5f, .5f);
+                rectangle.anchorMax = new Vector2(.5f, .5f);
+                rectangle.pivot = new Vector2(.5f, .5f);
+                Image image = _metadataTooltip.AddComponent<Image>();
+                image.color = GetVanillaTooltipColor();
+                image.raycastTarget = false;
+                _metadataTooltipText = CreateTextClone(
+                    _sourceText, "Details", _metadataTooltip.transform);
+                RectTransform textRect =
+                    _metadataTooltipText.GetComponent<RectTransform>();
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.offsetMin = new Vector2(12f, 9f);
+                textRect.offsetMax = new Vector2(-12f, -9f);
+                _metadataTooltipText.alignment = TextAnchor.UpperLeft;
+                _metadataTooltipText.fontSize =
+                    Math.Max(_sourceText.fontSize, 14);
+                _metadataTooltipText.supportRichText = false;
+                _metadataTooltipText.horizontalOverflow =
+                    HorizontalWrapMode.Wrap;
+                _metadataTooltipText.verticalOverflow =
+                    VerticalWrapMode.Truncate;
+                _metadataTooltipText.raycastTarget = false;
+            }
+
+            if (_metadataTooltipOwner != owner ||
+                _metadataTooltipText.text != information)
+            {
+                _metadataTooltipOwner = owner;
+                _metadataTooltipText.text = information;
+                RectTransform rectangle =
+                    _metadataTooltip.GetComponent<RectTransform>();
+                const float width = 490f;
+                rectangle.sizeDelta = new Vector2(width, 80f);
+                // Compute wrapped height with the actual tooltip width,
+                // not the zero-size RectTransform of a new text clone.
+                Canvas.ForceUpdateCanvases();
+                rectangle.sizeDelta = new Vector2(
+                    width, Mathf.Clamp(
+                        _metadataTooltipText.preferredHeight + 24f,
+                        46f, 270f));
+            }
+
+            Canvas canvas = _controller.m_canvas.GetComponent<Canvas>();
+            Camera camera = canvas != null &&
+                canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                    ? canvas.worldCamera : null;
+            RectTransform panel = _panel.GetComponent<RectTransform>();
+            RectTransform tooltip =
+                _metadataTooltip.GetComponent<RectTransform>();
+            Vector2 pointer;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                panel, Input.mousePosition, camera, out pointer))
+            {
+                float halfWidth = panel.rect.width * .5f;
+                float halfHeight = panel.rect.height * .5f;
+                float tooltipHalfWidth = tooltip.rect.width * .5f;
+                float tooltipHalfHeight = tooltip.rect.height * .5f;
+                tooltip.anchoredPosition = new Vector2(
+                    Mathf.Clamp(pointer.x,
+                        -halfWidth + tooltipHalfWidth + 6f,
+                        halfWidth - tooltipHalfWidth - 6f),
+                    Mathf.Clamp(pointer.y + tooltipHalfHeight + 15f,
+                        -halfHeight + tooltipHalfHeight + 6f,
+                        halfHeight - tooltipHalfHeight - 6f));
+            }
+            _metadataTooltip.SetActive(true);
+            _metadataTooltip.transform.SetAsLastSibling();
+        }
+
+        internal static void HideModMetadataTooltip(
+            ModMetadataTooltipHover owner)
+        {
+            if (owner != null && owner != _metadataTooltipOwner)
+                return;
+            if (_metadataTooltip != null)
+                _metadataTooltip.SetActive(false);
+            _metadataTooltipOwner = null;
+        }
+
         internal static void ShowConfigGearTooltip()
         {
+            HideModMetadataTooltip(null);
             if (_panel == null || !_panel.activeSelf ||
                 _sourceText == null || _controller == null ||
                 _controller.m_canvas == null || ConfigEditorPanel.IsOpen)
@@ -1536,7 +2093,7 @@ namespace HospitalModUpdateChecker
                 root.sizeDelta = new Vector2(200f, 36f);
 
                 Image image = _configGearTooltip.AddComponent<Image>();
-                image.color = GetHeadingColor();
+                image.color = GetVanillaTooltipColor();
                 image.raycastTarget = false;
 
                 _configGearTooltipText = CreateTextClone(
@@ -1660,10 +2217,10 @@ namespace HospitalModUpdateChecker
             builder.Append(" (");
             builder.Append(author ?? string.Empty);
             builder.Append(")");
-            builder.Append("\n   v");
-            builder.Append(version);
-            builder.Append(" : ");
+            builder.Append("\n   ");
             builder.Append(FormatLogStatus(status));
+            builder.Append(" - v");
+            builder.Append(version);
         }
 
         private static string FormatLogStatus(
@@ -1756,6 +2313,14 @@ namespace HospitalModUpdateChecker
                 UpdatePanelLocalization.UnknownAuthorId);
         }
 
+        internal static Text CreateHomeTextClone(
+            Text sourceText,
+            string name,
+            Transform parent)
+        {
+            return CreateTextClone(sourceText, name, parent);
+        }
+
         private static Text CreateTextClone(
             Text sourceText,
             string name,
@@ -1789,6 +2354,32 @@ namespace HospitalModUpdateChecker
             Text sourceText,
             Transform heading)
         {
+            CreateHomeCloseButton(
+                sourceText,
+                heading,
+                delegate
+                {
+                    _dismissedForSession = true;
+                    ConfigEditorPanel.Close();
+
+                    if (_panel != null)
+                    {
+                        _panel.SetActive(false);
+                    }
+
+                    if (UISoundManager.sm_instance != null)
+                    {
+                        UISoundManager.sm_instance.PlaySoundEvent(
+                            "SFX_UI_BEEP");
+                    }
+                });
+        }
+
+        internal static Button CreateHomeCloseButton(
+            Text sourceText,
+            Transform heading,
+            Action action)
+        {
             GameObject buttonObject =
                 new GameObject("CloseButton");
 
@@ -1810,30 +2401,20 @@ namespace HospitalModUpdateChecker
             Image image =
                 buttonObject.AddComponent<Image>();
 
-            Color buttonColor = GetHeadingColor();
-            buttonColor.a =
-                Math.Min(1f, buttonColor.a + 0.15f);
-            image.color = buttonColor;
+            image.color = Color.clear;
 
             Button button =
                 buttonObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            ApplyVanillaTransparentButtonColors(button);
 
-            button.onClick.AddListener(delegate
+            if (action != null)
             {
-                _dismissedForSession = true;
-                ConfigEditorPanel.Close();
-
-                if (_panel != null)
+                button.onClick.AddListener(delegate
                 {
-                    _panel.SetActive(false);
-                }
-
-                if (UISoundManager.sm_instance != null)
-                {
-                    UISoundManager.sm_instance.PlaySoundEvent(
-                        "SFX_UI_WINDOW_CLOSED");
-                }
-            });
+                    action();
+                });
+            }
 
             Text xText =
                 CreateTextClone(
@@ -1860,53 +2441,113 @@ namespace HospitalModUpdateChecker
             xText.fontSize =
                 Math.Max(sourceText.fontSize, 16);
             xText.raycastTarget = false;
+            return button;
         }
 
+        // Confirmed from the exported vanilla Options, Save/Load,
+        // FileLabel, TooltipSmall and scrollbar prefabs.
         private static Color GetPanelColor()
         {
-            if (UISettings.Instance != null)
-            {
-                Color color =
-                    UISettings.Instance.THEME_COLOR_MAIN;
-
-                color.a = 0.97f;
-                return color;
-            }
-
             return new Color(
-                0.08f,
-                0.08f,
-                0.10f,
-                0.97f);
+                .93333334f, .93333334f, .93333334f, 1f);
         }
 
         private static Color GetHeadingColor()
         {
-            if (UISettings.Instance != null)
-            {
-                return UISettings.Instance
-                    .THEME_COLOR_PANEL_HEADING;
-            }
-
             return new Color(
-                0.16f,
-                0.16f,
-                0.20f,
-                1f);
+                .15294118f, .16078432f, .21176471f, 1f);
         }
 
         private static Color GetSectionColor()
         {
-            Color color = GetHeadingColor();
-            color.a = 0.38f;
-            return color;
+            return GetHeadingColor();
         }
 
         private static Color GetSectionHeaderColor()
         {
-            Color color = GetHeadingColor();
-            color.a = 0.82f;
-            return color;
+            return GetPanelColor();
+        }
+
+        private static Color GetVanillaRowColor(bool selected)
+        {
+            return selected
+                ? new Color(
+                    .3137255f, .3137255f, .43137255f, .88235295f)
+                : new Color(
+                    .15686275f, .15686275f, .21568628f, 1f);
+        }
+
+        private static Color GetVanillaTooltipColor()
+        {
+            return new Color(
+                .3019608f, .3019608f, .3019608f, .9411765f);
+        }
+
+        private static Color GetVanillaButtonTextColor()
+        {
+            return new Color(
+                .15294118f, .16078432f, .21176471f, 1f);
+        }
+
+        private static Color GetVanillaScrollbarTrackColor()
+        {
+            // Dark scrollbar background used by the game's UI.
+            // Serialized value: RGB 50, 50, 70 (#323246).
+            return new Color(
+                .19607843f, .19607843f, .27450982f, 1f);
+        }
+
+        private static void ApplyVanillaScrollbarColors(Scrollbar scrollbar)
+        {
+            if (scrollbar == null)
+                return;
+            // Normal/highlight values match the exported vanilla
+            // palette. Pressed intentionally stays on the highlight colour
+            // for HMUC so repeated clicks do not flash light gray.
+            ColorBlock colors = scrollbar.colors;
+            colors.normalColor =
+                new Color(.3137255f, .3137255f, .43137255f, 1f);
+            colors.highlightedColor =
+                new Color(.47058824f, .47058824f, .64705884f, 1f);
+            colors.pressedColor =
+                new Color(.47058824f, .47058824f, .64705884f, 1f);
+            // A permanent scrollbar can become non-interactable when no
+            // scrolling is needed; keep its handle visually identical.
+            colors.disabledColor =
+                new Color(.3137255f, .3137255f, .43137255f, 1f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = .1f;
+            scrollbar.colors = colors;
+        }
+
+        private static void ApplyVanillaLightButtonColors(Button button)
+        {
+            if (button == null)
+                return;
+            ColorBlock colors = button.colors;
+            colors.normalColor =
+                new Color(.88235295f, .88235295f, .88235295f, 1f);
+            colors.highlightedColor =
+                new Color(.9607843f, .9607843f, .9607843f, 1f);
+            colors.pressedColor =
+                new Color(.78431374f, .78431374f, .78431374f, 1f);
+            colors.disabledColor =
+                new Color(.78431374f, .78431374f, .78431374f, .5019608f);
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
+        }
+
+        private static void ApplyVanillaTransparentButtonColors(Button button)
+        {
+            if (button == null)
+                return;
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.clear;
+            colors.highlightedColor = Color.clear;
+            colors.pressedColor = Color.clear;
+            colors.disabledColor = Color.clear;
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
         }
 
         internal static void BringNativeScreenToFront(
@@ -1946,6 +2587,9 @@ namespace HospitalModUpdateChecker
         {
             RecommendedModsPanel.Destroy();
             HideConfigGearTooltip();
+            HideModMetadataTooltip(null);
+            _metadataTooltip = null;
+            _metadataTooltipText = null;
             _configGearTooltip = null;
             _configGearTooltipText = null;
             ConfigEditorPanel.Close();
@@ -1966,8 +2610,50 @@ namespace HospitalModUpdateChecker
             _newsSection = null;
             _updatesSection = null;
             _pluginsSection = null;
+            _hmucPriorityBanner = null;
+            _hmucPriorityText = null;
         }
     }
+    // Hover checks stay cheap: only the hovered row calls the tooltip.
+    // All tooltip panels are parented outside masked ScrollRect viewports.
+    internal sealed class ModMetadataTooltipHover : MonoBehaviour
+    {
+        internal string Content;
+        private HoverTooltipDelay _hover;
+        private bool _showing;
+
+        private void Awake()
+        {
+            _hover = GetComponent<HoverTooltipDelay>();
+        }
+
+        private void Update()
+        {
+            if (!string.IsNullOrEmpty(Content) && _hover != null &&
+                _hover.IsMouseOver() && _hover.ShouldShowToolTip())
+            {
+                TitleScreenUpdatePanel.ShowModMetadataTooltip(this, Content);
+                _showing = true;
+            }
+            else if (_showing)
+            {
+                TitleScreenUpdatePanel.HideModMetadataTooltip(this);
+                _showing = false;
+            }
+        }
+
+        private void OnDisable()
+        {
+            TitleScreenUpdatePanel.HideModMetadataTooltip(this);
+            _showing = false;
+        }
+
+        private void OnDestroy()
+        {
+            TitleScreenUpdatePanel.HideModMetadataTooltip(this);
+        }
+    }
+
     // Shared tooltip is rendered outside the masked plugin scroll area.
     // HoverTooltipDelay is the native game's delay and pointer tracker.
     internal sealed class ConfigGearTooltipHover : MonoBehaviour

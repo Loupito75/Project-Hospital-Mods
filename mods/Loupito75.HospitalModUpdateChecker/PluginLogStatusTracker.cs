@@ -46,7 +46,9 @@ namespace HospitalModUpdateChecker
                     StringComparer.OrdinalIgnoreCase);
 
         private static StatusListener _listener;
-        private static bool _changed;
+        // Written under SyncRoot by log listeners (including worker threads).
+        // Volatile allows Update() to skip the lock on frames with no events.
+        private static volatile bool _changed;
 
         internal static void Start()
         {
@@ -297,6 +299,12 @@ namespace HospitalModUpdateChecker
 
         internal static bool ConsumeChanged()
         {
+            // Called every frame. Logging state changes are rare; avoid a
+            // monitor acquisition in the normal unchanged case. The lock is
+            // still mandatory when consuming the shared flag.
+            if (!_changed)
+                return false;
+
             lock (SyncRoot)
             {
                 bool changed = _changed;
