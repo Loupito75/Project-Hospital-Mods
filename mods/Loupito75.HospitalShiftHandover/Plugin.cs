@@ -71,10 +71,11 @@ namespace HospitalShiftHandover
     {
         public const string PluginGuid = "loupito75.HospitalShiftHandover";
         public const string PluginName = "Hospital Shift Handover";
-        public const string PluginVersion = "1.1.1";
+        public const string PluginVersion = "1.2.0";
         public const string PluginAuthor = "Loupito75";
         public const string HarmonyId = "Loupito75:HospitalShiftHandover";
-        public const string PluginDescription = "Improves staff arrivals, preparation, and shift handovers.";
+        public const string PluginWhatsNew =
+            "Door-aware handover staging, safer doctor handovers, locker dressing enabled by default, locker dressing sounds and bubbles, handover wait bubble";
 
         internal static ReleaseLog Log { get; private set; }
 
@@ -91,6 +92,11 @@ namespace HospitalShiftHandover
             _harmony = new Harmony(HarmonyId);
             _harmony.PatchAll();
 
+            if (Database.Instance != null && Database.Instance.Loaded)
+            {
+                PreShiftVisualDatabase.Load(Database.Instance);
+            }
+
             _formattedLog.LogInfo(PluginName + " " + PluginVersion + " by " + PluginAuthor + " loaded.");
         }
 
@@ -106,6 +112,7 @@ namespace HospitalShiftHandover
             PreShiftCoordinator.Shutdown();
             PreShiftCoordinatorStaleChairGuardPatch.Shutdown();
             PreShiftArrival.Shutdown();
+            PreShiftVisuals.Shutdown();
 
             if (_harmony != null)
             {

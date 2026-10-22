@@ -1,0 +1,6 @@
+<Database>
+    <GameDBAsset ID="HSH_ASSET_SHIFT_HANDOVER_WAIT_BUBBLE">
+        <Type>TEXTURE_CUSTOM_SPRITE</Type>
+        <File>MOD_ROOT/Textures/UI/shift_handover_wait_bubble.png</File>
+    </GameDBAsset>
+</Database>

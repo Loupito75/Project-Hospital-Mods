@@ -12,12 +12,15 @@ namespace HospitalShiftHandover
         private const float PublicAreaIdealDistance = 3.5f;
         private const float PublicAreaMaximumRouteDistance = 7f;
         private const float PublicAreaNearDoorDistance = 2f;
-        private const float PublicAreaNearDoorPenalty = 50f;
         private const float PublicAreaJitterDistance = 2.5f;
 
         private sealed class StagingCandidate
         {
             internal Vector2i Position;
+            internal int DoorFrontTier;
+            internal int DoorNearTier;
+            internal int WallTier;
+            internal int AnchorTier;
             internal float RouteDistance;
             internal float Score;
         }
@@ -111,6 +114,18 @@ namespace HospitalShiftHandover
 
             candidates.Sort(delegate(StagingCandidate first, StagingCandidate second)
             {
+                // Preserve every valid HSH fallback, but rank physical doorway exposure
+                // ahead of cosmetic wall preference. A clear open tile must beat a wall
+                // position that blocks either side of a door.
+                int comparison = first.DoorFrontTier.CompareTo(second.DoorFrontTier);
+                if (comparison != 0) return comparison;
+                comparison = first.DoorNearTier.CompareTo(second.DoorNearTier);
+                if (comparison != 0) return comparison;
+                comparison = first.WallTier.CompareTo(second.WallTier);
+                if (comparison != 0) return comparison;
+                comparison = first.AnchorTier.CompareTo(second.AnchorTier);
+                if (comparison != 0) return comparison;
+
                 if (first.Score < second.Score)
                 {
                     return -1;
@@ -316,30 +331,100 @@ namespace HospitalShiftHandover
                 return;
             }
 
+            int doorFrontTier = IsDoorFrontTile(floor, candidate) ? 1 : 0;
+            int doorNearTier = HasNearbyDoor(floor, candidate) ? 1 : 0;
+            int wallTier = HasAdjacentWall(floor, candidate) ? 0 : 1;
+            int anchorTier =
+                patientFacing && routeDistance < PublicAreaNearDoorDistance ? 1 : 0;
+
             float jitter = GetCandidateJitter(employee, candidate, patientFacing ? 941 : 887, jitterDistance);
-            float score;
-            if (patientFacing)
-            {
-                // Prefer a small, natural buffer away from the door. Near-door tiles remain a
-                // safety fallback, but a large penalty ensures any valid position 2+ tiles away
-                // wins first. The ideal distance keeps staff local instead of wandering down a
-                // long corridor.
-                score = Math.Abs(routeDistance - PublicAreaIdealDistance) + jitter;
-                if (routeDistance < PublicAreaNearDoorDistance)
-                {
-                    score += PublicAreaNearDoorPenalty;
-                }
-            }
-            else
-            {
-                score = routeDistance + jitter;
-            }
+            float score = patientFacing
+                ? Math.Abs(routeDistance - PublicAreaIdealDistance) + jitter
+                : routeDistance + jitter;
 
             StagingCandidate stagingCandidate = new StagingCandidate();
             stagingCandidate.Position = candidate;
+            stagingCandidate.DoorFrontTier = doorFrontTier;
+            stagingCandidate.DoorNearTier = doorNearTier;
+            stagingCandidate.WallTier = wallTier;
+            stagingCandidate.AnchorTier = anchorTier;
             stagingCandidate.RouteDistance = routeDistance;
             stagingCandidate.Score = score;
             candidates.Add(stagingCandidate);
+        }
+
+        private static bool IsDoorFrontTile(Floor floor, Vector2i tile)
+        {
+            if (!IsInBounds(floor, tile))
+            {
+                return false;
+            }
+
+            // Native wall/door edges are stored on SW/SE edges. Read the matching
+            // neighboring edges as well so both standing tiles beside a door are ranked
+            // as door frontage instead of only the tile that stores the Door reference.
+            TileWalls current = floor.GetWallsSafe(tile.m_x, tile.m_y);
+            TileWalls east = tile.m_x + 1 < floor.m_size.m_x
+                ? floor.GetWallsSafe(tile.m_x + 1, tile.m_y)
+                : null;
+            TileWalls north = tile.m_y + 1 < floor.m_size.m_y
+                ? floor.GetWallsSafe(tile.m_x, tile.m_y + 1)
+                : null;
+
+            return (current != null &&
+                    (current.m_doorSE != null || current.m_doorSW != null)) ||
+                   (east != null && east.m_doorSE != null) ||
+                   (north != null && north.m_doorSW != null);
+        }
+
+        private static bool HasNearbyDoor(Floor floor, Vector2i position)
+        {
+            if (floor == null)
+            {
+                return false;
+            }
+
+            for (int x = position.m_x - 1; x <= position.m_x + 1; x++)
+            {
+                for (int y = position.m_y - 1; y <= position.m_y + 1; y++)
+                {
+                    Vector2i tile = new Vector2i(x, y);
+                    if (!IsInBounds(floor, tile))
+                    {
+                        continue;
+                    }
+
+                    TileWalls walls = floor.GetWallsSafe(x, y);
+                    if (walls != null &&
+                        (walls.m_doorSW != null || walls.m_doorSE != null))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasAdjacentWall(Floor floor, Vector2i position)
+        {
+            if (!IsInBounds(floor, position))
+            {
+                return false;
+            }
+
+            TileWalls current = floor.GetWallsSafe(position.m_x, position.m_y);
+            TileWalls north = position.m_y + 1 < floor.m_size.m_y
+                ? floor.GetWallsSafe(position.m_x, position.m_y + 1)
+                : null;
+            TileWalls east = position.m_x + 1 < floor.m_size.m_x
+                ? floor.GetWallsSafe(position.m_x + 1, position.m_y)
+                : null;
+
+            return (current != null &&
+                    (current.m_wallSW != null || current.m_wallSE != null)) ||
+                   (north != null && north.m_wallSW != null) ||
+                   (east != null && east.m_wallSE != null);
         }
 
         private static Room GetWorkplaceRoom(EmployeeComponent employee, int floorIndex)

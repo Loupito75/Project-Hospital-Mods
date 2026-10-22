@@ -32,14 +32,25 @@ namespace HospitalShiftHandover
         private static readonly Dictionary<EmployeeComponent, LateReliefState> LateReliefHolds =
             new Dictionary<EmployeeComponent, LateReliefState>();
 
-        internal static bool TryHoldForLateRelief(Behavior behavior)
+        internal static bool HasActiveLateReliefHold(
+            EmployeeComponent employee)
         {
-            if (!ShiftHandoverConfig.LateReliefEnabled || behavior == null || DayTime.Instance == null)
+            return employee != null &&
+                   LateReliefHolds.ContainsKey(employee);
+        }
+
+        internal static bool TryHoldForLateRelief(
+            Behavior behavior,
+            EmployeeComponent employee,
+            bool shouldHoldBeforeShift)
+        {
+            if (!ShiftHandoverConfig.LateReliefEnabled ||
+                behavior == null ||
+                DayTime.Instance == null)
             {
                 return false;
             }
 
-            EmployeeComponent employee = behavior.GetComponent<EmployeeComponent>();
             if (employee == null || employee.m_state == null || employee.IsFired())
             {
                 return false;
@@ -47,7 +58,7 @@ namespace HospitalShiftHandover
 
             // Early arrivals are off-shift too, but belong to the pre-shift pipeline.
             // Late relief only applies after an employee's own shift has ended.
-            if (HandoverRules.ShouldHoldBeforeShift(employee) ||
+            if (shouldHoldBeforeShift ||
                 DayTime.Instance.GetShift() == employee.m_state.m_shift)
             {
                 LateReliefHolds.Remove(employee);

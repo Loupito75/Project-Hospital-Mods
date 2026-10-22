@@ -1,54 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
 <HospitalShiftHandover>
+  <!-- @HMUC:desc Controls early staff arrivals and pre-shift commute timing. -->
   <Arrival>
     <!-- Integer minutes. Valid range: 15-180. Minimum planned pre-shift commute lead for non-late staff. This is HSH behavior, not a vanilla setting. -->
+    <!-- @HMUC:set label="Planned commute lead min" control="slider" min="15" max="180" step="5" -->
+    <!-- @HMUC:desc Minimum planned pre-shift commute lead, in minutes, for non-late staff. -->
     <PlannedCommuteLeadMinMinutes>65</PlannedCommuteLeadMinMinutes>
 
     <!-- Integer minutes. Valid range: 15-180. Maximum planned pre-shift commute lead for non-late staff. Must be >= PlannedCommuteLeadMinMinutes. This is HSH behavior, not a vanilla setting. -->
+    <!-- @HMUC:set label="Planned commute lead max" control="slider" min="15" max="180" step="5" -->
+    <!-- @HMUC:desc Maximum planned pre-shift commute lead, in minutes, for non-late staff. -->
     <PlannedCommuteLeadMaxMinutes>80</PlannedCommuteLeadMaxMinutes>
 
     <!-- Integer minutes. Valid range: 0-120. Extra lead added by HSH to the game's own early-commute timing. Set to 0 to remove only this HSH extension and stay closest to vanilla commute timing. -->
+    <!-- @HMUC:set label="Native early commute extension" control="slider" min="0" max="120" step="5" -->
+    <!-- @HMUC:desc Extra minutes added by HSH to the game's own early-commute timing. -->
     <NativeEarlyExtensionMinutes>15</NativeEarlyExtensionMinutes>
   </Arrival>
 
+  <!-- @HMUC:desc Controls HSH locker-based civilian and professional clothing changes. -->
   <Dressing>
-    <!-- Boolean: true or false only. true enables HSH locker/civilian-clothes handling. false disables HSH dressing and keeps the game's normal work-clothing behavior. -->
-    <DressingEnabled>false</DressingEnabled>
+    <!-- Boolean: true or false only. Default: true. true enables HSH locker/civilian-clothes handling. false disables HSH dressing and keeps the game's normal work-clothing behavior. -->
+    <!-- @HMUC:set label="Dressing flow" control="checkbox" -->
+    <!-- @HMUC:desc Enables HSH locker and civilian-clothes handling. -->
+    <DressingEnabled>true</DressingEnabled>
 
     <!-- Integer percentage. Valid range: 0-100. Chance that an eligible arriving employee uses the HSH locker dressing flow when DressingEnabled=true. 0=never, 100=always. -->
+    <!-- @HMUC:set label="Arrival dressing chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance that an eligible arriving employee uses the HSH locker dressing flow. -->
     <ArrivalDressingChancePercent>70</ArrivalDressingChancePercent>
 
     <!-- Integer percentage. Valid range: 0-100. Chance that an eligible outgoing employee changes before leaving when DressingEnabled=true. 0=never, 100=always. Staff never wait after shift for an occupied locker. -->
+    <!-- @HMUC:set label="Outgoing dressing chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance that an eligible outgoing employee changes before leaving. -->
     <OutgoingDressingChancePercent>40</OutgoingDressingChancePercent>
 
     <!-- Integer percentage. Valid range: 0-100. Among HSH civilian outfits, chance to use the casual family; the remainder uses business clothes. 0=all business, 100=all casual. -->
+    <!-- @HMUC:set label="Casual clothes chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Chance that an HSH civilian outfit uses the casual family rather than business clothes. -->
     <CasualClothesPercent>65</CasualClothesPercent>
   </Dressing>
 
+  <!-- @HMUC:desc Controls HSH-managed pre-shift needs assistance and native free-time. -->
   <PreShiftActivities>
     <!-- Boolean: true or false only. true allows HSH to assist an existing real staff need toward the game's native CheckNeeds threshold when enough pre-shift time remains. false disables only this HSH assistance; normal vanilla needs still work. -->
+    <!-- @HMUC:set label="Assisted needs" control="checkbox" -->
+    <!-- @HMUC:desc Allows HSH to assist an existing real staff need before shift when enough time remains. -->
     <AssistedNeedsEnabled>true</AssistedNeedsEnabled>
 
     <!-- Integer percentage. Valid range: 0-100. Per eligible employee/shift chance to use HSH assisted needs when AssistedNeedsEnabled=true. 0=never assist, 100=always attempt when otherwise eligible. -->
+    <!-- @HMUC:set label="Assisted need chance" control="slider" min="0" max="100" step="5" -->
+    <!-- @HMUC:desc Per eligible employee and shift chance to use HSH assisted needs. -->
     <AssistedNeedChancePercent>65</AssistedNeedChancePercent>
 
     <!-- Boolean: true or false only. true allows the game's native staff free-time procedure during HSH's pre-shift common-room window. false disables only pre-shift free-time managed by HSH; it does not disable vanilla free-time during normal work behavior. -->
+    <!-- @HMUC:set label="Pre-shift free time" control="checkbox" -->
+    <!-- @HMUC:desc Allows the game's native staff free-time procedure during HSH's pre-shift common-room window. -->
     <FreeTimeEnabled>true</FreeTimeEnabled>
   </PreShiftActivities>
 
+  <!-- @HMUC:desc Controls temporary coverage when the exact opposite-shift relief is absent. -->
   <LateRelief>
     <!-- Boolean: true or false only. true lets an outgoing idle employee remain briefly when the exact opposite-shift relief for the same workplace is absent. false returns to vanilla-like departure as soon as the employee is free after shift. -->
+    <!-- @HMUC:set label="Late relief" control="checkbox" -->
+    <!-- @HMUC:desc Allows an outgoing idle employee to remain briefly when the exact opposite-shift relief is absent. -->
     <LateReliefEnabled>true</LateReliefEnabled>
 
     <!-- Integer minutes. Valid range: 0-120. Minimum late-relief timeout measured from the official end of the employee's shift. Set both min and max to 0 to disable any grace duration while keeping LateReliefEnabled=true. -->
+    <!-- @HMUC:set label="Late relief minimum" control="slider" min="0" max="120" step="5" -->
+    <!-- @HMUC:desc Minimum late-relief timeout in minutes measured from official shift end. -->
     <LateReliefMinimumMinutes>15</LateReliefMinimumMinutes>
 
     <!-- Integer minutes. Valid range: 0-120. Maximum late-relief timeout measured from official shift end. Must be >= LateReliefMinimumMinutes. Each employee/day gets a stable value inside the range. Ongoing professional work is never interrupted. -->
+    <!-- @HMUC:set label="Late relief maximum" control="slider" min="0" max="120" step="5" -->
+    <!-- @HMUC:desc Maximum late-relief timeout in minutes measured from official shift end. -->
     <LateReliefMaximumMinutes>30</LateReliefMaximumMinutes>
   </LateRelief>
 
+  <!-- @HMUC:desc Controls optional Hospital Shift Handover troubleshooting logs. -->
   <Diagnostics>
     <!-- Boolean: true or false only. true enables concise HSH troubleshooting traces in BepInEx\LogOutput.log. false is recommended for normal play. Invalid values make HSH fall back to its built-in configuration defaults. -->
+    <!-- @HMUC:set label="Diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Enables concise Hospital Shift Handover troubleshooting traces in the BepInEx log. -->
     <DiagnosticsEnabled>false</DiagnosticsEnabled>
   </Diagnostics>
 </HospitalShiftHandover>
