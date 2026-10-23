@@ -9,7 +9,6 @@ namespace HospitalPorters
 {
     internal sealed class PorterRectSnapshot
     {
-        internal Vector2 SizeDelta;
         internal Vector2 AnchoredPosition;
     }
 
@@ -19,38 +18,22 @@ namespace HospitalPorters
         internal int RoomRows = 4;
         internal float DayStaffExtra;
         internal float NightStaffExtra;
+        internal float AppliedRoomExtra;
+        internal float AppliedDayStaffExtra;
+        internal float AppliedNightStaffExtra;
         internal RectTransform RightRect;
-        internal RectTransform RootRect;
-        internal RectTransform BottomRect;
-        internal RectTransform StatisticsRect;
         internal RectTransform RoomRect;
         internal RectTransform RoomLockedRect;
         internal RectTransform DayRect;
         internal RectTransform NightRect;
-        internal RectTransform NightHeadingRect;
         internal RectTransform LayoutContainer;
         internal RectTransform RightBottomRect;
         internal RectTransform RightHideRect;
-        internal RectTransform RootHideRoomControlRect;
-        internal RectTransform RootHideRadiologyRect;
         internal RectTransform TutorialRoomsRect;
         internal RectTransform TutorialStaffRect;
-        internal PorterRectSnapshot NativeRight;
-        internal PorterRectSnapshot NativeRoot;
-        internal PorterRectSnapshot NativeBottom;
-        internal PorterRectSnapshot NativeStatistics;
         internal PorterRectSnapshot NativeRoom;
-        internal PorterRectSnapshot NativeRoomLocked;
         internal PorterRectSnapshot NativeDay;
         internal PorterRectSnapshot NativeNight;
-        internal PorterRectSnapshot NativeNightHeading;
-        internal PorterRectSnapshot NativeLayoutContainer;
-        internal PorterRectSnapshot NativeRightBottom;
-        internal PorterRectSnapshot NativeRightHide;
-        internal PorterRectSnapshot NativeRootHideRoomControl;
-        internal PorterRectSnapshot NativeRootHideRadiology;
-        internal PorterRectSnapshot NativeTutorialRooms;
-        internal PorterRectSnapshot NativeTutorialStaff;
         internal readonly Dictionary<RectTransform, PorterRectSnapshot> NativeLayoutChildren =
             new Dictionary<RectTransform, PorterRectSnapshot>();
     }
@@ -77,9 +60,10 @@ namespace HospitalPorters
                 return;
             }
 
+            ApplyLayout(state, 0f, 0f, 0f);
+            state.RoomRows = NativeRoomRows;
             state.DayStaffExtra = 0f;
             state.NightStaffExtra = 0f;
-            RestoreNativeState(state);
         }
 
         internal static void AfterNativeLayout(
@@ -207,10 +191,16 @@ namespace HospitalPorters
 
                 int column = i / rows;
                 int row = i % rows;
-                button.anchoredPosition = new Vector3(
+                Vector2 targetPosition = new Vector2(
                     50f + column * 115f,
-                    -18f - row * RoomRowStep,
-                    1000f);
+                    -18f - row * RoomRowStep);
+                if (Mathf.Abs(button.anchoredPosition.x - targetPosition.x) >
+                        PositionTolerance ||
+                    Mathf.Abs(button.anchoredPosition.y - targetPosition.y) >
+                        PositionTolerance)
+                {
+                    button.anchoredPosition = targetPosition;
+                }
             }
         }
 
@@ -258,13 +248,6 @@ namespace HospitalPorters
                 RightRect = controller.m_panelRight == null
                     ? null
                     : controller.m_panelRight.GetComponent<RectTransform>(),
-                RootRect = controller.GetComponent<RectTransform>(),
-                BottomRect = controller.m_panelBottom == null
-                    ? null
-                    : controller.m_panelBottom.GetComponent<RectTransform>(),
-                StatisticsRect = controller.m_panelStatistics == null
-                    ? null
-                    : controller.m_panelStatistics.GetComponent<RectTransform>(),
                 RoomRect = controller.m_roomPanelHospitalization == null
                     ? null
                     : controller.m_roomPanelHospitalization.GetComponent<RectTransform>(),
@@ -282,9 +265,6 @@ namespace HospitalPorters
                     : controller.m_panelHospitalization.GetComponent<RectTransform>()
             };
 
-            state.NightHeadingRect = FindDirectChildByName(
-                state.LayoutContainer,
-                "HeadingPanelStaffNight");
             state.RightBottomRect = FindDirectChildByName(state.RightRect, "BottomPanel");
             state.RightHideRect = FindDirectChildByName(
                 state.RightRect,
@@ -295,13 +275,6 @@ namespace HospitalPorters
             state.TutorialStaffRect = FindDirectChildByName(
                 state.RightRect,
                 "TutorialArrowMandatoryStaffHospitalization");
-            state.RootHideRoomControlRect = FindDirectChildByName(
-                state.RootRect,
-                "LogisticsPanelHideRoomControl1");
-            state.RootHideRadiologyRect = FindDirectChildByName(
-                state.RootRect,
-                "LogisticsPanelHideRoomControlRadiology");
-
             CaptureNativeState(state);
             States.Add(controller, state);
             return state;
@@ -314,22 +287,9 @@ namespace HospitalPorters
                 return;
             }
 
-            state.NativeRight = Capture(state.RightRect);
-            state.NativeRoot = Capture(state.RootRect);
-            state.NativeBottom = Capture(state.BottomRect);
-            state.NativeStatistics = Capture(state.StatisticsRect);
             state.NativeRoom = Capture(state.RoomRect);
-            state.NativeRoomLocked = Capture(state.RoomLockedRect);
             state.NativeDay = Capture(state.DayRect);
             state.NativeNight = Capture(state.NightRect);
-            state.NativeNightHeading = Capture(state.NightHeadingRect);
-            state.NativeLayoutContainer = Capture(state.LayoutContainer);
-            state.NativeRightBottom = Capture(state.RightBottomRect);
-            state.NativeRightHide = Capture(state.RightHideRect);
-            state.NativeRootHideRoomControl = Capture(state.RootHideRoomControlRect);
-            state.NativeRootHideRadiology = Capture(state.RootHideRadiologyRect);
-            state.NativeTutorialRooms = Capture(state.TutorialRoomsRect);
-            state.NativeTutorialStaff = Capture(state.TutorialStaffRect);
 
             state.NativeLayoutChildren.Clear();
             if (state.LayoutContainer == null)
@@ -356,50 +316,8 @@ namespace HospitalPorters
 
             return new PorterRectSnapshot
             {
-                SizeDelta = rect.sizeDelta,
                 AnchoredPosition = rect.anchoredPosition
             };
-        }
-
-        private static void RestoreNativeState(PorterHospitalizationLayoutState state)
-        {
-            if (state == null)
-            {
-                return;
-            }
-
-            Restore(state.RightRect, state.NativeRight);
-            Restore(state.RootRect, state.NativeRoot);
-            Restore(state.BottomRect, state.NativeBottom);
-            Restore(state.StatisticsRect, state.NativeStatistics);
-            Restore(state.RoomRect, state.NativeRoom);
-            Restore(state.RoomLockedRect, state.NativeRoomLocked);
-            Restore(state.DayRect, state.NativeDay);
-            Restore(state.NightRect, state.NativeNight);
-            Restore(state.NightHeadingRect, state.NativeNightHeading);
-            Restore(state.LayoutContainer, state.NativeLayoutContainer);
-            Restore(state.RightBottomRect, state.NativeRightBottom);
-            Restore(state.RightHideRect, state.NativeRightHide);
-            Restore(state.RootHideRoomControlRect, state.NativeRootHideRoomControl);
-            Restore(state.RootHideRadiologyRect, state.NativeRootHideRadiology);
-            Restore(state.TutorialRoomsRect, state.NativeTutorialRooms);
-            Restore(state.TutorialStaffRect, state.NativeTutorialStaff);
-
-            foreach (KeyValuePair<RectTransform, PorterRectSnapshot> pair in state.NativeLayoutChildren)
-            {
-                Restore(pair.Key, pair.Value);
-            }
-        }
-
-        private static void Restore(RectTransform rect, PorterRectSnapshot snapshot)
-        {
-            if (rect == null || snapshot == null)
-            {
-                return;
-            }
-
-            rect.sizeDelta = snapshot.SizeDelta;
-            rect.anchoredPosition = snapshot.AnchoredPosition;
         }
 
         private static void Apply(PorterHospitalizationLayoutState state)
@@ -409,72 +327,78 @@ namespace HospitalPorters
                 return;
             }
 
-            RestoreNativeState(state);
-
             float roomExtra = Math.Max(0, state.RoomRows - NativeRoomRows) * RoomRowStep;
             float dayStaffExtra = Math.Max(0f, state.DayStaffExtra);
             float nightStaffExtra = Math.Max(0f, state.NightStaffExtra);
-            float totalExtra = roomExtra + dayStaffExtra + nightStaffExtra;
-            if (totalExtra <= 0f)
+            ApplyLayout(state, roomExtra, dayStaffExtra, nightStaffExtra);
+        }
+
+        private static void ApplyLayout(
+            PorterHospitalizationLayoutState state,
+            float roomExtra,
+            float dayStaffExtra,
+            float nightStaffExtra)
+        {
+            if (state == null)
             {
                 return;
             }
 
-            PositionLayoutChildren(state, roomExtra, dayStaffExtra, nightStaffExtra);
+            float roomDelta = roomExtra - state.AppliedRoomExtra;
+            float dayDelta = dayStaffExtra - state.AppliedDayStaffExtra;
+            float nightDelta = nightStaffExtra - state.AppliedNightStaffExtra;
+            if (Mathf.Abs(roomDelta) <= PositionTolerance &&
+                Mathf.Abs(dayDelta) <= PositionTolerance &&
+                Mathf.Abs(nightDelta) <= PositionTolerance)
+            {
+                return;
+            }
 
-            ApplyExpandedRect(state.RoomRect, state.NativeRoom, roomExtra, 0f);
-            ApplyExpandedRect(state.RoomLockedRect, state.NativeRoomLocked, roomExtra, 0f);
-            ApplyExpandedRect(state.DayRect, state.NativeDay, dayStaffExtra, roomExtra);
-            ApplyExpandedRect(
+            // Apply only HPO's change in required space. Do not restore a captured absolute
+            // layout: another UI mod may have adjusted these same right-side RectTransforms.
+            float totalDelta = roomDelta + dayDelta + nightDelta;
+            AdjustLayoutChildren(state, roomDelta, dayDelta, nightDelta);
+
+            AdjustExpandedRect(state.RoomRect, roomDelta, 0f);
+            AdjustExpandedRect(state.RoomLockedRect, roomDelta, 0f);
+            AdjustExpandedRect(state.DayRect, dayDelta, roomDelta);
+            AdjustExpandedRect(
                 state.NightRect,
-                state.NativeNight,
-                nightStaffExtra,
-                roomExtra + dayStaffExtra);
+                nightDelta,
+                roomDelta + dayDelta);
 
             if (state.LayoutContainer != null && state.LayoutContainer != state.RoomRect)
             {
-                ApplyExpandedRect(
-                    state.LayoutContainer,
-                    state.NativeLayoutContainer,
-                    totalExtra,
-                    0f);
+                AdjustExpandedRect(state.LayoutContainer, totalDelta, 0f);
             }
 
             if (state.RightRect != null && state.RightRect != state.LayoutContainer &&
                 state.RightRect != state.RoomRect)
             {
-                ApplyExpandedRect(state.RightRect, state.NativeRight, totalExtra, 0f);
-                ShiftDown(state.RightBottomRect, state.NativeRightBottom, totalExtra);
-                ApplyExpandedRect(state.RightHideRect, state.NativeRightHide, totalExtra, 0f);
+                AdjustExpandedRect(state.RightRect, totalDelta, 0f);
+                AdjustDown(state.RightBottomRect, totalDelta);
+                AdjustExpandedRect(state.RightHideRect, totalDelta, 0f);
 
-                MoveForExpandedParent(
+                AdjustForExpandedParent(
                     state.TutorialRoomsRect,
-                    state.NativeTutorialRooms,
-                    totalExtra,
+                    totalDelta,
                     0f);
-                MoveForExpandedParent(
+                AdjustForExpandedParent(
                     state.TutorialStaffRect,
-                    state.NativeTutorialStaff,
-                    totalExtra,
-                    -roomExtra);
+                    totalDelta,
+                    -roomDelta);
             }
 
-            if (state.RootRect != null && state.RootRect != state.RightRect &&
-                state.RootRect != state.LayoutContainer && state.RootRect != state.RoomRect)
-            {
-                ApplyExpandedRect(state.RootRect, state.NativeRoot, totalExtra, 0f);
-                ShiftDown(state.StatisticsRect, state.NativeStatistics, totalExtra);
-                ShiftDown(state.BottomRect, state.NativeBottom, totalExtra);
-                ShiftDown(state.RootHideRoomControlRect, state.NativeRootHideRoomControl, totalExtra);
-                ShiftDown(state.RootHideRadiologyRect, state.NativeRootHideRadiology, totalExtra);
-            }
+            state.AppliedRoomExtra = roomExtra;
+            state.AppliedDayStaffExtra = dayStaffExtra;
+            state.AppliedNightStaffExtra = nightStaffExtra;
         }
 
-        private static void PositionLayoutChildren(
+        private static void AdjustLayoutChildren(
             PorterHospitalizationLayoutState state,
-            float roomExtra,
-            float dayStaffExtra,
-            float nightStaffExtra)
+            float roomDelta,
+            float dayStaffDelta,
+            float nightStaffDelta)
         {
             if (state == null || state.LayoutContainer == null || state.NativeRoom == null)
             {
@@ -485,89 +409,98 @@ namespace HospitalPorters
             {
                 RectTransform child = pair.Key;
                 PorterRectSnapshot snapshot = pair.Value;
-                if (child == null || snapshot == null)
+                if (child == null || snapshot == null ||
+                    child == state.RoomRect ||
+                    child == state.RoomLockedRect ||
+                    child == state.DayRect ||
+                    child == state.NightRect)
                 {
                     continue;
                 }
 
-                float shift = 0f;
-                if (snapshot.AnchoredPosition.y < state.NativeRoom.AnchoredPosition.y - PositionTolerance)
+                float shiftDelta = 0f;
+                if (snapshot.AnchoredPosition.y <
+                    state.NativeRoom.AnchoredPosition.y - PositionTolerance)
                 {
-                    shift += roomExtra;
+                    shiftDelta += roomDelta;
                 }
                 if (state.NativeDay != null &&
-                    snapshot.AnchoredPosition.y < state.NativeDay.AnchoredPosition.y - PositionTolerance)
+                    snapshot.AnchoredPosition.y <
+                    state.NativeDay.AnchoredPosition.y - PositionTolerance)
                 {
-                    shift += dayStaffExtra;
+                    shiftDelta += dayStaffDelta;
                 }
                 if (state.NativeNight != null &&
-                    snapshot.AnchoredPosition.y < state.NativeNight.AnchoredPosition.y - PositionTolerance)
+                    snapshot.AnchoredPosition.y <
+                    state.NativeNight.AnchoredPosition.y - PositionTolerance)
                 {
-                    shift += nightStaffExtra;
+                    shiftDelta += nightStaffDelta;
+                }
+
+                if (Mathf.Abs(shiftDelta) <= PositionTolerance)
+                {
+                    continue;
                 }
 
                 child.anchoredPosition = new Vector2(
-                    snapshot.AnchoredPosition.x,
-                    snapshot.AnchoredPosition.y - shift);
+                    child.anchoredPosition.x,
+                    child.anchoredPosition.y - shiftDelta);
             }
         }
 
-        private static void ApplyExpandedRect(
+        private static void AdjustExpandedRect(
             RectTransform rect,
-            PorterRectSnapshot snapshot,
-            float extraHeight,
-            float verticalShift)
+            float extraHeightDelta,
+            float verticalShiftDelta)
         {
-            if (rect == null || snapshot == null)
+            if (rect == null ||
+                (Mathf.Abs(extraHeightDelta) <= PositionTolerance &&
+                 Mathf.Abs(verticalShiftDelta) <= PositionTolerance))
             {
                 return;
             }
 
-            float safeExtra = Math.Max(0f, extraHeight);
-            float safeShift = Math.Max(0f, verticalShift);
             rect.sizeDelta = new Vector2(
-                snapshot.SizeDelta.x,
-                snapshot.SizeDelta.y + safeExtra);
+                rect.sizeDelta.x,
+                rect.sizeDelta.y + extraHeightDelta);
             rect.anchoredPosition = new Vector2(
-                snapshot.AnchoredPosition.x,
-                snapshot.AnchoredPosition.y -
-                safeShift -
-                (1f - rect.pivot.y) * safeExtra);
+                rect.anchoredPosition.x,
+                rect.anchoredPosition.y -
+                verticalShiftDelta -
+                (1f - rect.pivot.y) * extraHeightDelta);
         }
 
-        private static void ShiftDown(
-            RectTransform rect,
-            PorterRectSnapshot snapshot,
-            float amount)
+        private static void AdjustDown(RectTransform rect, float amountDelta)
         {
-            if (rect == null || snapshot == null || amount <= 0f)
+            if (rect == null || Mathf.Abs(amountDelta) <= PositionTolerance)
             {
                 return;
             }
 
             rect.anchoredPosition = new Vector2(
-                snapshot.AnchoredPosition.x,
-                snapshot.AnchoredPosition.y - amount);
+                rect.anchoredPosition.x,
+                rect.anchoredPosition.y - amountDelta);
         }
 
-        private static void MoveForExpandedParent(
+        private static void AdjustForExpandedParent(
             RectTransform rect,
-            PorterRectSnapshot snapshot,
-            float parentExtra,
-            float desiredVerticalShift)
+            float parentExtraDelta,
+            float desiredVerticalShiftDelta)
         {
-            if (rect == null || snapshot == null || parentExtra <= 0f)
+            if (rect == null ||
+                (Mathf.Abs(parentExtraDelta) <= PositionTolerance &&
+                 Mathf.Abs(desiredVerticalShiftDelta) <= PositionTolerance))
             {
                 return;
             }
 
             float anchorY = (rect.anchorMin.y + rect.anchorMax.y) * 0.5f;
-            float parentAnchorShift = -(1f - anchorY) * parentExtra;
-            float anchoredDelta = desiredVerticalShift - parentAnchorShift;
+            float parentAnchorShiftDelta = -(1f - anchorY) * parentExtraDelta;
+            float anchoredDelta = desiredVerticalShiftDelta - parentAnchorShiftDelta;
 
             rect.anchoredPosition = new Vector2(
-                snapshot.AnchoredPosition.x,
-                snapshot.AnchoredPosition.y + anchoredDelta);
+                rect.anchoredPosition.x,
+                rect.anchoredPosition.y + anchoredDelta);
         }
 
         private static RectTransform FindDirectChildByName(

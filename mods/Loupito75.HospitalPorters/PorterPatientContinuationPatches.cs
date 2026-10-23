@@ -1275,6 +1275,19 @@ namespace HospitalPorters
                 return false;
             }
 
+            Vector2i pickup;
+            int pickupFloor;
+            WalkComponent porterWalk =
+                job.Porter.GetComponent<WalkComponent>();
+            if (porterWalk == null ||
+                !TryGetPickup(
+                    patient,
+                    out pickup,
+                    out pickupFloor))
+            {
+                return false;
+            }
+
             Vector2i tile =
                 destination.GetDefaultStretcherTile();
             int floor = destination.GetFloorIndex();
@@ -1289,6 +1302,17 @@ namespace HospitalPorters
                 target.m_state.m_stretcherPatientSide =
                     job.PatientSide;
                 nurse.SwitchState(NurseState.Idle);
+
+                // Vanilla normally assigns the route from the newly attached
+                // vehicle to the waiting patient in
+                // UpdateStateMovingCharacterWalkingToStretcher(). Reuse
+                // skips that state because HPO keeps the vehicle attached,
+                // so replace the active ReturnStretcher route explicitly.
+                porterWalk.SetDestination(
+                    pickup,
+                    pickupFloor,
+                    movement);
+
                 Vehicle actualVehicle =
                     job.PatientSide.HasTag("wheelchair_patient")
                         ? Vehicle.WHEELCHAIR

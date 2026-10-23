@@ -46,7 +46,8 @@ namespace HospitalPorters
                 {
                     if (requirement != null &&
                         requirement.RoomDatabaseEntryRef != null &&
-                        requirement.RoomDatabaseEntryRef.Entry == porterStation)
+                        PorterIds.IsPorterStationRoom(
+                            requirement.RoomDatabaseEntryRef.Entry))
                     {
                         alreadyRegistered = true;
                         break;
@@ -83,8 +84,9 @@ namespace HospitalPorters
                 return false;
             }
 
-            GameDBRoomType porterStation = Database.Instance.GetEntry<GameDBRoomType>(PorterIds.PorterStationRoom);
-            if (porterStation == null)
+            if (Database.Instance == null ||
+                Database.Instance.GetEntry<GameDBRoomType>(
+                    PorterIds.PorterStationRoom) == null)
             {
                 return false;
             }
@@ -92,7 +94,9 @@ namespace HospitalPorters
             foreach (EntityIDPointer<Room> pointer in department.m_departmentPersistentData.m_rooms)
             {
                 Room room = pointer.GetEntity();
-                if (room == null || room.m_roomPersistentData.m_roomType.Entry != porterStation)
+                if (room == null ||
+                    !PorterIds.IsPorterStationRoom(
+                        room.m_roomPersistentData.m_roomType.Entry))
                 {
                     continue;
                 }
@@ -155,13 +159,7 @@ namespace HospitalPorters
 
         internal static bool IsPorterStation(GameDBRoomType roomType)
         {
-            if (roomType == null)
-            {
-                return false;
-            }
-
-            GameDBRoomType porterStation = Database.Instance.GetEntry<GameDBRoomType>(PorterIds.PorterStationRoom);
-            return porterStation != null && roomType == porterStation;
+            return PorterIds.IsPorterStationRoom(roomType);
         }
 
         internal static bool IsPorterLocker(TileObject locker, Department department, out Room room)
@@ -247,6 +245,36 @@ namespace HospitalPorters
                 department,
                 shift,
                 entity);
+            return false;
+        }
+    }
+
+    [HarmonyPatch(
+        typeof(EmployeeComponent),
+        nameof(EmployeeComponent.HasOccupationForRole),
+        new Type[] { typeof(GameDBEmployeeRole) })]
+    internal static class PorterRoleOccupationPatch
+    {
+        private static readonly FieldInfo EntityField =
+            AccessTools.Field(typeof(EmployeeComponent), "m_entity");
+
+        private static bool Prefix(
+            EmployeeComponent __instance,
+            GameDBEmployeeRole employeeRole,
+            ref bool __result)
+        {
+            if (!PorterIds.IsPorterRole(employeeRole))
+            {
+                return true;
+            }
+
+            if (object.ReferenceEquals(EntityField, null))
+            {
+                return true;
+            }
+
+            Entity entity = EntityField.GetValue(__instance) as Entity;
+            __result = PorterIdentity.IsPorter(entity);
             return false;
         }
     }
