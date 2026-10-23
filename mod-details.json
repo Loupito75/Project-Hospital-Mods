@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 6,
-  "updatedUtc": "2026-10-22T06:06:07Z",
-  "expiresUtc": "2027-01-20T06:06:07Z",
+  "manifestRevision": 7,
+  "updatedUtc": "2026-10-23T02:08:35Z",
+  "expiresUtc": "2027-01-21T02:08:35Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -42,9 +42,9 @@
     },
     {
       "guid": "loupito75.HospitalPorters",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "description": "Adds dedicated hospital porters for patient transport and laboratory sample transport using stretchers, wheelchairs and a dedicated sample cart.",
-      "whatsNew": "Better door clearance, improved Sample Cart animation, Sample Cart rolling audio, occupied-room wait bubble, HMUC config update, performance improvements"
+      "whatsNew": "Reliable Porter recognition and hiring, corrected hospitalization UI layout, correct chained-patient pickup, matched male Sample Cart animation"
     },
     {
       "guid": "loupito75.HospitalRadio",
