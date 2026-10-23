@@ -35,6 +35,33 @@ namespace HospitalPorters
         internal const string MaleClothingStyle = "HPO_CLTHSTL_MALE_PORTER";
         internal const string FemaleClothingStyle = "HPO_CLTHSTL_FEMALE_PORTER";
 
+        // Project Hospital interns database IDs through ID.CreateID(). Comparing these
+        // IDs is cheaper than converting them to strings and remains stable even if a
+        // DatabaseEntry instance is replaced by a later Database.ReadFiles(add: true).
+        internal static readonly ID OccupationId = ID.CreateID(Occupation);
+        internal static readonly ID PorterQualificationId = ID.CreateID(PorterQualification);
+        internal static readonly ID PorterStationRoomId = ID.CreateID(PorterStationRoom);
+        internal static readonly ID PatientTransportRoleId = ID.CreateID(PatientTransportRole);
+        internal static readonly ID SampleTransportRoleId = ID.CreateID(SampleTransportRole);
+
+        internal static bool IsPorterOccupation(
+            GameDBPointer<GameDBOccupation> occupation)
+        {
+            return occupation.m_id == OccupationId;
+        }
+
+        internal static bool IsPorterQualification(
+            GameDBPointer<GameDBSkill> skill)
+        {
+            return skill.m_id == PorterQualificationId;
+        }
+
+        internal static bool IsPorterStationRoom(GameDBRoomType roomType)
+        {
+            return roomType != null &&
+                roomType.DatabaseID == PorterStationRoomId;
+        }
+
         internal static string GetPorterLevelLocalizationId(int level)
         {
             switch (level)
@@ -50,15 +77,24 @@ namespace HospitalPorters
             }
         }
 
+        internal static bool IsPatientTransportRole(
+            GameDBEmployeeRole role)
+        {
+            return role != null &&
+                role.DatabaseID == PatientTransportRoleId;
+        }
+
+        internal static bool IsSampleTransportRole(
+            GameDBEmployeeRole role)
+        {
+            return role != null &&
+                role.DatabaseID == SampleTransportRoleId;
+        }
+
         internal static bool IsPorterRole(GameDBEmployeeRole role)
         {
-            if (role == null)
-            {
-                return false;
-            }
-
-            string id = role.DatabaseID.ToString();
-            return id == PatientTransportRole || id == SampleTransportRole;
+            return IsPatientTransportRole(role) ||
+                IsSampleTransportRole(role);
         }
     }
 
@@ -68,11 +104,11 @@ namespace HospitalPorters
         private static bool s_loaded;
 
         internal static bool IsLoading => s_loading;
+        internal static bool IsReady => s_loaded && !s_loading;
 
         internal static void ResetForBaseLoad()
         {
             s_loaded = false;
-            PorterIdentity.ResetCachedOccupation();
             PorterHiringState.Reset();
             PorterCandidatePool.Clear(destroyEntities: true);
             PorterSampleTransportRuntime.Reset();
@@ -122,7 +158,6 @@ namespace HospitalPorters
                 s_loaded = valid;
                 if (valid)
                 {
-                    PorterIdentity.CacheOccupation(porterOccupation);
                     PlayerProfile.Instance.FillNotificationLevels();
                     PorterStationRegistry.Register(database);
                     PorterDiagnostics.Log("database initialized.");
@@ -146,58 +181,40 @@ namespace HospitalPorters
 
     internal static class PorterIdentity
     {
-        // An occupation pointer already caches its database entry.
-        // This avoids repeated DatabaseID.ToString() and string comparison.
-        private static GameDBOccupation s_porterOccupation;
-
-        internal static void CacheOccupation(GameDBOccupation occupation)
-        {
-            s_porterOccupation = occupation;
-        }
-
-        internal static void ResetCachedOccupation()
-        {
-            s_porterOccupation = null;
-        }
-
         internal static bool IsPorter(Entity entity)
         {
-            CharacterPersonalInfoComponent personalInfoComponent = entity?.GetComponent<CharacterPersonalInfoComponent>();
-            if (personalInfoComponent == null || personalInfoComponent.m_personalInfo == null)
-            {
-                return false;
-            }
+            CharacterPersonalInfoComponent personalInfoComponent =
+                entity?.GetComponent<CharacterPersonalInfoComponent>();
+            CharacterPersonalInfo personalInfo =
+                personalInfoComponent == null
+                    ? null
+                    : personalInfoComponent.m_personalInfo;
 
-            GameDBOccupation occupation =
-                personalInfoComponent.m_personalInfo.m_occupation.Entry;
-            if (occupation == null)
-            {
-                return false;
-            }
-
-            // Database reload resets this reference; before HPO data is
-            // fully loaded, retain the original ID-based fallback.
-            GameDBOccupation porterOccupation = s_porterOccupation;
-            return porterOccupation != null
-                ? object.ReferenceEquals(occupation, porterOccupation)
-                : occupation.DatabaseID.ToString() == PorterIds.Occupation;
+            return personalInfo != null &&
+                PorterIds.IsPorterOccupation(personalInfo.m_occupation);
         }
 
         internal static bool SetPorterOccupation(Entity entity)
         {
-            if (entity == null)
+            if (entity == null || Database.Instance == null)
             {
                 return false;
             }
 
-            GameDBOccupation porterOccupation = Database.Instance.GetEntry<GameDBOccupation>(PorterIds.Occupation);
-            CharacterPersonalInfoComponent personalInfoComponent = entity.GetComponent<CharacterPersonalInfoComponent>();
-            if (porterOccupation == null || personalInfoComponent == null || personalInfoComponent.m_personalInfo == null)
+            GameDBOccupation porterOccupation =
+                Database.Instance.GetEntry<GameDBOccupation>(
+                    PorterIds.Occupation);
+            CharacterPersonalInfoComponent personalInfoComponent =
+                entity.GetComponent<CharacterPersonalInfoComponent>();
+            if (porterOccupation == null ||
+                personalInfoComponent == null ||
+                personalInfoComponent.m_personalInfo == null)
             {
                 return false;
             }
 
-            CharacterPersonalInfo personalInfo = personalInfoComponent.m_personalInfo;
+            CharacterPersonalInfo personalInfo =
+                personalInfoComponent.m_personalInfo;
             personalInfo.m_occupation = porterOccupation;
 
             // CreateCharacterNurse already chose nurse clothes before we replace the occupation.
@@ -207,16 +224,22 @@ namespace HospitalPorters
             if (gender != null)
             {
                 GameDBClothingStyle clothingStyle =
-                    CharacterPersonalInfo.RandomizeClothingStyle(porterOccupation, gender);
+                    CharacterPersonalInfo.RandomizeClothingStyle(
+                        porterOccupation,
+                        gender);
                 if (clothingStyle != null)
                 {
                     personalInfo.m_clothingStyle = clothingStyle;
-                    AnimModelComponent animModel = entity.GetComponent<AnimModelComponent>();
+                    AnimModelComponent animModel =
+                        entity.GetComponent<AnimModelComponent>();
                     animModel?.Reset();
                 }
             }
 
-            if (!EnsurePorterQualification(entity))
+            // This method is only used to convert a freshly generated native Nurse.
+            // Replace that Nurse skill set once here; later compatibility/experience
+            // checks repair the Porter qualification without discarding other data.
+            if (!InitializePorterQualification(entity))
             {
                 return false;
             }
@@ -256,39 +279,120 @@ namespace HospitalPorters
 
         internal static bool EnsurePorterQualification(Entity entity)
         {
-            if (!IsPorter(entity))
+            if (!IsPorter(entity) || Database.Instance == null)
             {
                 return false;
             }
 
-            EmployeeComponent employee = entity.GetComponent<EmployeeComponent>();
-            GameDBSkill qualification = Database.Instance.GetEntry<GameDBSkill>(PorterIds.PorterQualification);
-            if (employee == null || qualification == null)
+            EmployeeComponent employee =
+                entity.GetComponent<EmployeeComponent>();
+            GameDBSkill qualification =
+                Database.Instance.GetEntry<GameDBSkill>(
+                    PorterIds.PorterQualification);
+            if (employee == null ||
+                employee.m_state == null ||
+                qualification == null)
             {
                 return false;
             }
 
             SkillSet current = employee.m_state.m_skillSet;
-            if (current != null && current.HasSkill(qualification) &&
-                current.m_qualifications.Count == 1 &&
-                current.m_specialization1 == null &&
-                current.m_specialization2 == null)
+            if (current == null)
             {
+                current = new SkillSet();
+                employee.m_state.m_skillSet = current;
+            }
+            else if (current.m_qualifications == null)
+            {
+                current.m_qualifications = new List<Skill>();
+            }
+
+            Skill porterQualification =
+                FindPorterQualification(current);
+            if (porterQualification != null)
+            {
+                // Rebind the pointer to the current canonical DB object while preserving
+                // the saved skill level. This also keeps native AddSkillPoints(), which
+                // compares GameDBSkill instances, reliable after any DB-entry replacement.
+                porterQualification.m_gameDBSkill = qualification;
                 return true;
             }
 
-            // Match native DEBUG_CreateNurseSkillSet() exactly for qualification progress:
-            // Random.Range(Math.Max(1f, level - 1f), level + 1f). Existing valid Porter
-            // qualification progress is preserved by the early return above.
-            float level = (float)employee.m_state.m_level;
-            float qualificationLevel = UnityEngine.Random.Range(
-                Math.Max(1f, level - 1f),
-                level + 1f);
+            // Compatibility repair for an existing Porter: add only the missing HPO
+            // qualification. Do not discard other qualifications/specializations that may
+            // belong to a save or another compatible mod.
+            current.m_qualifications.Add(
+                new Skill(
+                    qualification,
+                    CreateInitialQualificationLevel(employee)));
+            return true;
+        }
+
+        private static bool InitializePorterQualification(
+            Entity entity)
+        {
+            EmployeeComponent employee =
+                entity == null
+                    ? null
+                    : entity.GetComponent<EmployeeComponent>();
+            GameDBSkill qualification =
+                Database.Instance == null
+                    ? null
+                    : Database.Instance.GetEntry<GameDBSkill>(
+                        PorterIds.PorterQualification);
+            if (employee == null ||
+                employee.m_state == null ||
+                qualification == null)
+            {
+                return false;
+            }
 
             SkillSet porterSkills = new SkillSet();
-            porterSkills.m_qualifications.Add(new Skill(qualification, qualificationLevel));
+            porterSkills.m_qualifications.Add(
+                new Skill(
+                    qualification,
+                    CreateInitialQualificationLevel(employee)));
             employee.m_state.m_skillSet = porterSkills;
             return true;
+        }
+
+        private static Skill FindPorterQualification(
+            SkillSet skillSet)
+        {
+            if (skillSet == null ||
+                skillSet.m_qualifications == null)
+            {
+                return null;
+            }
+
+            for (int i = 0;
+                i < skillSet.m_qualifications.Count;
+                i++)
+            {
+                Skill skill = skillSet.m_qualifications[i];
+                if (skill != null &&
+                    PorterIds.IsPorterQualification(
+                        skill.m_gameDBSkill))
+                {
+                    return skill;
+                }
+            }
+
+            return null;
+        }
+
+        private static float CreateInitialQualificationLevel(
+            EmployeeComponent employee)
+        {
+            // Match native DEBUG_CreateNurseSkillSet() for qualification progress:
+            // Random.Range(Math.Max(1f, level - 1f), level + 1f).
+            float level =
+                employee == null || employee.m_state == null
+                    ? 1f
+                    : (float)employee.m_state.m_level;
+            return UnityEngine.Random.Range(
+                Math.Max(1f, level - 1f),
+                level + 1f);
         }
     }
 
@@ -325,6 +429,7 @@ namespace HospitalPorters
     {
         private static readonly Dictionary<string, List<Entity>> Candidates =
             new Dictionary<string, List<Entity>>(StringComparer.Ordinal);
+        private static bool s_loggedDatabaseUnavailable;
 
         internal static List<Entity> Get(GameDBDepartment department)
         {
@@ -345,10 +450,28 @@ namespace HospitalPorters
         internal static List<Entity> Ensure(GameDBDepartment department)
         {
             List<Entity> list = Get(department);
-            if (department == null || Database.Instance.GetEntry<GameDBOccupation>(PorterIds.Occupation) == null)
+            if (department == null)
             {
                 return list;
             }
+
+            if (!ModDatabase.IsReady ||
+                Database.Instance == null ||
+                Database.Instance.GetEntry<GameDBOccupation>(
+                    PorterIds.Occupation) == null ||
+                Database.Instance.GetEntry<GameDBSkill>(
+                    PorterIds.PorterQualification) == null)
+            {
+                if (!s_loggedDatabaseUnavailable)
+                {
+                    s_loggedDatabaseUnavailable = true;
+                    Plugin.Log?.LogWarning(
+                        "Porter candidate generation is unavailable because the HPO database is not fully initialized.");
+                }
+                return list;
+            }
+
+            s_loggedDatabaseUnavailable = false;
 
             int desiredCount = SettingsManager.Instance.m_gameSettings.m_numberOfCharactersForHire;
             while (list.Count < desiredCount)
@@ -356,6 +479,8 @@ namespace HospitalPorters
                 Entity entity = LopitalEntityFactory.CreateCharacterNurse(null, Vector2i.ZERO_VECTOR);
                 if (!PorterIdentity.SetPorterOccupation(entity))
                 {
+                    Plugin.Log?.LogError(
+                        "Porter candidate generation failed while converting the generated Nurse; candidate generation stopped.");
                     entity.Destroy();
                     break;
                 }
@@ -421,6 +546,7 @@ namespace HospitalPorters
                 }
             }
             Candidates.Clear();
+            s_loggedDatabaseUnavailable = false;
         }
 
         private static void DestroyCandidate(Entity entity)

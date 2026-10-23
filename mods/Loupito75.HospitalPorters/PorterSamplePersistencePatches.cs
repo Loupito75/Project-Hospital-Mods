@@ -1807,10 +1807,16 @@ namespace HospitalPorters
 
         private static void Postfix(Entity __result)
         {
-            if (PorterIdentity.IsPorter(__result))
+            if (!PorterIdentity.IsPorter(__result))
             {
-                PorterIdentity.RefreshPorterName(__result);
+                return;
             }
+
+            // Entity loading has completed and the native Employee/SkillSet compatibility
+            // pass has already run. Rebind or restore only the HPO qualification here;
+            // do not reset roles or overwrite other saved skills.
+            PorterIdentity.EnsurePorterQualification(__result);
+            PorterIdentity.RefreshPorterName(__result);
         }
     }
 }

@@ -48,9 +48,9 @@ namespace HospitalPorters
             for (int i = 0; i < skillSet.m_qualifications.Count; i++)
             {
                 Skill skill = skillSet.m_qualifications[i];
-                if (skill == null || skill.m_gameDBSkill.Entry == null ||
-                    skill.m_gameDBSkill.Entry.DatabaseID.ToString() !=
-                    PorterIds.PorterQualification ||
+                if (skill == null ||
+                    !PorterIds.IsPorterQualification(
+                        skill.m_gameDBSkill) ||
                     i >= segment.m_itemCount || !segment.IsInRange(i))
                 {
                     continue;

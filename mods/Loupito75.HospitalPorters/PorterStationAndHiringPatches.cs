@@ -194,7 +194,7 @@ namespace HospitalPorters
 
             GameDBRoomType roomType = requirement.RoomDatabaseEntryRef.Entry;
             return roomType != null &&
-                roomType.DatabaseID.ToString() == station.DatabaseID.ToString();
+                roomType.DatabaseID == station.DatabaseID;
         }
 
         private static bool SameOrder(

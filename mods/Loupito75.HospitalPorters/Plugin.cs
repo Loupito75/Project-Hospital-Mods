@@ -10,9 +10,9 @@ namespace HospitalPorters
     {
         public const string PluginGuid = "loupito75.HospitalPorters";
         public const string PluginName = "Hospital Porters";
-        public const string PluginVersion = "1.3.0";
+        public const string PluginVersion = "1.3.1";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginWhatsNew = "Better door clearance, improved Sample Cart animation, Sample Cart rolling audio, occupied-room wait bubble, HMUC config update, performance improvements";
+        public const string PluginWhatsNew = "Reliable Porter recognition and hiring, corrected hospitalization UI layout, correct chained-patient pickup, matched male Sample Cart animation";
         public const string HarmonyId = "Loupito75:HospitalPorters";
 
         internal static ManualLogSource Log { get; private set; }

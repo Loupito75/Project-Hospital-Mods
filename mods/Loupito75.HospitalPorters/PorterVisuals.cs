@@ -332,15 +332,14 @@ namespace HospitalPorters
                 return null;
             }
 
-            string id = role.DatabaseID.ToString();
-            if (id == PorterIds.PatientTransportRole)
+            if (PorterIds.IsPatientTransportRole(role))
             {
                 return GetCustomIcon(
                     active ? PatientRoleActiveAsset : PatientRoleDisabledAsset,
                     role.Icon + (active ? 1 : 2));
             }
 
-            if (id == PorterIds.SampleTransportRole)
+            if (PorterIds.IsSampleTransportRole(role))
             {
                 return GetCustomIcon(
                     active ? SampleRoleActiveAsset : SampleRoleDisabledAsset,
@@ -360,16 +359,15 @@ namespace HospitalPorters
                 return;
             }
 
-            string roleId = role.DatabaseID.ToString();
             string assetId = null;
 
-            if (roleId == PorterIds.PatientTransportRole)
+            if (PorterIds.IsPatientTransportRole(role))
             {
                 assetId = active
                     ? PatientWorkspaceRoleActiveLightAsset
                     : PatientWorkspaceRoleDisabledAsset;
             }
-            else if (roleId == PorterIds.SampleTransportRole)
+            else if (PorterIds.IsSampleTransportRole(role))
             {
                 assetId = active
                     ? SampleWorkspaceRoleActiveLightAsset
