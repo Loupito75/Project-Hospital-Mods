@@ -107,10 +107,13 @@ namespace HospitalFlowOptimizer.Patches
                 if (selected != null)
                 {
                     patient.SetDoctor(selected);
-                    HfoDiagnostics.Log(
-                        "HospitalDoctor",
-                        "Selected " + HfoDiagnostics.EntityName(selected) +
-                        " for " + HfoDiagnostics.EntityName(__instance.m_entity) + ".");
+                    if (FlowOptimizerConfig.DoctorDiagnosticLogging)
+                    {
+                        HfoDiagnostics.Log(
+                            "HospitalDoctor",
+                            "Selected " + HfoDiagnostics.EntityName(selected) +
+                            " for " + HfoDiagnostics.EntityName(__instance.m_entity) + ".");
+                    }
                 }
             }
 
@@ -192,15 +195,18 @@ namespace HospitalFlowOptimizer.Patches
                     clinicalFit * FlowOptimizerConfig.ClinicalFitWeight +
                     surgicalPenalty;
 
-                HfoDiagnostics.Log(
-                    "HospitalDoctor",
-                    "department=" + HfoDiagnostics.DepartmentId(department) +
-                    " candidate=" + HfoDiagnostics.EntityName(doctor) +
-                    " level=" + HfoDiagnostics.DoctorLevel(doctor) +
-                    " workload=" + HfoDiagnostics.Number(workload) +
-                    " fit=" + HfoDiagnostics.Number(clinicalFit) +
-                    " surgicalPenalty=" + HfoDiagnostics.Number(surgicalPenalty) +
-                    " score=" + HfoDiagnostics.Number(score));
+                if (FlowOptimizerConfig.DoctorDiagnosticLogging)
+                {
+                    HfoDiagnostics.Log(
+                        "HospitalDoctor",
+                        "department=" + HfoDiagnostics.DepartmentId(department) +
+                        " candidate=" + HfoDiagnostics.EntityName(doctor) +
+                        " level=" + HfoDiagnostics.DoctorLevel(doctor) +
+                        " workload=" + HfoDiagnostics.Number(workload) +
+                        " fit=" + HfoDiagnostics.Number(clinicalFit) +
+                        " surgicalPenalty=" + HfoDiagnostics.Number(surgicalPenalty) +
+                        " score=" + HfoDiagnostics.Number(score));
+                }
 
                 if (score < bestScore - ScoreTieTolerance)
                 {

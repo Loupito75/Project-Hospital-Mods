@@ -38,13 +38,16 @@ namespace HospitalFlowOptimizer.Patches
             {
                 if (currentDoctor != null)
                 {
-                    HfoDiagnostics.LogState(
-                        "ClinicDoctor",
-                        "manual:" + HfoDiagnostics.EntityKey(__instance.m_entity),
-                        "Preserved player-assigned doctor " +
-                        HfoDiagnostics.EntityName(currentDoctor) +
-                        " for " +
-                        HfoDiagnostics.EntityName(__instance.m_entity) + ".");
+                    if (FlowOptimizerConfig.DoctorDiagnosticLogging)
+                    {
+                        HfoDiagnostics.LogState(
+                            "ClinicDoctor",
+                            "manual:" + HfoDiagnostics.EntityKey(__instance.m_entity),
+                            "Preserved player-assigned doctor " +
+                            HfoDiagnostics.EntityName(currentDoctor) +
+                            " for " +
+                            HfoDiagnostics.EntityName(__instance.m_entity) + ".");
+                    }
                     return false;
                 }
 
