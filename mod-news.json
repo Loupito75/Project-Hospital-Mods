@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 164242,
-  "updatedUtc": "2026-10-22T06:08:45Z",
+  "manifestRevision": 164243,
+  "updatedUtc": "2026-10-23T02:36:14Z",
   "items": [
     {
       "id": 20,
@@ -12,6 +12,11 @@
       "id": 19,
       "title": "2026-10-22 ★ HFO/HPO/HTC/HSH - Update",
       "text": "→ HFO, HPO, HTC and HSH received a performance optimization pass.\n→ Update recommended for smoother performance, especially in large or busy hospitals.\n→ Their latest fixes and gameplay improvements are included too."
+    },
+    {
+      "id": 18,
+      "title": "2026-10-22 ★ HPO - Fixes",
+      "text": "→ More reliable Porter recognition and hiring.\n→ Corrected hospitalization UI layout.\n→ Improved chained patient transport and male Sample Cart animation."
     }
   ]
 }
