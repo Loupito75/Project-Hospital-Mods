@@ -33,7 +33,7 @@ See the [public development roadmap](ROADMAP.md) for planned, in-development and
 ⬇️⬇️⬇️
 <br>
 <strong>🔔 Never miss a mod update! 🔔</strong><br>
-Get <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3806092398"><strong>Hospital Mod Update Checker (HMUC)</strong></a> and see available updates directly on the Project Hospital title screen.
+Get <a href="#hmuc"><strong>Hospital Mod Update Checker (HMUC)</strong></a> and see available updates directly on the Project Hospital title screen.
 <br>
 🚑
 <br>
