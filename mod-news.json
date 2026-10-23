@@ -12,6 +12,11 @@
       "id": 19,
       "title": "2026-10-22 ★ HFO/HPO/HTC/HSH - Update",
       "text": "→ HFO, HPO, HTC and HSH received a performance optimization pass.\n→ Update recommended for smoother performance, especially in large or busy hospitals.\n→ Their latest fixes and gameplay improvements are included too."
+    },
+    {
+      "id": 18,
+      "title": "2026-10-22 ★ HPO - Fixes",
+      "text": "→ More reliable Porter recognition and hiring.\n→ Corrected hospitalization UI layout.\n→ Improved chained patient transport and male Sample Cart animation."
     }
   ]
 }
