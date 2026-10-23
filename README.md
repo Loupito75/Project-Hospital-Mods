@@ -1,3 +1,24 @@
+<p align="center">
+  <a href="https://store.steampowered.com/app/868360/Project_Hospital/" title="Open Project Hospital on Steam">
+    <img src="https://img.shields.io/badge/Game-Project%20Hospital-2ea44f?style=plastic&logo=steam&logoColor=white" alt="Game - Project Hospital">
+  </a>
+  <a href="https://github.com/BepInEx/BepInEx/releases" title="Open BepInEx releases">
+    <img src="https://img.shields.io/badge/Required-BepInEx%205.x-6e7681?style=plastic" alt="Required - BepInEx 5.x">
+  </a>
+  <a href="#mods" title="Jump to the mod list">
+    <img src="https://img.shields.io/badge/Loupito75%20Mods-10-2f81f7?style=plastic" alt="Loupito75 Mods - 10">
+  </a>
+  <a href="#hmuc" title="Jump to Hospital Mod Update Checker">
+    <img src="https://img.shields.io/badge/Auto%20Update-HMUC%20Supported-2f81f7?style=plastic" alt="Auto Update - HMUC Supported">
+  </a>
+  <a href="https://github.com/Loupito75/Project-Hospital-Mods/releases/latest" title="Open the latest published release">
+    <img src="https://img.shields.io/github/v/release/Loupito75/Project-Hospital-Mods?style=plastic&logo=github&logoColor=white&label=Latest%20Release" alt="Latest Release">
+  </a>
+  <a href="https://gra.caldis.me/?repo=Loupito75%2FProject-Hospital-Mods" title="View GitHub release and download statistics">
+    <img src="https://img.shields.io/github/downloads/Loupito75/Project-Hospital-Mods/total?style=plastic&logo=github&logoColor=white&label=Downloads" alt="Downloads">
+  </a>
+</p>
+
 # Project Hospital Mods by Loupito75
 
 A collection of mods for **Project Hospital**, developed and maintained by **Loupito75**.
