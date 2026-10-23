@@ -28,27 +28,6 @@ A collection of mods for **Project Hospital**, developed and maintained by **Lou
 
 This repository contains the public source code and releases of my Project Hospital mods.
 
-## 🗺️ Roadmap
-
-See the [public development roadmap](ROADMAP.md) for planned, in-development and released features across the mod collection.
-
-<p align="center">
-⬇️⬇️⬇️
-<br>
-<strong>🔔 Never miss a mod update! 🔔</strong><br>
-Get <a href="#hmuc"><strong>Hospital Mod Update Checker (HMUC)</strong></a> and see available updates directly on the Project Hospital title screen.
-<br>
-🚑
-<br>
-⬆️⬆️⬆️
-</p>
-
-## ❤️ Support ❤️
-
-If you enjoy my Project Hospital mods and want to support future updates and new projects:
-
-[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/loupito75)
-
 ## Mods
 
 Hover over a mod to see its description, or click its name to browse the source code on GitHub.
@@ -69,6 +48,10 @@ Use the **Latest Release** column to download the newest version, and the links 
 | <a name="hra"></a>[![HRA - Hospital Radio](https://img.shields.io/badge/HRA-Hospital%20Radio-f6f8fa?style=flat-square&labelColor=2f81f7&logo=github&logoColor=white)](mods/Loupito75.HospitalRadio/ "Replaces Project Hospital's normal gameplay music with a continuous hospital radio featuring music playlists, voice announcements and personal music support. • First release: 2026-09-26") | [![Download](https://img.shields.io/badge/v1.0.0-2026--09--26-f6f8fa?style=flat&labelColor=3fb950&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnYxMC4xN2wzLjU5LTMuNThMMTggMTFsLTYgNi02LTYgMS40MS0xLjQxTDExIDEzLjE3VjN6TTUgMTloMTR2Mkg1eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Loupito75/Project-Hospital-Mods/releases/tag/HospitalRadio-v1.0.0-republished "Download the latest version of Hospital Radio") | [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-2a475e?style=flat&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3809022219 "Open Hospital Radio on Steam Workshop") [![Discussions](https://img.shields.io/badge/Discussions-8250df?style=flat)](https://steamcommunity.com/sharedfiles/filedetails/discussions/3809022219 "Open discussions") [![Changelog](https://img.shields.io/badge/Changelog-f0883e?style=flat)](https://steamcommunity.com/workshop/filedetails/discussion/3809022219/583935357196767246/ "View changelog") |
 | <a name="hpo"></a>[![HPO - Hospital Porters](https://img.shields.io/badge/HPO-Hospital%20Porters-f6f8fa?style=flat-square&labelColor=2f81f7&logo=github&logoColor=white)](mods/Loupito75.HospitalPorters/ "Adds dedicated hospital porters for patient transport and laboratory sample transport using stretchers, wheelchairs and a dedicated sample cart. • First release: 2026-09-30") | [![Download](https://img.shields.io/badge/v1.3.1-2026--10--22-f6f8fa?style=flat&labelColor=3fb950&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnYxMC4xN2wzLjU5LTMuNThMMTggMTFsLTYgNi02LTYgMS40MS0xLjQxTDExIDEzLjE3VjN6TTUgMTloMTR2Mkg1eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Loupito75/Project-Hospital-Mods/releases/tag/HospitalPorters-v1.3.1 "Download the latest version of Hospital Porters") | [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-2a475e?style=flat&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3810586729 "Open Hospital Porters on Steam Workshop") [![Discussions](https://img.shields.io/badge/Discussions-8250df?style=flat)](https://steamcommunity.com/sharedfiles/filedetails/discussions/3810586729 "Open discussions") [![Changelog](https://img.shields.io/badge/Changelog-f0883e?style=flat)](https://steamcommunity.com/workshop/filedetails/discussion/3810586729/583935635494033712/ "View changelog") |
 | <a name="hfo"></a>[![HFO - Hospital Flow Optimizer](https://img.shields.io/badge/HFO-Hospital%20Flow%20Optimizer-f6f8fa?style=flat-square&labelColor=2f81f7&logo=github&logoColor=white)](mods/Loupito75.HospitalFlowOptimizer/ "Improves hospital flow by distributing doctors, rooms, laboratory work, staff needs and transport tasks more efficiently while preserving Project Hospital's normal medical and pathfinding rules. • First release: 2026-10-17") | [![Download](https://img.shields.io/badge/v1.1.1-2026--10--23-f6f8fa?style=flat&labelColor=3fb950&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnYxMC4xN2wzLjU5LTMuNThMMTggMTFsLTYgNi02LTYgMS40MS0xLjQxTDExIDEzLjE3VjN6TTUgMTloMTR2Mkg1eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Loupito75/Project-Hospital-Mods/releases/tag/HospitalFlowOptimizer-v1.1.1 "Download the latest version of Hospital Flow Optimizer") | [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-2a475e?style=flat&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3821683216 "Open Hospital Flow Optimizer on Steam Workshop") [![Discussions](https://img.shields.io/badge/Discussions-8250df?style=flat)](https://steamcommunity.com/sharedfiles/filedetails/discussions/3821683216 "Open discussions") [![Changelog](https://img.shields.io/badge/Changelog-f0883e?style=flat)](https://steamcommunity.com/workshop/filedetails/discussion/3821683216/565922740069091751/ "View changelog") |
+
+## 🗺️ Roadmap
+
+See the [public development roadmap](ROADMAP.md) for planned, in-development and released features across the mod collection.
 
 ## Installation
 
@@ -125,13 +108,43 @@ Mods installed inside `BepInEx/plugins` can be updated automatically using **Hos
 
 HMUC checks supported installed mods for newer public versions, notifies you directly from the Project Hospital title screen, and can download and install available updates for you.
 
+**Existing user settings and configuration files are preserved during HMUC updates.**
+
 You can also use the **Latest Release** column in the mod table above to check and download the newest published version of each mod manually.
 
 When updating manually, replace the DLL and any other required runtime files or folders with those included in the new release package.
 
-If you have customized an XML or configuration file, **do not automatically overwrite it**. Back it up first and check the release notes or changelog for new or changed configuration options.
+If you have customized an XML or configuration file, **do not automatically overwrite it during a manual update**. Back it up first and check the release notes or changelog for new or changed configuration options.
 
 For complete installation and update instructions, see the [BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363).
+
+## ❤️ Support ❤️
+
+If you enjoy my Project Hospital mods and want to support future updates and new projects:
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/loupito75)
+
+## Bug reports and suggestions
+
+Bug reports and suggestions should be posted in the **Steam Workshop Discussions** of the corresponding mod.
+
+Use the links in the mod table above to access its Workshop page, discussions and changelog.
+
+When reporting a problem, please include the mod version, your Project Hospital version, steps to reproduce the issue and the relevant contents of:
+
+```text
+BepInEx/LogOutput.log
+```
+
+## Compatibility
+
+These mods are developed specifically for **Project Hospital** and tested against the game systems they modify.
+
+Game updates may occasionally require mod updates. If a mod stops working correctly after a Project Hospital update, check its latest release notes and changelog first.
+
+Compatibility with every third-party mod **cannot be guaranteed**. Other mods may alter the same game systems, methods or data and can therefore cause conflicts or unexpected behavior when used together.
+
+Compatibility issues may be investigated when practical, but compatibility with every mod or every individual compatibility request cannot be guaranteed or maintained.
 
 ## Repository structure on GitHub
 
@@ -185,28 +198,6 @@ Examples:
 ```
 
 Version numbers shown in the mod, plugin metadata, assembly information, documentation and GitHub Release are kept synchronized.
-
-## Bug reports and suggestions
-
-Bug reports and suggestions should be posted in the **Steam Workshop Discussions** of the corresponding mod.
-
-Use the links in the mod table above to access its Workshop page, discussions and changelog.
-
-When reporting a problem, please include the mod version, your Project Hospital version, steps to reproduce the issue and the relevant contents of:
-
-```text
-BepInEx/LogOutput.log
-```
-
-## Compatibility
-
-These mods are developed specifically for **Project Hospital** and tested against the game systems they modify.
-
-Game updates may occasionally require mod updates. If a mod stops working correctly after a Project Hospital update, check its latest release notes and changelog first.
-
-Compatibility with every third-party mod **cannot be guaranteed**. Other mods may alter the same game systems, methods or data and can therefore cause conflicts or unexpected behavior when used together.
-
-Compatibility issues may be investigated when practical, but compatibility with every mod or every individual compatibility request cannot be guaranteed or maintained.
 
 ## Source code
 
