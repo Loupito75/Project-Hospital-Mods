@@ -121,15 +121,17 @@ Avoid keeping multiple installed copies of the same plugin under BepInEx/plugins
 
 ### Updating Mods
 
-Files installed inside `BepInEx/plugins` are **not updated automatically**.
+Mods installed inside `BepInEx/plugins` can be updated automatically using **Hospital Mod Update Checker (HMUC)**.
 
-Check the **Latest release** column in the mod table above to see whether a newer GitHub version is available.
+HMUC checks supported installed mods for newer public versions, notifies you directly from the Project Hospital title screen, and can download and install available updates for you.
 
-When updating a mod, replace its DLL and any other required runtime files or folders with those included in the new release.
+You can also use the **Latest Release** column in the mod table above to check and download the newest published version of each mod manually.
+
+When updating manually, replace the DLL and any other required runtime files or folders with those included in the new release package.
 
 If you have customized an XML or configuration file, **do not automatically overwrite it**. Back it up first and check the release notes or changelog for new or changed configuration options.
 
-For complete update instructions, see the [BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363).
+For complete installation and update instructions, see the [BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363).
 
 ## Repository structure on GitHub
 
@@ -198,9 +200,13 @@ BepInEx/LogOutput.log
 
 ## Compatibility
 
-These mods are developed specifically for **Project Hospital**.
+These mods are developed specifically for **Project Hospital** and tested against the game systems they modify.
 
-Game updates may occasionally require mod updates. Check the latest release notes and changelog if a mod stops working after a Project Hospital update.
+Game updates may occasionally require mod updates. If a mod stops working correctly after a Project Hospital update, check its latest release notes and changelog first.
+
+Compatibility with every third-party mod **cannot be guaranteed**. Other mods may alter the same game systems, methods or data and can therefore cause conflicts or unexpected behavior when used together.
+
+Compatibility issues may be investigated when practical, but compatibility with every mod or every individual compatibility request cannot be guaranteed or maintained.
 
 ## Source code
 
