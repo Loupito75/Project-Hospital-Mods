@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 7,
-  "updatedUtc": "2026-10-23T02:08:35Z",
-  "expiresUtc": "2027-01-21T02:08:35Z",
+  "manifestRevision": 8,
+  "updatedUtc": "2026-10-23T06:20:20Z",
+  "expiresUtc": "2027-01-21T06:20:20Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -24,9 +24,9 @@
     },
     {
       "guid": "loupito75.HospitalFlowOptimizer",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "description": "Improves hospital flow by distributing doctors, rooms, laboratory work, staff needs and transport tasks more efficiently while preserving Project Hospital's normal medical and pathfinding rules.",
-      "whatsNew": ""
+      "whatsNew": "Smart Staff Needs meal selection fix, reduced staff-needs processing overhead"
     },
     {
       "guid": "loupito75.HospitalModUpdateChecker",
