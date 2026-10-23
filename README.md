@@ -104,7 +104,7 @@ Avoid keeping multiple installed copies of the same plugin under BepInEx/plugins
 
 ### Updating Mods
 
-Mods installed inside `BepInEx/plugins` can be updated automatically using **Hospital Mod Update Checker (HMUC)**.
+Mods installed inside `BepInEx/plugins` can be updated directly using **Hospital Mod Update Checker (HMUC)**.
 
 HMUC checks supported installed mods for newer public versions, notifies you directly from the Project Hospital title screen, and can download and install available updates for you.
 
