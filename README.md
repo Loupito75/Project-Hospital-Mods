@@ -51,7 +51,11 @@ If you enjoy my Project Hospital mods and want to support future updates and new
 
 ## Mods
 
-Hover over a mod to see its description, click its name to browse the source code, use the **Last release** column to download the latest version, and open the relevant links for Workshop, discussions and changelogs. Mods are listed by first release date, with the newest additions at the bottom.
+Hover over a mod to see its description, or click its name to browse the source code on GitHub.
+
+Use the **Latest Release** column to download the newest version, and the links provided to access the Steam Workshop page, discussions and changelog.
+
+*Mods are listed by first release date, with the newest additions at the bottom.*
 
 | Mod | Latest release | Links |
 | --- | --- | --- |
@@ -86,7 +90,7 @@ When downloading a mod from this repository, you do **not** need to subscribe to
 
 Instead:
 
-1. Use the Latest release column in the table above to open the mod's latest GitHub Release.
+1. Use the **Latest release** column in the table above to open the mod's latest GitHub Release.
 2. In the Assets section near the bottom of the release page, download the provided mod ZIP archive.
 3. Do not download GitHub's automatically generated Source code archives.
 4. Extract the complete mod folder into:
@@ -127,7 +131,7 @@ If you have customized an XML or configuration file, **do not automatically over
 
 For complete update instructions, see the [BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363).
 
-## Repository structure
+## Repository structure on GitHub
 
 ```text
 mods/
