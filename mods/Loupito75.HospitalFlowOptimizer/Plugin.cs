@@ -13,7 +13,9 @@ namespace HospitalFlowOptimizer
         public const string HarmonyId = "Loupito75:HospitalFlowOptimizer";
         public const string PluginName = "Hospital Flow Optimizer";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.1.1";
+        public const string PluginWhatsNew =
+            "Smart Staff Needs meal selection fix, reduced staff-needs processing overhead";
 
         internal static ManualLogSource Log { get; private set; }
 

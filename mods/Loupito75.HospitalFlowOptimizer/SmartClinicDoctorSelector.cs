@@ -71,12 +71,15 @@ namespace HospitalFlowOptimizer
 
             if (localDoctors.Count > 0)
             {
-                HfoDiagnostics.LogState(
-                    "ClinicDoctor",
-                    "no-local:" + HfoDiagnostics.EntityKey(patient.m_entity),
-                    "No local doctor is free for " +
-                    HfoDiagnostics.EntityName(patient.m_entity) +
-                    "; keeping the patient in the local waiting area.");
+                if (FlowOptimizerConfig.DoctorDiagnosticLogging)
+                {
+                    HfoDiagnostics.LogState(
+                        "ClinicDoctor",
+                        "no-local:" + HfoDiagnostics.EntityKey(patient.m_entity),
+                        "No local doctor is free for " +
+                        HfoDiagnostics.EntityName(patient.m_entity) +
+                        "; keeping the patient in the local waiting area.");
+                }
                 return null;
             }
 
@@ -415,18 +418,21 @@ namespace HospitalFlowOptimizer
                     minimumScore = score;
                 }
 
-                HfoDiagnostics.LogState(
-                    "ClinicDoctor",
-                    decisionKey + ":candidate:" + HfoDiagnostics.EntityKey(doctor),
-                    "department=" + HfoDiagnostics.DepartmentId(department) +
-                    " context=" + context +
-                    " candidate=" + HfoDiagnostics.EntityName(doctor) +
-                    " level=" + HfoDiagnostics.DoctorLevel(doctor) +
-                    " assigned=" + HfoDiagnostics.Number(currentAssignedLoad) +
-                    " roomLoad=" + HfoDiagnostics.Number(recentRoomLoad) +
-                    " distance=" + HfoDiagnostics.Number(distance) +
-                    " fit=" + HfoDiagnostics.Number(clinicalFit) +
-                    " score=" + HfoDiagnostics.Number(score));
+                if (FlowOptimizerConfig.DoctorDiagnosticLogging)
+                {
+                    HfoDiagnostics.LogState(
+                        "ClinicDoctor",
+                        decisionKey + ":candidate:" + HfoDiagnostics.EntityKey(doctor),
+                        "department=" + HfoDiagnostics.DepartmentId(department) +
+                        " context=" + context +
+                        " candidate=" + HfoDiagnostics.EntityName(doctor) +
+                        " level=" + HfoDiagnostics.DoctorLevel(doctor) +
+                        " assigned=" + HfoDiagnostics.Number(currentAssignedLoad) +
+                        " roomLoad=" + HfoDiagnostics.Number(recentRoomLoad) +
+                        " distance=" + HfoDiagnostics.Number(distance) +
+                        " fit=" + HfoDiagnostics.Number(clinicalFit) +
+                        " score=" + HfoDiagnostics.Number(score));
+                }
             }
 
             if (scored.Count == 0)
@@ -473,21 +479,24 @@ namespace HospitalFlowOptimizer
                         0,
                         finalists.Count)];
 
-            HfoDiagnostics.LogState(
-                "ClinicDoctor",
-                decisionKey + ":selected",
-                "department=" + HfoDiagnostics.DepartmentId(department) +
-                " context=" + context +
-                " selected=" + HfoDiagnostics.EntityName(selected) +
-                " level=" + HfoDiagnostics.DoctorLevel(selected) +
-                " operationalBestScore=" +
-                    HfoDiagnostics.Number(minimumScore) +
-                " nearTieCandidates=" + nearTieCount +
-                " finalistsAtBestLevel=" + finalists.Count +
-                (patient == null
-                    ? string.Empty
-                    : " patient=" +
-                      HfoDiagnostics.EntityName(patient.m_entity)));
+            if (FlowOptimizerConfig.DoctorDiagnosticLogging)
+            {
+                HfoDiagnostics.LogState(
+                    "ClinicDoctor",
+                    decisionKey + ":selected",
+                    "department=" + HfoDiagnostics.DepartmentId(department) +
+                    " context=" + context +
+                    " selected=" + HfoDiagnostics.EntityName(selected) +
+                    " level=" + HfoDiagnostics.DoctorLevel(selected) +
+                    " operationalBestScore=" +
+                        HfoDiagnostics.Number(minimumScore) +
+                    " nearTieCandidates=" + nearTieCount +
+                    " finalistsAtBestLevel=" + finalists.Count +
+                    (patient == null
+                        ? string.Empty
+                        : " patient=" +
+                          HfoDiagnostics.EntityName(patient.m_entity)));
+            }
 
             return selected;
         }

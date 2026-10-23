@@ -134,30 +134,36 @@ namespace HospitalFlowOptimizer.Patches
                 result =
                     ProcedureSceneAvailability.EQUIPMENT_UNAVAILABLE;
 
-                Log(
-                    patient,
-                    examination,
-                    observationRoom,
-                    "waiting before equipment retry; retry=" +
-                    retry.RetryCount + "/" +
-                    FlowOptimizerConfig
-                        .TraumaCenterProtectionFallbackRetries +
-                    "; busyTags=" +
-                    JoinTags(busyTags));
+                if (FlowOptimizerConfig.TraumaCenterDiagnosticLogging)
+                {
+                    Log(
+                        patient,
+                        examination,
+                        observationRoom,
+                        "waiting before equipment retry; retry=" +
+                        retry.RetryCount + "/" +
+                        FlowOptimizerConfig
+                            .TraumaCenterProtectionFallbackRetries +
+                        "; busyTags=" +
+                        JoinTags(busyTags));
+                }
                 return false;
             }
 
             room = observationRoom;
             state.ForcedObservationRoom = true;
 
-            Log(
-                patient,
-                examination,
-                observationRoom,
-                equipmentState == ObservationEquipmentState.Busy
-                    ? "retrying in Observation; busyTags=" +
-                      JoinTags(busyTags)
-                    : "preferring Observation room");
+            if (FlowOptimizerConfig.TraumaCenterDiagnosticLogging)
+            {
+                Log(
+                    patient,
+                    examination,
+                    observationRoom,
+                    equipmentState == ObservationEquipmentState.Busy
+                        ? "retrying in Observation; busyTags=" +
+                          JoinTags(busyTags)
+                        : "preferring Observation room");
+            }
 
             return true;
         }
@@ -270,12 +276,15 @@ namespace HospitalFlowOptimizer.Patches
                     examination,
                     observationRoom);
 
-                Log(
-                    patient,
-                    examination,
-                    observationRoom,
-                    "Observation attempt failed for a non-capacity reason; " +
-                    "availability=" + result);
+                if (FlowOptimizerConfig.TraumaCenterDiagnosticLogging)
+                {
+                    Log(
+                        patient,
+                        examination,
+                        observationRoom,
+                        "Observation attempt failed for a non-capacity reason; " +
+                        "availability=" + result);
+                }
                 return;
             }
 
@@ -315,17 +324,20 @@ namespace HospitalFlowOptimizer.Patches
                     new List<GameDBObject>(busyEquipmentTypes);
                 StoreRetryState(patient, retry);
 
-                Log(
-                    patient,
-                    examination,
-                    observationRoom,
-                    "equipment capacity wait started; retry=0/" +
-                    maximumRetries +
-                    "; nextRetryMinutes=" +
-                    FlowOptimizerConfig
-                        .TraumaCenterProtectionRetryMinutes +
-                    "; busyTags=" +
-                    JoinTags(busyTags));
+                if (FlowOptimizerConfig.TraumaCenterDiagnosticLogging)
+                {
+                    Log(
+                        patient,
+                        examination,
+                        observationRoom,
+                        "equipment capacity wait started; retry=0/" +
+                        maximumRetries +
+                        "; nextRetryMinutes=" +
+                        FlowOptimizerConfig
+                            .TraumaCenterProtectionRetryMinutes +
+                        "; busyTags=" +
+                        JoinTags(busyTags));
+                }
                 return;
             }
 
@@ -351,15 +363,18 @@ namespace HospitalFlowOptimizer.Patches
                 FlowOptimizerConfig
                     .TraumaCenterProtectionRetryMinutes;
 
-            Log(
-                patient,
-                examination,
-                observationRoom,
-                "equipment retry failed; retry=" +
-                retry.RetryCount + "/" +
-                maximumRetries +
-                "; busyTags=" +
-                JoinTags(busyTags));
+            if (FlowOptimizerConfig.TraumaCenterDiagnosticLogging)
+            {
+                Log(
+                    patient,
+                    examination,
+                    observationRoom,
+                    "equipment retry failed; retry=" +
+                    retry.RetryCount + "/" +
+                    maximumRetries +
+                    "; busyTags=" +
+                    JoinTags(busyTags));
+            }
         }
 
         internal static Room GetRoomForScheduledExaminationRoomCheck(
@@ -434,24 +449,27 @@ namespace HospitalFlowOptimizer.Patches
                 return currentRoom;
             }
 
-            string selectedId =
-                reservedRoom.m_roomPersistentData == null ||
-                reservedRoom.m_roomPersistentData.m_roomType == null
-                    ? "<none>"
-                    : reservedRoom
-                        .m_roomPersistentData
-                        .m_roomType
-                        .Entry
-                        .DatabaseID
-                        .ToString();
+            if (FlowOptimizerConfig.TraumaCenterDiagnosticLogging)
+            {
+                string selectedId =
+                    reservedRoom.m_roomPersistentData == null ||
+                    reservedRoom.m_roomPersistentData.m_roomType == null
+                        ? "<none>"
+                        : reservedRoom
+                            .m_roomPersistentData
+                            .m_roomType
+                            .Entry
+                            .DatabaseID
+                            .ToString();
 
-            Log(
-                patient,
-                examination,
-                observationRoom,
-                "reserved fallback scene is outside Observation; " +
-                "preserving native patient transport; selectedRoom=" +
-                selectedId);
+                Log(
+                    patient,
+                    examination,
+                    observationRoom,
+                    "reserved fallback scene is outside Observation; " +
+                    "preserving native patient transport; selectedRoom=" +
+                    selectedId);
+            }
 
             // TryToStartScheduledExamination compares its cached requested room
             // with the result of GetRoomAt(WalkComponent). Returning the actual
@@ -992,24 +1010,27 @@ namespace HospitalFlowOptimizer.Patches
                 GetReservedProcedureRoom(
                     procedureComponent);
 
-            string selectedId =
-                selectedRoom == null ||
-                selectedRoom.m_roomPersistentData == null ||
-                selectedRoom.m_roomPersistentData.m_roomType == null
-                    ? "<none>"
-                    : selectedRoom
-                        .m_roomPersistentData
-                        .m_roomType
-                        .Entry
-                        .DatabaseID
-                        .ToString();
+            if (FlowOptimizerConfig.TraumaCenterDiagnosticLogging)
+            {
+                string selectedId =
+                    selectedRoom == null ||
+                    selectedRoom.m_roomPersistentData == null ||
+                    selectedRoom.m_roomPersistentData.m_roomType == null
+                        ? "<none>"
+                        : selectedRoom
+                            .m_roomPersistentData
+                            .m_roomType
+                            .Entry
+                            .DatabaseID
+                            .ToString();
 
-            Log(
-                patient,
-                examination,
-                observationRoom,
-                "native fallback reservation succeeded; selectedRoom=" +
-                selectedId);
+                Log(
+                    patient,
+                    examination,
+                    observationRoom,
+                    "native fallback reservation succeeded; selectedRoom=" +
+                    selectedId);
+            }
         }
 
         private static TraumaCenterRetryState FindRetryState(

@@ -661,52 +661,26 @@ namespace HospitalFlowOptimizer.Patches
                 }
             }
 
-            LogDiagnosticState(
-                procedure,
-                "exam=" + GetLabExamination(procedure).DatabaseID +
-                "; procedureId=" + procedure.GetEntityID() +
-                "; patient=" + procedure.m_state.m_patient.GetEntity().GetEntityID() +
-                "; source=" + source +
-                "; lab=" + DescribeRoom(target.Room) +
-                "; queueAtSelection=" + target.QueueAtSelection +
-                "; queueNow=" + GetQueueCount(target.Room) +
-                "; usageAtSelection=" + target.UsageAtSelection +
-                "; candidates=" + target.CandidateCount +
-                "; waitingBefore=" + DescribeRoom(waitingBefore) +
-                "; waitingTarget=" + DescribeRoom(waitingTarget) +
-                "; rerouteChance=" +
-                    FlowOptimizerConfig.LabWaitingRoomRerouteChance +
-                "; rerouteRoll=" + rerouteRoll +
-                "; reroute=" + rerouteResult);
-        }
-
-        internal static int GetIncomingTargetCount(Room room)
-        {
-            if (room == null)
-                return 0;
-
-            PruneTargets();
-
-            int count = 0;
-            foreach (KeyValuePair<LabProcedure, OutpatientLabRoutingTarget> item
-                in Targets)
+            if (FlowOptimizerConfig.LabDiagnosticLogging)
             {
-                LabProcedure procedure = item.Key;
-                OutpatientLabRoutingTarget target = item.Value;
-
-                if (procedure != null &&
-                    procedure.m_state != null &&
-                    procedure.m_state.m_statLab == null &&
-                    procedure.m_state.m_labProcedureState ==
-                        LabProcedureState.SamplingFinished &&
-                    target != null &&
-                    target.Room == room)
-                {
-                    count++;
-                }
+                LogDiagnosticState(
+                    procedure,
+                    "exam=" + GetLabExamination(procedure).DatabaseID +
+                    "; procedureId=" + procedure.GetEntityID() +
+                    "; patient=" + procedure.m_state.m_patient.GetEntity().GetEntityID() +
+                    "; source=" + source +
+                    "; lab=" + DescribeRoom(target.Room) +
+                    "; queueAtSelection=" + target.QueueAtSelection +
+                    "; queueNow=" + GetQueueCount(target.Room) +
+                    "; usageAtSelection=" + target.UsageAtSelection +
+                    "; candidates=" + target.CandidateCount +
+                    "; waitingBefore=" + DescribeRoom(waitingBefore) +
+                    "; waitingTarget=" + DescribeRoom(waitingTarget) +
+                    "; rerouteChance=" +
+                        FlowOptimizerConfig.LabWaitingRoomRerouteChance +
+                    "; rerouteRoll=" + rerouteRoll +
+                    "; reroute=" + rerouteResult);
             }
-
-            return count;
         }
 
         internal static void Clear()

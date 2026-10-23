@@ -625,9 +625,7 @@ namespace HospitalFlowOptimizer.Patches
                         : character.GetEntityID());
                 MixMealRollHash(
                     ref hash,
-                    procedure == null
-                        ? string.Empty
-                        : procedure.DatabaseID.ToString());
+                    GetStableMealProcedureKey(procedure));
                 MixMealRollHash(
                     ref hash,
                     DayTime.Instance == null
@@ -636,6 +634,36 @@ namespace HospitalFlowOptimizer.Patches
 
                 return (int)(hash % 100u);
             }
+        }
+
+        private static string GetStableMealProcedureKey(
+            GameDBProcedure procedure)
+        {
+            // NEED_HUNGER_STAFF owns an embedded GameDBProcedure without its
+            // own DatabaseID. Use the semantic owner key so QUERY and
+            // INSTANTIATION keep the same deterministic roll without
+            // dereferencing a null ID.
+            if (object.ReferenceEquals(
+                    procedure,
+                    StaffLunchProcedure))
+            {
+                return StaffLunchProcedureId;
+            }
+
+            if (object.ReferenceEquals(
+                    procedure,
+                    StaffHungerProcedure))
+            {
+                return StaffHungerNeedId;
+            }
+
+            if (procedure == null ||
+                ID.IsNullOrNoID(procedure.DatabaseID))
+            {
+                return string.Empty;
+            }
+
+            return procedure.DatabaseID.ToString();
         }
 
         private static void MixMealRollHash(
