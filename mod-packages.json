@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 16,
-  "updatedUtc": "2026-10-22T06:06:07Z",
-  "expiresUtc": "2027-01-20T06:06:07Z",
+  "manifestRevision": 17,
+  "updatedUtc": "2026-10-23T02:08:35Z",
+  "expiresUtc": "2027-01-21T02:08:35Z",
   "packages": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -156,11 +156,11 @@
     {
       "guid": "loupito75.HospitalPorters",
       "name": "Hospital Porters",
-      "version": "1.3.0",
-      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalPorters-v1.3.0/Loupito75.HospitalPorters-v1.3.0.zip",
-      "sha256": "8af11e9496d04ad2528db8137b5227ab59f528b167f783f224ebc91c7f5e36b1",
-      "packageBytes": 703021,
-      "maximumUnpackedBytes": 1026391,
+      "version": "1.3.1",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalPorters-v1.3.1/Loupito75.HospitalPorters-v1.3.1.zip",
+      "sha256": "087d824b970c7db11b8bdbb13915e4a00807043af9caa283e228ae7e1aff7ad6",
+      "packageBytes": 703032,
+      "maximumUnpackedBytes": 1027181,
       "installDirectory": "Loupito75.HospitalPorters",
       "archiveRoot": "Loupito75.HospitalPorters",
       "pluginFile": "Loupito75.HospitalPorters.dll",
