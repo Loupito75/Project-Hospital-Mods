@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 17,
-  "updatedUtc": "2026-10-23T02:08:35Z",
-  "expiresUtc": "2027-01-21T02:08:35Z",
+  "manifestRevision": 18,
+  "updatedUtc": "2026-10-23T06:20:20Z",
+  "expiresUtc": "2027-01-21T06:20:20Z",
   "packages": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -70,10 +70,10 @@
     {
       "guid": "loupito75.HospitalFlowOptimizer",
       "name": "Hospital Flow Optimizer",
-      "version": "1.1.0",
-      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalFlowOptimizer-v1.1.0/Loupito75.HospitalFlowOptimizer-v1.1.0.zip",
-      "sha256": "375e0e501dd8517ca909fa693848d0026851b3ade7cd5931849a7b006e036066",
-      "packageBytes": 496626,
+      "version": "1.1.1",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalFlowOptimizer-v1.1.1/Loupito75.HospitalFlowOptimizer-v1.1.1.zip",
+      "sha256": "26b13d99ecfd2d6dec03c9e1599980fda0ffc1b95a74da2d13f02bc1dc37c164",
+      "packageBytes": 496707,
       "maximumUnpackedBytes": 607784,
       "installDirectory": "Loupito75.HospitalFlowOptimizer",
       "archiveRoot": "Loupito75.HospitalFlowOptimizer",
