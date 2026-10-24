@@ -63,6 +63,20 @@ def build_row(cells):
 
 
 def get_mod_name_from_cell(cell):
+    badge_match = re.search(
+        r"!\[([^\]]+)\]\(",
+        cell,
+    )
+
+    if badge_match:
+        name = badge_match.group(1).strip()
+
+        return re.sub(
+            r"^[A-Z0-9]+\s+-\s+",
+            "",
+            name,
+        ).strip()
+
     match = re.search(r"\[([^\]]+)\]", cell)
 
     if match:
@@ -79,7 +93,11 @@ def get_mod_name_from_cell(cell):
 
 def get_technical_mod_name_from_cell(cell):
     match = re.search(
-        r"\]\(mods/Loupito75\.([A-Za-z0-9]+)/?\)",
+        (
+            r"\]\(mods/Loupito75\."
+            r"([A-Za-z0-9]+)/?"
+            r"(?:\s+\"[^\"]*\")?\)"
+        ),
         cell,
     )
 
@@ -87,6 +105,359 @@ def get_technical_mod_name_from_cell(cell):
         return match.group(1)
 
     return None
+
+
+def derive_mod_acronym(display_name):
+    words = re.findall(
+        r"[A-Za-z0-9]+",
+        display_name,
+    )
+
+    if not words:
+        raise RuntimeError(
+            "Could not derive a README acronym from mod name: "
+            + display_name
+        )
+
+    parts = []
+
+    for word in words:
+        if len(word) > 1 and word.isupper():
+            parts.append(word)
+        else:
+            parts.append(word[0].upper())
+
+    acronym = "".join(parts)
+
+    if not re.fullmatch(r"[A-Z0-9]{3,12}", acronym):
+        raise RuntimeError(
+            "Derived README acronym is invalid for "
+            + display_name
+            + ": "
+            + acronym
+        )
+
+    return acronym
+
+
+def markdown_title(value):
+    return (
+        value.replace("\\", "\\\\")
+        .replace("|", "&#124;")
+        .replace('"', '\\"')
+    )
+
+
+def get_public_readme_metadata(
+    technical_mod_name,
+    version,
+):
+    description, _ = get_public_mod_text(
+        technical_mod_name,
+        version,
+    )
+
+    if not description:
+        raise RuntimeError(
+            "Public mod Description is missing or does not "
+            "match the release version for "
+            + technical_mod_name
+            + "."
+        )
+
+    directory = (
+        Path("mods")
+        / ("Loupito75." + technical_mod_name)
+    )
+    projects = list(directory.glob("*.csproj"))
+    plugin = directory / "Plugin.cs"
+
+    if len(projects) != 1 or not plugin.exists():
+        raise RuntimeError(
+            "Public source metadata is incomplete for "
+            + technical_mod_name
+            + "."
+        )
+
+    xml = projects[0].read_bytes()
+
+    if len(xml) > 512000 or b"<!DOCTYPE" in xml.upper():
+        raise RuntimeError(
+            "Unsafe source project metadata: "
+            + technical_mod_name
+        )
+
+    root = ET.fromstring(xml)
+
+    product_node = root.find(".//Product")
+    version_node = root.find(".//Version")
+
+    display_name = " ".join(
+        (
+            product_node.text
+            if (
+                product_node is not None
+                and product_node.text
+            )
+            else ""
+        ).split()
+    )
+
+    project_version = (
+        version_node.text.strip()
+        if (
+            version_node is not None
+            and version_node.text
+        )
+        else ""
+    )
+
+    if not display_name:
+        raise RuntimeError(
+            "Public mod Product is missing for "
+            + technical_mod_name
+            + "."
+        )
+
+    if project_version != version:
+        raise RuntimeError(
+            "Public project Version does not match release for "
+            + technical_mod_name
+            + ": "
+            + project_version
+            + " != "
+            + version
+        )
+
+    source = plugin.read_text(encoding="utf-8")
+
+    name_match = re.search(
+        r'\bconst\s+string\s+PluginName\s*=\s*"([^"]+)"',
+        source,
+    )
+
+    if (
+        name_match is None
+        or name_match.group(1).strip() != display_name
+    ):
+        raise RuntimeError(
+            "PluginName and project Product differ for "
+            + technical_mod_name
+            + "."
+        )
+
+    if any(
+        character in display_name
+        for character in "[]|<>"
+    ):
+        raise RuntimeError(
+            "Public mod Product contains unsupported README "
+            "characters for "
+            + technical_mod_name
+            + "."
+        )
+
+    acronym = derive_mod_acronym(display_name)
+
+    return (
+        display_name,
+        description,
+        acronym,
+    )
+
+
+def build_mod_readme_cell(
+    technical_mod_name,
+    display_name,
+    description,
+    acronym,
+    first_release_date,
+):
+    anchor = acronym.lower()
+    encoded_acronym = quote(acronym, safe="")
+    encoded_name = quote(display_name, safe="")
+
+    badge_url = (
+        "https://img.shields.io/badge/"
+        + encoded_acronym
+        + "-"
+        + encoded_name
+        + "-f6f8fa"
+        + "?style=flat-square"
+        + "&labelColor=2f81f7"
+        + "&logo=github"
+        + "&logoColor=white"
+    )
+
+    tooltip = markdown_title(
+        description
+        + " • First release: "
+        + first_release_date
+    )
+
+    return (
+        '<a name="'
+        + anchor
+        + '"></a>'
+        + "[!["
+        + acronym
+        + " - "
+        + display_name
+        + "]("
+        + badge_url
+        + ")](mods/Loupito75."
+        + technical_mod_name
+        + '/ "'
+        + tooltip
+        + '")'
+    )
+
+
+def build_links_readme_cell(display_name):
+    safe_name = markdown_title(display_name)
+
+    return (
+        "[![Steam Workshop]"
+        "(https://img.shields.io/badge/"
+        "Steam%20Workshop-2a475e"
+        "?style=flat&logo=steam&logoColor=white)]"
+        '(# "Open '
+        + safe_name
+        + ' on Steam Workshop") '
+        "[![Discussions]"
+        "(https://img.shields.io/badge/"
+        "Discussions-8250df?style=flat)]"
+        '(# "Open discussions") '
+        "[![Changelog]"
+        "(https://img.shields.io/badge/"
+        "Changelog-f0883e?style=flat)]"
+        '(# "View changelog")'
+    )
+
+
+def build_latest_release_cell(
+    template_cell,
+    version,
+    release_url,
+    release_date,
+    display_name,
+):
+    updated_cell = update_latest_release_badge(
+        template_cell,
+        version,
+        release_url,
+        release_date,
+    )
+
+    updated_cell, tooltip_count = re.subn(
+        r'("Download the latest version of )[^"]+(")',
+        (
+            r"\g<1>"
+            + markdown_title(display_name)
+            + r"\g<2>"
+        ),
+        updated_cell,
+        count=1,
+    )
+
+    if tooltip_count != 1:
+        raise RuntimeError(
+            "Could not update the Latest Release tooltip "
+            "for a new README mod row."
+        )
+
+    return updated_cell
+
+
+def update_latest_release_badge(
+    cell,
+    version,
+    release_url,
+    release_date,
+):
+    shields_date = release_date.replace("-", "--")
+
+    badge_pattern = (
+        r"(https://img\.shields\.io/badge/)"
+        r"v\d+\.\d+\.\d+-"
+        r"\d{4}--\d{2}--\d{2}"
+        r"(-[^)\s]+)"
+    )
+
+    updated_cell, badge_count = re.subn(
+        badge_pattern,
+        (
+            r"\g<1>v"
+            + version
+            + "-"
+            + shields_date
+            + r"\g<2>"
+        ),
+        cell,
+        count=1,
+    )
+
+    if badge_count != 1:
+        raise RuntimeError(
+            "Could not update the Latest Release badge "
+            "for the README mod row."
+        )
+
+    release_pattern = (
+        r"https://github\.com/"
+        r"Loupito75/Project-Hospital-Mods/"
+        r"releases/tag/[^ )\"]+"
+    )
+
+    updated_cell, release_count = re.subn(
+        release_pattern,
+        release_url,
+        updated_cell,
+        count=1,
+    )
+
+    if release_count != 1:
+        raise RuntimeError(
+            "Could not update the release link "
+            "for the README mod row."
+        )
+
+    return updated_cell
+
+
+def update_mod_count_badge(text, mod_count):
+    updated_text, url_count = re.subn(
+        (
+            r"(https://img\.shields\.io/badge/"
+            r"Loupito75%20Mods-)\d+(-2f81f7)"
+        ),
+        (
+            r"\g<1>"
+            + str(mod_count)
+            + r"\g<2>"
+        ),
+        text,
+        count=1,
+    )
+
+    updated_text, alt_count = re.subn(
+        r'(alt="Loupito75 Mods - )\d+(")',
+        (
+            r"\g<1>"
+            + str(mod_count)
+            + r"\g<2>"
+        ),
+        updated_text,
+        count=1,
+    )
+
+    if url_count != 1 or alt_count != 1:
+        raise RuntimeError(
+            "Could not find exactly one "
+            "Loupito75 Mods count badge in README.md."
+        )
+
+    return updated_text
 
 
 def utc_text(value):
@@ -119,14 +490,9 @@ def format_readme_date(published_at):
             tzinfo=timezone.utc
         )
 
-    local_date = published.astimezone(
+    return published.astimezone(
         README_TIMEZONE
     ).strftime("%Y-%m-%d")
-
-    return local_date.replace(
-        "-",
-        "&#x2060;-&#x2060;",
-    )
 
 
 def github_headers(
@@ -331,11 +697,6 @@ def update_readme(
         published_at
     )
 
-    latest_release = (
-        f"[{version}]({release_url})"
-        f"<br>{release_date}"
-    )
-
     target_name = normalize_name(
         technical_mod_name
     )
@@ -379,10 +740,15 @@ def update_readme(
             continue
 
         cells = split_row(lines[index])
+        normalized_headers = [
+            cell.casefold()
+            for cell in cells
+        ]
 
         if (
-            "Mod" in cells
-            and "Latest release" in cells
+            "mod" in normalized_headers
+            and "latest release" in normalized_headers
+            and "links" in normalized_headers
         ):
             header_index = index
             break
@@ -395,25 +761,38 @@ def update_readme(
     headers = split_row(
         lines[header_index]
     )
+    normalized_headers = [
+        cell.casefold()
+        for cell in headers
+    ]
 
-    mod_column = headers.index("Mod")
-    latest_column = headers.index(
-        "Latest release"
+    mod_column = normalized_headers.index("mod")
+    latest_column = normalized_headers.index(
+        "latest release"
     )
+    links_column = normalized_headers.index("links")
 
-    found = False
-    display_name = ""
+    row_indices = []
 
     for index in range(
         header_index + 2,
         section_end,
     ):
-        line = lines[index]
-
-        if not line.strip().startswith("|"):
+        if not lines[index].strip().startswith("|"):
             break
 
-        cells = split_row(line)
+        row_indices.append(index)
+
+    if not row_indices:
+        raise RuntimeError(
+            "The Mods table does not contain any mod rows."
+        )
+
+    found = False
+    display_name = ""
+
+    for index in row_indices:
+        cells = split_row(lines[index])
 
         while len(cells) < len(headers):
             cells.append("")
@@ -448,32 +827,117 @@ def update_readme(
         display_name = mod_name
 
         cells[latest_column] = (
-            latest_release
+            update_latest_release_badge(
+                cells[latest_column],
+                version,
+                release_url,
+                release_date,
+            )
         )
 
         lines[index] = build_row(cells)
         found = True
 
         print(
-            "Updated latest release for "
+            "Updated latest release badge for "
             + mod_name
-            + " to "
-            + latest_release
+            + " to v"
+            + version
+            + " ("
+            + release_date
+            + ")."
         )
 
         break
 
     if not found:
-        raise RuntimeError(
-            "Mod was not found in the README table: "
-            + technical_mod_name
-            + ". Add its complete README row, "
-            "including description, "
-            "First release date and links, "
-            "before publishing the release."
+        (
+            display_name,
+            description,
+            acronym,
+        ) = get_public_readme_metadata(
+            technical_mod_name,
+            version,
+        )
+
+        anchor = acronym.lower()
+
+        for index in row_indices:
+            cells = split_row(lines[index])
+            existing_anchor = re.search(
+                r'<a\s+name="([^"]+)"',
+                cells[mod_column],
+            )
+
+            if (
+                existing_anchor is not None
+                and existing_anchor.group(1).lower()
+                == anchor
+            ):
+                raise RuntimeError(
+                    "README acronym/anchor already exists: "
+                    + acronym
+                )
+
+        template_cells = split_row(
+            lines[row_indices[0]]
+        )
+
+        while len(template_cells) < len(headers):
+            template_cells.append("")
+
+        new_cells = [""] * len(headers)
+        new_cells[mod_column] = build_mod_readme_cell(
+            technical_mod_name,
+            display_name,
+            description,
+            acronym,
+            release_date,
+        )
+        new_cells[latest_column] = (
+            build_latest_release_cell(
+                template_cells[latest_column],
+                version,
+                release_url,
+                release_date,
+                display_name,
+            )
+        )
+        new_cells[links_column] = (
+            build_links_readme_cell(
+                display_name
+            )
+        )
+
+        insert_index = row_indices[-1] + 1
+
+        lines.insert(
+            insert_index,
+            build_row(new_cells),
+        )
+
+        row_indices.append(insert_index)
+
+        print(
+            "Added new README mod row for "
+            + acronym
+            + " - "
+            + display_name
+            + " with placeholder Steam, "
+            "Discussions and Changelog links."
         )
 
     new_text = "\n".join(lines) + "\n"
+    new_text = update_mod_count_badge(
+        new_text,
+        len(row_indices),
+    )
+
+    print(
+        "README mod count badge synchronized to "
+        + str(len(row_indices))
+        + "."
+    )
 
     if new_text == text:
         print(
@@ -488,7 +952,6 @@ def update_readme(
         print("README.md updated.")
 
     return display_name
-
 
 def update_update_manifest(
     technical_mod_name,
@@ -1855,17 +2318,34 @@ def read_public_package_targets():
 
         latest_cell = cells[1]
 
-        match = re.search(
-            r"\[(\d+\.\d+\.\d+)\]"
-            r"\("
-            r"https://github\.com/"
-            r"Loupito75/Project-Hospital-Mods/"
-            r"releases/tag/([^)]+)"
-            r"\)",
+        version_match = re.search(
+            (
+                r"https://img\.shields\.io/badge/"
+                r"v(\d+\.\d+\.\d+)-"
+                r"\d{4}--\d{2}--\d{2}"
+            ),
             latest_cell,
         )
 
-        if not match:
+        if version_match is None:
+            version_match = re.search(
+                r"\[(\d+\.\d+\.\d+)\]",
+                latest_cell,
+            )
+
+        tag_match = re.search(
+            (
+                r"https://github\.com/"
+                r"Loupito75/Project-Hospital-Mods/"
+                r"releases/tag/([^ )\"]+)"
+            ),
+            latest_cell,
+        )
+
+        if (
+            version_match is None
+            or tag_match is None
+        ):
             raise RuntimeError(
                 "Could not determine the latest "
                 "public release for "
@@ -1873,8 +2353,8 @@ def read_public_package_targets():
                 + " from README.md."
             )
 
-        version = match.group(1)
-        tag = match.group(2)
+        version = version_match.group(1)
+        tag = tag_match.group(1)
 
         expected_tag = (
             technical_mod_name
