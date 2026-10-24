@@ -53,11 +53,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Update release metadata
+      - name: Update release metadata and README
         env:
           GITHUB_TOKEN: ${{ github.token }}
           HMUC_PACKAGE_SIGNING_KEY_B64: ${{ secrets.HMUC_PACKAGE_SIGNING_KEY_B64 }}
         run: |
+          # Also adds new README mod rows and refreshes release/count badges.
           python3 .github/scripts/update_latest_release.py
 
       - name: Check for metadata changes
