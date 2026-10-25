@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 18,
-  "updatedUtc": "2026-10-23T06:20:20Z",
-  "expiresUtc": "2027-01-21T06:20:20Z",
+  "manifestRevision": 19,
+  "updatedUtc": "2026-10-25T07:12:12Z",
+  "expiresUtc": "2027-01-23T07:12:12Z",
   "packages": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -374,6 +374,28 @@
         "Database/ModAddon.xml",
         "Database/ModStringTableEn.xml",
         "Loupito75.HospitalRadio.dll",
+        "preview.png",
+        "README_NEVER_MISS_AN_UPDATE.txt"
+      ],
+      "removeFiles": []
+    },
+    {
+      "guid": "loupito75.HospitalRuntimeOptimizer",
+      "name": "Hospital Runtime Optimizer",
+      "version": "1.0.0",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalRuntimeOptimizer-v1.0.0/Loupito75.HospitalRuntimeOptimizer-v1.0.0.zip",
+      "sha256": "baf1e4b2b559904573ecf3718d2562da937e9f0cb984492dc7ec3d7da5f9258d",
+      "packageBytes": 419945,
+      "maximumUnpackedBytes": 472010,
+      "installDirectory": "Loupito75.HospitalRuntimeOptimizer",
+      "archiveRoot": "Loupito75.HospitalRuntimeOptimizer",
+      "pluginFile": "Loupito75.HospitalRuntimeOptimizer.dll",
+      "configFile": "Loupito75.HospitalRuntimeOptimizer.Config.xml",
+      "runtimeDirectories": [],
+      "runtimeFiles": [
+        "Database/ModAddon.xml",
+        "Database/ModStringTableEn.xml",
+        "Loupito75.HospitalRuntimeOptimizer.dll",
         "preview.png",
         "README_NEVER_MISS_AN_UPDATE.txt"
       ],

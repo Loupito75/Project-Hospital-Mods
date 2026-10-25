@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 8,
-  "updatedUtc": "2026-10-23T06:20:20Z",
-  "expiresUtc": "2027-01-21T06:20:20Z",
+  "manifestRevision": 9,
+  "updatedUtc": "2026-10-25T07:12:12Z",
+  "expiresUtc": "2027-01-23T07:12:12Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -51,6 +51,12 @@
       "version": "1.0.0",
       "description": "Global hospital radio with music playlists and announcements for Project Hospital.",
       "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalRuntimeOptimizer",
+      "version": "1.0.0",
+      "description": "Improves Project Hospital performance by reducing redundant Vanilla runtime and rendering work without changing simulation, pathfinding or gameplay decisions.",
+      "whatsNew": "Faster hidden-floor rendering, lighter character and room updates, lower staff overhead, optimized shift/opening/closing work, fewer distance recalculations, fewer statistics writes"
     },
     {
       "guid": "loupito75.HospitalShiftHandover",
