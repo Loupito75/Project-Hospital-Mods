@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalRuntimeOptimizerConfig>
+  <!-- @HMUC:set label="Enable Hospital Runtime Optimizer" control="checkbox" -->
+  <!-- @HMUC:desc Master switch. When false, HRO installs no feature Harmony patches. A restart is required after changing this option. -->
+  <Enabled>true</Enabled>
+
+  <!-- @HMUC:desc Controls rendering optimizations and the optional lower-floor visual culling tradeoff. -->
+  <Rendering>
+    <!-- @HMUC:set label="Optimize hidden upper floors" control="checkbox" -->
+    <!-- @HMUC:desc Lets Vanilla render an ABOVE_HIDDEN floor once when it becomes hidden, then skips repeated RenderMap work until that floor becomes visible again. -->
+    <OptimizeHiddenFloors>true</OptimizeHiddenFloors>
+
+    <!-- @HMUC:set label="Hide characters on lower floors" control="checkbox" -->
+    <!-- @HMUC:desc Hides characters completely on BELOW floors. Vanilla normally keeps outdoor characters visible there. The first BELOW render pass is preserved for cleanup, then repeated character rendering is skipped until the floor becomes current/visible again. -->
+    <HideCharactersOnLowerFloors>true</HideCharactersOnLowerFloors>
+
+    <!-- @HMUC:set label="Reuse character floor list" control="checkbox" -->
+    <!-- @HMUC:desc Reuses the floor character list already rebuilt by CharacterRenderer cleanup instead of immediately rescanning every hospital character a second time. -->
+    <OptimizeCharactersByFloor>true</OptimizeCharactersByFloor>
+
+    <!-- @HMUC:set label="Skip native hidden character rendering" control="checkbox" -->
+    <!-- @HMUC:desc When Vanilla already hides all characters (for example Building, Building Floors and Logistics modes), skips CharacterRenderer work instead of rendering into a folder that is disabled later in the same RenderMap call. -->
+    <OptimizeNativeHiddenCharacters>true</OptimizeNativeHiddenCharacters>
+
+    <!-- @HMUC:set label="Reuse room renderer cleanup buffer" control="checkbox" -->
+    <!-- @HMUC:desc Reuses the temporary room-removal list used by RoomRenderer instead of allocating a new List every visible room-render pass. Does not change room state or rendering decisions. -->
+    <OptimizeRoomRendererCleanup>true</OptimizeRoomRendererCleanup>
+
+    <!-- @HMUC:set label="Skip hidden door redraw invalidations" control="checkbox" -->
+    <!-- @HMUC:desc Keeps Door.Update, timers, sounds and m_open fully Vanilla, but suppresses repeated wall redraw dirties for doors that cannot currently be rendered: all ABOVE_HIDDEN doors and definitely interior doors on BELOW floors. Exterior-facing BELOW doors remain Vanilla. -->
+    <OptimizeHiddenDoorVisualInvalidation>true</OptimizeHiddenDoorVisualInvalidation>
+  </Rendering>
+
+  <!-- @HMUC:desc Controls simulation hot-path optimizations while preserving Vanilla gameplay decisions. -->
+  <Simulation>
+    <!-- @HMUC:set label="Reuse MoodComponent lookups" control="checkbox" -->
+    <!-- @HMUC:desc Reuses PerkComponent and HospitalizationComponent references already obtained during the same MoodComponent.Update call instead of rescanning the entity component list repeatedly. Need timing and gameplay logic remain Vanilla. -->
+    <OptimizeMoodComponentLookups>true</OptimizeMoodComponentLookups>
+
+    <!-- @HMUC:set label="Reuse WalkComponent lookups" control="checkbox" -->
+    <!-- @HMUC:desc Reuses GridComponent, SoundSourceComponent and HospitalizationComponent references inside the same WalkComponent.Update call instead of rescanning the entity component list immediately. Movement, pathfinding and walk-state logic remain Vanilla. -->
+    <OptimizeWalkComponentLookups>true</OptimizeWalkComponentLookups>
+
+    <!-- @HMUC:set label="Remove duplicate statistics refreshes" control="checkbox" -->
+    <!-- @HMUC:desc Removes two proven duplicate Hospital.UpdateCurrentStatistics calls that are immediately followed by the native InsuranceManager immediate refresh, which recalculates the same statistics again before reading them. -->
+    <OptimizeDuplicateStatisticsRefresh>true</OptimizeDuplicateStatisticsRefresh>
+
+    <!-- @HMUC:set label="Reuse hospitalization patient lookups" control="checkbox" -->
+    <!-- @HMUC:desc Reuses the same BehaviorPatient reference inside HospitalizationComponent.Update and UpdateStateSleeping instead of repeatedly rescanning the entity component list. Hospitalization states, needs and HPL timing remain unchanged. -->
+    <OptimizeHospitalizationComponentLookups>true</OptimizeHospitalizationComponentLookups>
+
+    <!-- @HMUC:set label="Reuse off-shift staff lookups" control="checkbox" -->
+    <!-- @HMUC:desc Reuses EmployeeComponent references during Doctor, Nurse and Lab Specialist AtHome/Commuting updates instead of repeatedly rescanning the entity component list. Shift timing, commute duration and handover logic remain Vanilla. -->
+    <OptimizeOffShiftStaffLookups>true</OptimizeOffShiftStaffLookups>
+
+    <!-- @HMUC:set label="Reuse idle staff lookups" control="checkbox" -->
+    <!-- @HMUC:desc Reuses the EmployeeComponent already fetched by Doctor, Nurse and Lab Specialist UpdateStateIdle instead of repeatedly rescanning the entity component list. Work selection, needs, procedures and handover remain Vanilla. -->
+    <OptimizeIdleStaffLookups>true</OptimizeIdleStaffLookups>
+
+    <!-- @HMUC:set label="Reuse procedure-scene distance queries" control="checkbox" -->
+    <!-- @HMUC:desc During one native UpdateAllExaminationsForMedicalCondition pass, reuses identical GridMap distance results requested by procedure equipment searches. No route, access right, availability, reservation or resource-selection rule is changed. -->
+    <OptimizeProcedureSceneDistanceQueries>true</OptimizeProcedureSceneDistanceQueries>
+
+    <!-- @HMUC:set label="Avoid unchanged statistic writes" control="checkbox" -->
+    <!-- @HMUC:desc Keeps every Vanilla statistic increment, achievement check, Steam SetStat/StoreStats and PlayerPrefs.Save call, but after the first full save writes only the statistic key that actually changed instead of rewriting all statistic keys. -->
+    <OptimizePlayerStatisticsSaveWrites>true</OptimizePlayerStatisticsSaveWrites>
+  </Simulation>
+
+  <!-- @HMUC:desc Controls optimizations for periodic opening, closing, shift, hiring and role-validation work. -->
+  <TemporalSpikes>
+    <!-- @HMUC:set label="Optimize opening/closing light refresh" control="checkbox" -->
+    <!-- @HMUC:desc Preserves every TileObject.SetLightEnabled and Room.UpdateLightLevel call. The first affected object in a room recalculates Vanilla fully; later objects in the same scan update the exact native light delta instead of rescanning the entire room. The final Floor.UpdateRoomLights remains Vanilla. -->
+    <OptimizeOpeningClosingLightRefresh>true</OptimizeOpeningClosingLightRefresh>
+
+    <!-- @HMUC:set label="Avoid opening/closing tile snapshots" control="checkbox" -->
+    <!-- @HMUC:desc Replaces GetAllObjects().ToArray() on every floor tile during opening/closing with the six native TileObjects slots in the same order. ForceFrame and SetLightEnabled still run normally. -->
+    <OptimizeOpeningClosingObjectScan>true</OptimizeOpeningClosingObjectScan>
+
+    <!-- @HMUC:set label="Optimize shift-change maintenance" control="checkbox" -->
+    <!-- @HMUC:desc Reuses staff components during Department.OnShiftStart and evaluates room workload once per room in Hospital.ReportRoomUsage. Shift timing, wages and notifications remain Vanilla. -->
+    <OptimizeShiftChangeMaintenance>true</OptimizeShiftChangeMaintenance>
+
+    <!-- @HMUC:set label="Reuse daily hiring candidate lookups" control="checkbox" -->
+    <!-- @HMUC:desc Reuses EmployeeComponent while each daily hiring candidate is initialized. Candidate generation, RNG, portraits and available-staff counts remain Vanilla. -->
+    <OptimizeDailyHiringCandidateLookups>true</OptimizeDailyHiringCandidateLookups>
+
+    <!-- @HMUC:set label="Reuse employee roles during hourly validation" control="checkbox" -->
+    <!-- @HMUC:desc Keeps every EmployeeComponent.CheckAnyRoleAssigned call and notification, but during one MapEditorController.ValidateRoles pass reuses the single GameDBEmployeeRole array instead of allocating an identical array for every employee. -->
+    <OptimizeHourlyRoleValidation>true</OptimizeHourlyRoleValidation>
+
+  </TemporalSpikes>
+  <!-- @HMUC:desc Controls optional HRO validation diagnostics. Diagnostics add observation hooks only when explicitly enabled and require a restart. -->
+  <Diagnostics>
+    <!-- @HMUC:set label="Enable validation diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Enables detailed HRO validation logging: loaded configuration, feature installation details, one HIT per observed feature path and a compact shutdown summary. Adds no scans, pathfinding or timing probes. Keep false for normal play. -->
+    <EnableDiagnostics>false</EnableDiagnostics>
+  </Diagnostics>
+</HospitalRuntimeOptimizerConfig>

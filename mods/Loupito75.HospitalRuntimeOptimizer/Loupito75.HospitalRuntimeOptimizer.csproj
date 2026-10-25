@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Loupito75.HospitalRuntimeOptimizer</AssemblyName>
+    <RootNamespace>HospitalRuntimeOptimizer</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateFullPaths>false</GenerateFullPaths>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <FileVersion>1.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <Authors>Loupito75</Authors>
+    <Company>Loupito75</Company>
+    <Product>Hospital Runtime Optimizer</Product>
+    <Description>Improves Project Hospital performance by reducing redundant Vanilla runtime and rendering work without changing simulation, pathfinding or gameplay decisions.</Description>
+    <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_DIR)' != ''">$(PROJECT_HOSPITAL_DIR)</GameDir>
+    <ManagedDir Condition="'$(GameDir)' != ''">$(GameDir)\ProjectHospital_Data\Managed</ManagedDir>
+    <BepInExDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\core</BepInExDir>
+    <PluginDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\plugins\Loupito75.HospitalRuntimeOptimizer</PluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Plugin.cs" />
+    <Compile Include="OptimizerConfig.cs" />
+    <Compile Include="HroDiagnostics.cs" />
+    <Compile Include="Patches\HiddenFloorRenderPatch.cs" />
+    <Compile Include="Patches\LowerFloorCharacterCullingPatch.cs" />
+    <Compile Include="Patches\CharacterFloorListReusePatch.cs" />
+    <Compile Include="Patches\NativeHiddenCharacterRenderPatch.cs" />
+    <Compile Include="Patches\RoomRendererCleanupPatch.cs" />
+    <Compile Include="Patches\HiddenDoorVisualInvalidationPatch.cs" />
+    <Compile Include="Patches\MoodComponentLookupReusePatch.cs" />
+    <Compile Include="Patches\WalkComponentLookupReusePatch.cs" />
+    <Compile Include="Patches\DuplicateStatisticsRefreshPatch.cs" />
+    <Compile Include="Patches\HospitalizationComponentLookupReusePatch.cs" />
+    <Compile Include="Patches\OffShiftStaffLookupReusePatch.cs" />
+    <Compile Include="Patches\IdleStaffLookupReusePatch.cs" />
+    <Compile Include="Patches\OpeningClosingLightRefreshPatch.cs" />
+    <Compile Include="Patches\OpeningClosingObjectScanPatch.cs" />
+    <Compile Include="Patches\ShiftChangeMaintenancePatch.cs" />
+    <Compile Include="Patches\DailyHiringCandidateLookupReusePatch.cs" />
+    <Compile Include="Patches\HourlyRoleValidationPatch.cs" />
+    <Compile Include="Patches\ProcedureSceneDistanceQueryReusePatch.cs" />
+    <Compile Include="Patches\PlayerStatisticsSaveWritePatch.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(GameDir)' != ''">
+    <Reference Include="Assembly-CSharp"><HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx"><HintPath>$(BepInExDir)\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(BepInExDir)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine" Condition="Exists('$(ManagedDir)\UnityEngine.dll')"><HintPath>$(ManagedDir)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule" Condition="Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')"><HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateProjectHospitalReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(GameDir)' == ''" Text="GameDir is required. Use build.ps1, set PROJECT_HOSPITAL_DIR, or pass /p:GameDir." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(ManagedDir)\Assembly-CSharp.dll')" Text="Assembly-CSharp.dll not found." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(BepInExDir)\BepInEx.dll')" Text="BepInEx.dll not found." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(BepInExDir)\0Harmony.dll')" Text="0Harmony.dll not found." />
+    <Error Condition="'$(GameDir)' != '' AND !Exists('$(ManagedDir)\UnityEngine.dll') AND !Exists('$(ManagedDir)\UnityEngine.CoreModule.dll')" Text="UnityEngine core assembly not found." />
+  </Target>
+
+  <Target Name="CopyPluginToGame" AfterTargets="Build" Condition="'$(PluginDir)' != ''">
+    <MakeDir Directories="$(PluginDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Loupito75.HospitalRuntimeOptimizer.Config.xml"
+          DestinationFolder="$(PluginDir)"
+          Condition="!Exists('$(PluginDir)\Loupito75.HospitalRuntimeOptimizer.Config.xml')" />
+  </Target>
+</Project>
