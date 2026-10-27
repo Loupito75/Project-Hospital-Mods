@@ -127,15 +127,25 @@ If you enjoy my Project Hospital mods and want to support future updates and new
 
 ## Bug reports and suggestions
 
-Bug reports and suggestions should be posted in the **Steam Workshop Discussions** of the corresponding mod.
+### Bug reports
 
-Use the links in the mod table above to access its Workshop page, discussions and changelog.
+Please use the dedicated bug-report form:
 
-When reporting a problem, please include the mod version, your Project Hospital version, steps to reproduce the issue and the relevant contents of:
+**[Report a Bug](https://loupito75.github.io/Project-Hospital-Mods/report.html)**
 
-```text
-BepInEx/LogOutput.log
-```
+The form creates a private ticket for your report and allows you to attach saves, BepInEx logs, game logs, screenshots and other useful files through a private Dropbox upload request.
+
+No GitHub or Dropbox account is required to submit a report.
+
+After submission, you will receive a confirmation email containing your ticket number. Keep this number if you need to follow up on the report.
+
+The form indicates which information is required.
+
+### Suggestions
+
+Suggestions should be posted in the **Steam Workshop Discussions** of the corresponding mod.
+
+Use the **Discussions** link in the mod table above to open the discussion page for the relevant mod.
 
 ## Compatibility
 
