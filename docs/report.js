@@ -513,10 +513,6 @@ function setupContactEmail() {
     button.addEventListener(
         'click',
         function () {
-            /*
-             * The address is intentionally not stored
-             * as a complete string in the HTML or JS.
-             */
             const localCodes = [
                 108, 111, 117, 112,
                 105, 116, 111, 55, 53
@@ -593,6 +589,41 @@ function updateSubmitAvailability() {
 
     status.textContent =
         'Complete all required fields and submit your report.';
+}
+
+
+function startReportLoader() {
+    const button =
+        document.getElementById(
+            'submit-report'
+        );
+
+    const status =
+        document.getElementById(
+            'report-status'
+        );
+
+    const loader =
+        document.getElementById(
+            'report-loader'
+        );
+
+    button.disabled = true;
+    button.hidden = true;
+
+    status.hidden = true;
+    loader.hidden = false;
+}
+
+
+function stopReportLoader() {
+    document.getElementById(
+        'report-loader'
+    ).hidden = true;
+
+    document.getElementById(
+        'report-status'
+    ).hidden = false;
 }
 
 
@@ -718,17 +749,7 @@ function submitReport(event) {
         ).value.trim()
     );
 
-    const submitButton =
-        document.getElementById(
-            'submit-report'
-        );
-
-    submitButton.disabled = true;
-
-    document.getElementById(
-        'report-status'
-    ).textContent =
-        'Sending your report…';
+    startReportLoader();
 
     const bridgeForm =
         document.getElementById(
@@ -750,12 +771,18 @@ function setHiddenValue(id, value) {
 
 
 function showReportSubmitted(data) {
+    stopReportLoader();
+
     const button =
         document.getElementById(
             'submit-report'
         );
 
+    /*
+     * Do not show the submit button again after success.
+     */
     button.disabled = true;
+    button.hidden = true;
 
     const reportStatus =
         document.getElementById(
@@ -818,6 +845,8 @@ function showReportSubmitted(data) {
 
 
 function showReportError(data) {
+    stopReportLoader();
+
     const status =
         document.getElementById(
             'report-status'
@@ -829,10 +858,6 @@ function showReportError(data) {
 
     activeSubmitNonce = null;
 
-    /*
-     * Do not call updateSubmitAvailability() here:
-     * it would overwrite the actual error message.
-     */
     if (
         REPORT_SUBMISSION_ENABLED &&
         ticketReady &&
@@ -840,9 +865,13 @@ function showReportError(data) {
         activeReservationToken &&
         modManifest
     ) {
-        document.getElementById(
-            'submit-report'
-        ).disabled = false;
+        const button =
+            document.getElementById(
+                'submit-report'
+            );
+
+        button.hidden = false;
+        button.disabled = false;
     }
 }
 
