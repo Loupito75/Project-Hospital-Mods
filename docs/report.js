@@ -8,7 +8,7 @@ const MOD_MANIFEST_URL =
     'https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/mod-updates.json';
 
 
-const REPORT_SUBMISSION_ENABLED = false;
+const REPORT_SUBMISSION_ENABLED = true;
 
 
 const HIDDEN_MOD_GUIDS = [
@@ -505,30 +505,49 @@ function handleModSelection() {
 /* ------------------------------------------------------------------ */
 
 function setupContactEmail() {
-    /*
-     * Built at runtime instead of writing the complete address
-     * directly in the HTML. This is basic protection against
-     * simple email-address harvesters.
-     */
-    const user =
-        'loupito75';
-
-    const domain =
-        'gmail' + '.' + 'com';
-
-    const address =
-        user + '@' + domain;
-
-    const link =
+    const button =
         document.getElementById(
             'contact-email'
         );
 
-    link.textContent =
-        address;
+    button.addEventListener(
+        'click',
+        function () {
+            /*
+             * The address is intentionally not stored
+             * as a complete string in the HTML or JS.
+             */
+            const localCodes = [
+                108, 111, 117, 112,
+                105, 116, 111, 55, 53
+            ];
 
-    link.href =
-        'mailto:' + address;
+            const domainCodes = [
+                103, 109, 97, 105, 108,
+                46, 99, 111, 109
+            ];
+
+            const local =
+                String.fromCharCode.apply(
+                    null,
+                    localCodes
+                );
+
+            const domain =
+                String.fromCharCode.apply(
+                    null,
+                    domainCodes
+                );
+
+            const address =
+                local +
+                String.fromCharCode(64) +
+                domain;
+
+            window.location.href =
+                'mailto:' + address;
+        }
+    );
 }
 
 
@@ -551,8 +570,7 @@ function updateSubmitAvailability() {
         button.disabled = true;
 
         status.textContent =
-            'Report submission will be enabled after the ' +
-            'backend submission step is installed.';
+            'Report submission is temporarily unavailable.';
 
         return;
     }
@@ -731,15 +749,54 @@ function setHiddenValue(id, value) {
 }
 
 
-function showReportSubmitted() {
-    document.getElementById(
-        'submit-report'
-    ).disabled = true;
+function showReportSubmitted(data) {
+    const button =
+        document.getElementById(
+            'submit-report'
+        );
 
-    document.getElementById(
-        'report-status'
-    ).textContent =
-        'Report submitted successfully. Thank you.';
+    button.disabled = true;
+
+    const reportStatus =
+        document.getElementById(
+            'report-status'
+        );
+
+    if (data.alreadySubmitted === true) {
+        reportStatus.textContent =
+            'This report was already received. No duplicate was sent.';
+    }
+    else {
+        reportStatus.textContent =
+            'Report submitted successfully. Thank you.';
+    }
+
+    const confirmationStatus =
+        document.getElementById(
+            'confirmation-status'
+        );
+
+    if (data.confirmationEmailSent === true) {
+        confirmationStatus.className =
+            'confirmation-note confirmation-success';
+
+        confirmationStatus.textContent =
+            'Your report was submitted successfully. ' +
+            'A confirmation email containing ticket ' +
+            activeTicketId +
+            ' was sent to the email address you provided.';
+    }
+    else {
+        confirmationStatus.className =
+            'confirmation-note confirmation-warning';
+
+        confirmationStatus.textContent =
+            'Your report was submitted successfully, but the ' +
+            'confirmation email could not be sent. Please copy ' +
+            'and keep ticket ' +
+            activeTicketId +
+            '. Your bug report was still received.';
+    }
 
     document.getElementById(
         'bug-report-form'
@@ -750,19 +807,43 @@ function showReportSubmitted() {
             element.disabled = true;
         }
     );
+
+    document.getElementById(
+        'ticket-section'
+    ).scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+    });
 }
 
 
 function showReportError(data) {
-    document.getElementById(
-        'report-status'
-    ).textContent =
+    const status =
+        document.getElementById(
+            'report-status'
+        );
+
+    status.textContent =
         data.message ||
         'Unable to submit the report. Please try again.';
 
     activeSubmitNonce = null;
 
-    updateSubmitAvailability();
+    /*
+     * Do not call updateSubmitAvailability() here:
+     * it would overwrite the actual error message.
+     */
+    if (
+        REPORT_SUBMISSION_ENABLED &&
+        ticketReady &&
+        activeTicketId &&
+        activeReservationToken &&
+        modManifest
+    ) {
+        document.getElementById(
+            'submit-report'
+        ).disabled = false;
+    }
 }
 
 
@@ -813,7 +894,9 @@ window.addEventListener(
         ).addEventListener(
             'click',
             function () {
-                copyTicketNumber(this);
+                copyTicketNumber(
+                    this
+                );
             }
         );
 

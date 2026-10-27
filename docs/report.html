@@ -26,8 +26,6 @@
 
 <main class="page">
 
-    <!-- Verification -------------------------------------------------- -->
-
     <section
         id="verification-section"
         class="card verification-card">
@@ -55,6 +53,7 @@
 
             <div>
                 <strong>Creating your ticket…</strong>
+
                 <p>
                     Please keep this page open.
                     This may take a few seconds.
@@ -72,8 +71,6 @@
 
     </section>
 
-
-    <!-- Ticket -------------------------------------------------------- -->
 
     <section
         id="ticket-section"
@@ -119,6 +116,15 @@
                 save files, logs and screenshots together.
             </p>
 
+            <p
+                id="confirmation-status"
+                class="confirmation-note">
+                After you submit the report, a confirmation
+                email containing this ticket number will be
+                sent to the email address you provide below.
+                Keep your ticket number until you receive it.
+            </p>
+
         </div>
 
 
@@ -126,6 +132,7 @@
 
             <h3>
                 Attach files
+
                 <span class="optional-label">
                     optional
                 </span>
@@ -252,8 +259,6 @@
     </section>
 
 
-    <!-- Report -------------------------------------------------------- -->
-
     <section
         id="report-section"
         class="card"
@@ -281,14 +286,19 @@
             </p>
 
             <p>
-                Contact:
-                <a
-                    id="contact-email"
-                    class="contact-email"
-                    href="#"
-                    rel="nofollow">
-                    loupito75 [at] gmail [dot] com
-                </a>
+                Need to contact me directly?
+            </p>
+            
+            <button
+                id="contact-email"
+                class="contact-button"
+                type="button">
+                Contact Loupito75 by email
+            </button>
+            
+            <p class="field-help">
+                The email address is hidden from the page to reduce
+                automated spam harvesting.
             </p>
 
         </div>
@@ -444,6 +454,7 @@
 
                 <label for="expected">
                     Expected behaviour
+
                     <span class="optional-label">
                         optional
                     </span>
@@ -462,6 +473,7 @@
 
                 <label for="additional-notes">
                     Additional information
+
                     <span class="optional-label">
                         optional
                     </span>
@@ -490,8 +502,7 @@
                     id="report-status"
                     class="status"
                     aria-live="polite">
-                    Report submission will be enabled after
-                    the backend submission step is installed.
+                    Preparing the report form…
                 </p>
 
             </div>
@@ -500,8 +511,6 @@
 
     </section>
 
-
-    <!-- Footer -------------------------------------------------------- -->
 
     <footer class="page-footer">
 
@@ -521,16 +530,12 @@
 </main>
 
 
-<!-- Backend iframe --------------------------------------------------- -->
-
 <iframe
     id="backend-bridge"
     name="backend-bridge"
     hidden>
 </iframe>
 
-
-<!-- Ticket creation -------------------------------------------------- -->
 
 <form
     id="ticket-init-form"
@@ -555,8 +560,6 @@
 
 </form>
 
-
-<!-- Report submission ------------------------------------------------ -->
 
 <form
     id="report-submit-form"

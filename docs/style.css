@@ -171,6 +171,37 @@ h3 {
     background: #f8f9fa;
 }
 
+.confirmation-note {
+    width: min(560px, 100%);
+
+    margin: 18px auto 0;
+    padding: 12px 14px;
+
+    border-radius: 7px;
+
+    background: #f4f6f8;
+    color: #5f6368;
+
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.confirmation-success {
+    background: #e6f4ea;
+    color: #137333;
+
+    border: 1px solid #b7dfbf;
+}
+
+.confirmation-warning {
+    background: #fff7e0;
+    color: #7a4f01;
+
+    border: 1px solid #f0d58a;
+
+    font-weight: 600;
+}
+
 .file-upload-box {
     margin-top: 28px;
     padding-top: 24px;
@@ -262,8 +293,23 @@ h3 {
     margin: 7px 0 0;
 }
 
-.contact-email {
-    white-space: nowrap;
+.contact-button {
+    margin-top: 4px;
+
+    background: transparent;
+    color: #1a73e8;
+
+    padding: 0;
+
+    border: 0;
+
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.contact-button:hover {
+    filter: none;
+    text-decoration: none;
 }
 
 
