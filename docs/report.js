@@ -505,25 +505,49 @@ function handleModSelection() {
 /* ------------------------------------------------------------------ */
 
 function setupContactEmail() {
-    const user =
-        'loupito75';
-
-    const domain =
-        'gmail' + '.' + 'com';
-
-    const address =
-        user + '@' + domain;
-
-    const link =
+    const button =
         document.getElementById(
             'contact-email'
         );
 
-    link.textContent =
-        address;
+    button.addEventListener(
+        'click',
+        function () {
+            /*
+             * The address is intentionally not stored
+             * as a complete string in the HTML or JS.
+             */
+            const localCodes = [
+                108, 111, 117, 112,
+                105, 116, 111, 55, 53
+            ];
 
-    link.href =
-        'mailto:' + address;
+            const domainCodes = [
+                103, 109, 97, 105, 108,
+                46, 99, 111, 109
+            ];
+
+            const local =
+                String.fromCharCode.apply(
+                    null,
+                    localCodes
+                );
+
+            const domain =
+                String.fromCharCode.apply(
+                    null,
+                    domainCodes
+                );
+
+            const address =
+                local +
+                String.fromCharCode(64) +
+                domain;
+
+            window.location.href =
+                'mailto:' + address;
+        }
+    );
 }
 
 
