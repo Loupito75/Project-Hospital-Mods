@@ -20,17 +20,16 @@ window.onRecaptchaLoaded = function () {
             'captcha-container',
             {
                 sitekey: RECAPTCHA_SITE_KEY,
-                action: 'ticket_init',
-
+    
                 callback: function (token) {
                     requestTicket(token);
                 },
-
+    
                 'expired-callback': function () {
                     status.textContent =
                         'Verification expired. Please try again.';
                 },
-
+    
                 'error-callback': function () {
                     status.textContent =
                         'Verification failed to load.';
