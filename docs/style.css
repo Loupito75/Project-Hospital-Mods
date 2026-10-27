@@ -293,8 +293,23 @@ h3 {
     margin: 7px 0 0;
 }
 
-.contact-email {
-    white-space: nowrap;
+.contact-button {
+    margin-top: 4px;
+
+    background: transparent;
+    color: #1a73e8;
+
+    padding: 0;
+
+    border: 0;
+
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.contact-button:hover {
+    filter: none;
+    text-decoration: none;
 }
 
 
