@@ -31,6 +31,11 @@
         class="card verification-card">
 
         <h1>Project Hospital Mods</h1>
+
+        <p class="author-line">
+            by Loupito75
+        </p>
+
         <h2>Bug Report</h2>
 
         <p>
@@ -288,14 +293,14 @@
             <p>
                 Need to contact me directly?
             </p>
-            
+
             <button
                 id="contact-email"
                 class="contact-button"
                 type="button">
                 Contact Loupito75 by email
             </button>
-            
+
             <p class="field-help">
                 The email address is hidden from the page to reduce
                 automated spam harvesting.
@@ -403,6 +408,10 @@
 
                     <label for="game-version">
                         Project Hospital version
+
+                        <span class="optional-label">
+                            optional
+                        </span>
                     </label>
 
                     <input
@@ -410,7 +419,6 @@
                         type="text"
                         maxlength="64"
                         autocomplete="off"
-                        required
                         placeholder="Example: 1.2.XXXX">
 
                 </div>
@@ -497,6 +505,32 @@
                     disabled>
                     Submit bug report
                 </button>
+
+
+                <div
+                    id="report-loader"
+                    class="report-loader"
+                    hidden
+                    aria-live="polite">
+
+                    <div
+                        class="spinner report-spinner"
+                        aria-hidden="true">
+                    </div>
+
+                    <div>
+                        <strong>
+                            Sending your report…
+                        </strong>
+
+                        <p>
+                            Please keep this page open while your
+                            report and confirmation are processed.
+                        </p>
+                    </div>
+
+                </div>
+
 
                 <p
                     id="report-status"
