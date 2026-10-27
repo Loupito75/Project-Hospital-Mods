@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1">
 
-    <title>Project Hospital Mods - Bug Report</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1">
 
-    <link rel="stylesheet" href="style.css">
+    <title>
+        Project Hospital Mods - Bug Report
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="style.css">
 
     <script src="report.js"></script>
 
@@ -22,9 +28,17 @@
 
 <main class="page">
 
-    <section class="card">
-        <h1>Project Hospital Mods</h1>
-        <h2>Bug Report</h2>
+    <section
+        id="verification-section"
+        class="card">
+
+        <h1>
+            Project Hospital Mods
+        </h1>
+
+        <h2>
+            Bug Report
+        </h2>
 
         <p>
             Verify that you're human to create a private
@@ -33,31 +47,42 @@
 
         <div id="captcha-container"></div>
 
-        <p id="status" class="status">
+        <p
+            id="status"
+            class="status">
             Waiting for verification…
         </p>
+
     </section>
 
 
-    <section id="ticket-section"
-             class="card"
-             hidden>
+    <section
+        id="ticket-section"
+        class="card"
+        hidden>
+
+        <h2>
+            Bug-report ticket
+        </h2>
 
         <p class="label">
             Your ticket number
         </p>
 
         <div class="ticket-row">
+
             <input
                 id="ticket-id"
                 type="text"
-                readonly>
+                readonly
+                aria-label="Ticket number">
 
             <button
                 id="copy-ticket"
                 type="button">
                 Copy
             </button>
+
         </div>
 
         <p>
@@ -65,14 +90,256 @@
             save files and logs together.
         </p>
 
-        <a
-            id="dropbox-link"
-            class="button"
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer">
-            Upload save / logs to Dropbox
-        </a>
+        <div class="file-upload-box">
+
+            <p>
+                If the problem involves a save game, logs,
+                screenshots or other files, upload them to
+                the private Dropbox request created for this
+                ticket.
+            </p>
+
+            <p class="field-help">
+                Dropbox may also ask for your name and email
+                address when files are uploaded.
+            </p>
+
+            <a
+                id="dropbox-link"
+                class="button"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer">
+                Upload save / logs to Dropbox
+            </a>
+
+        </div>
+
+    </section>
+
+
+    <section
+        id="report-section"
+        class="card"
+        hidden>
+
+        <h2>
+            Report the problem
+        </h2>
+
+        <p>
+            Please provide enough information to reproduce
+            the issue.
+        </p>
+
+        <form
+            id="bug-report-form"
+            novalidate>
+
+            <div class="form-row">
+
+                <div class="form-field">
+
+                    <label for="reporter-name">
+                        Your name
+                    </label>
+
+                    <input
+                        id="reporter-name"
+                        type="text"
+                        maxlength="100"
+                        autocomplete="name"
+                        required
+                        placeholder="Name or nickname">
+
+                </div>
+
+
+                <div class="form-field">
+
+                    <label for="reporter-email">
+                        Email address
+                    </label>
+
+                    <input
+                        id="reporter-email"
+                        type="email"
+                        maxlength="254"
+                        autocomplete="email"
+                        required
+                        placeholder="you@example.com">
+
+                    <p class="field-help">
+                        Used only if I need more information
+                        about this report.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="mod-select">
+                    Mod
+                </label>
+
+                <select
+                    id="mod-select"
+                    required
+                    disabled>
+
+                    <option value="">
+                        Loading mod list…
+                    </option>
+
+                </select>
+
+                <p
+                    id="mod-status"
+                    class="field-help">
+                    Loading current published mods…
+                </p>
+
+            </div>
+
+
+            <div class="form-row">
+
+                <div class="form-field">
+
+                    <label for="mod-version">
+                        Installed mod version
+                    </label>
+
+                    <input
+                        id="mod-version"
+                        type="text"
+                        maxlength="32"
+                        autocomplete="off"
+                        required>
+
+                    <p
+                        id="latest-version"
+                        class="field-help">
+                    </p>
+
+                </div>
+
+
+                <div class="form-field">
+
+                    <label for="game-version">
+                        Project Hospital version
+                    </label>
+
+                    <input
+                        id="game-version"
+                        type="text"
+                        maxlength="64"
+                        autocomplete="off"
+                        placeholder="Optional">
+
+                </div>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="summary">
+                    Short summary
+                </label>
+
+                <input
+                    id="summary"
+                    type="text"
+                    maxlength="160"
+                    required
+                    placeholder="Briefly describe the problem">
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="description">
+                    What happened?
+                </label>
+
+                <textarea
+                    id="description"
+                    rows="6"
+                    maxlength="5000"
+                    required
+                    placeholder="Describe what you saw and what was happening when the problem occurred."></textarea>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="steps">
+                    Steps to reproduce
+                </label>
+
+                <textarea
+                    id="steps"
+                    rows="6"
+                    maxlength="5000"
+                    required
+                    placeholder="Describe the steps that reproduce the problem, if known."></textarea>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="expected">
+                    Expected behaviour
+                </label>
+
+                <textarea
+                    id="expected"
+                    rows="4"
+                    maxlength="3000"
+                    placeholder="Optional — what did you expect to happen?"></textarea>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="additional-notes">
+                    Additional information
+                </label>
+
+                <textarea
+                    id="additional-notes"
+                    rows="4"
+                    maxlength="3000"
+                    placeholder="Optional — anything else that may help."></textarea>
+
+            </div>
+
+
+            <button
+                id="submit-report"
+                class="button primary-button"
+                type="submit"
+                disabled>
+                Submit bug report
+            </button>
+
+            <p
+                id="report-status"
+                class="status">
+                Report submission will be enabled after the
+                backend submission step is installed.
+            </p>
+
+        </form>
 
     </section>
 
@@ -106,6 +373,90 @@
         id="client-nonce"
         type="hidden"
         name="clientNonce">
+
+</form>
+
+
+<form
+    id="report-submit-form"
+    method="post"
+    target="backend-bridge"
+    hidden>
+
+    <input
+        type="hidden"
+        name="action"
+        value="submit">
+
+    <input
+        id="submit-client-nonce"
+        type="hidden"
+        name="clientNonce">
+
+    <input
+        id="submit-ticket-id"
+        type="hidden"
+        name="ticketId">
+
+    <input
+        id="submit-reservation-token"
+        type="hidden"
+        name="reservationToken">
+
+    <input
+        id="submit-reporter-name"
+        type="hidden"
+        name="reporterName">
+
+    <input
+        id="submit-reporter-email"
+        type="hidden"
+        name="reporterEmail">
+
+    <input
+        id="submit-mod-guid"
+        type="hidden"
+        name="modGuid">
+
+    <input
+        id="submit-mod-name"
+        type="hidden"
+        name="modName">
+
+    <input
+        id="submit-mod-version"
+        type="hidden"
+        name="modVersion">
+
+    <input
+        id="submit-game-version"
+        type="hidden"
+        name="gameVersion">
+
+    <input
+        id="submit-summary"
+        type="hidden"
+        name="summary">
+
+    <input
+        id="submit-description"
+        type="hidden"
+        name="description">
+
+    <input
+        id="submit-steps"
+        type="hidden"
+        name="steps">
+
+    <input
+        id="submit-expected"
+        type="hidden"
+        name="expected">
+
+    <input
+        id="submit-additional-notes"
+        type="hidden"
+        name="additionalNotes">
 
 </form>
 
