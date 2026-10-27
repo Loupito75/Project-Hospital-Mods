@@ -7,6 +7,7 @@ const RECAPTCHA_SITE_KEY =
 
 let recaptchaWidgetId = null;
 let activeClientNonce = null;
+let ticketReady = false;
 
 
 window.onRecaptchaLoaded = function () {
@@ -26,6 +27,10 @@ window.onRecaptchaLoaded = function () {
                 },
     
                 'expired-callback': function () {
+                    if (ticketReady) {
+                        return;
+                    }
+                
                     status.textContent =
                         'Verification expired. Please try again.';
                 },
@@ -110,6 +115,8 @@ window.addEventListener(
 
 
 function showTicket(data) {
+    ticketReady = true;
+    
     const status =
         document.getElementById('status');
 
