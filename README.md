@@ -20,6 +20,9 @@
   <a href="#hmuc" title="Jump to Hospital Mod Update Checker">
     <img src="https://img.shields.io/badge/Auto%20Update-via%20HMUC-2f81f7?style=flat&labelColor=f6f8fa&logo=data%3Aimage/svg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iIzI0MjkyZiIgZD0iTTEyIDZWM0w4IDdsNCA0VjhjMi43NiAwIDUgMi4yNCA1IDUgMCAxLjAxLS4zIDEuOTUtLjgzIDIuNzRsMS40NiAxLjQ2QTYuOTYgNi45NiAwIDAgMCAxOSAxM2MwLTMuODctMy4xMy03LTctN3ptLTUuMTcgMi4yNkw1LjM3IDYuOEE2Ljk2IDYuOTYgMCAwIDAgNSAxMWMwIDMuODcgMy4xMyA3IDcgN3YzbDQtNC00LTR2M2MtMi43NiAwLTUtMi4yNC01LTUgMC0xLjAxLjMtMS45NS44My0yLjc0eiIvPjwvc3ZnPg%3D%3D" alt="Auto Update - via HMUC">
   </a>
+  <a href="https://loupito75.github.io/Project-Hospital-Mods/report.html" title="Open the Project Hospital Mods bug report form">
+    <img src="https://img.shields.io/badge/Report%20a%20Bug-Open%20Form-d73a49?style=flat&labelColor=f6f8fa&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI%2BPHBhdGggZmlsbD0iI2Q3M2E0OSIgZD0iTTcgMmgybC0uMyA4SDcuM0w3IDJ6bTAgMTBoMnYySDd2LTJ6Ii8%2BPC9zdmc%2B" alt="Report a Bug">
+  </a>
 </p>
 
 # Project Hospital Mods by Loupito75
