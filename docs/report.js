@@ -1,5 +1,5 @@
 const APPS_SCRIPT_URL =
-    'https://script.google.com/macros/s/AKfycbyRd3nVM5EUo5_oWD31gxVpOVjTmrcCjRZ-8T6sdeopcsxyZUuMR-g_J2bY0q7BmVng/exec';
+    'https://script.google.com/macros/s/AKfycbyB3KZSp7ox3J3fZO_XcRfXzmRp9GVkLKxfPZ3yEas/dev';
 
 const RECAPTCHA_SITE_KEY =
     '6LdUnwIuAAAAAKu2H-GxH3OAFLKxXxOf8a7XpG-f';
