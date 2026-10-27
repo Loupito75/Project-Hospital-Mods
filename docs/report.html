@@ -1,1 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
 
+    <title>Project Hospital Mods - Bug Report</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <script src="report.js"></script>
+
+    <script
+        src="https://www.google.com/recaptcha/enterprise.js?onload=onRecaptchaLoaded&render=explicit"
+        async
+        defer>
+    </script>
+</head>
+
+<body>
+
+<main class="page">
+
+    <section class="card">
+        <h1>Project Hospital Mods</h1>
+        <h2>Bug Report</h2>
+
+        <p>
+            Verify that you're human to create a private
+            bug-report ticket.
+        </p>
+
+        <div id="captcha-container"></div>
+
+        <p id="status" class="status">
+            Waiting for verification…
+        </p>
+    </section>
+
+
+    <section id="ticket-section"
+             class="card"
+             hidden>
+
+        <p class="label">
+            Your ticket number
+        </p>
+
+        <div class="ticket-row">
+            <input
+                id="ticket-id"
+                type="text"
+                readonly>
+
+            <button
+                id="copy-ticket"
+                type="button">
+                Copy
+            </button>
+        </div>
+
+        <p>
+            Keep this number. It links your bug report,
+            save files and logs together.
+        </p>
+
+        <a
+            id="dropbox-link"
+            class="button"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer">
+            Upload save / logs to Dropbox
+        </a>
+
+    </section>
+
+</main>
+
+
+<iframe
+    id="backend-bridge"
+    name="backend-bridge"
+    hidden>
+</iframe>
+
+
+<form
+    id="ticket-init-form"
+    method="post"
+    target="backend-bridge"
+    hidden>
+
+    <input
+        type="hidden"
+        name="action"
+        value="init">
+
+    <input
+        id="captcha-token"
+        type="hidden"
+        name="captchaToken">
+
+    <input
+        id="client-nonce"
+        type="hidden"
+        name="clientNonce">
+
+</form>
+
+</body>
+</html>
