@@ -7,9 +7,7 @@
         name="viewport"
         content="width=device-width, initial-scale=1">
 
-    <title>
-        Project Hospital Mods - Bug Report
-    </title>
+    <title>Project Hospital Mods - Bug Report</title>
 
     <link
         rel="stylesheet"
@@ -28,17 +26,14 @@
 
 <main class="page">
 
+    <!-- Verification -------------------------------------------------- -->
+
     <section
         id="verification-section"
-        class="card">
+        class="card verification-card">
 
-        <h1>
-            Project Hospital Mods
-        </h1>
-
-        <h2>
-            Bug Report
-        </h2>
+        <h1>Project Hospital Mods</h1>
+        <h2>Bug Report</h2>
 
         <p>
             Verify that you're human to create a private
@@ -47,61 +42,98 @@
 
         <div id="captcha-container"></div>
 
+        <div
+            id="ticket-loader"
+            class="ticket-loader"
+            hidden
+            aria-live="polite">
+
+            <div
+                class="spinner"
+                aria-hidden="true">
+            </div>
+
+            <div>
+                <strong>Creating your ticket…</strong>
+                <p>
+                    Please keep this page open.
+                    This may take a few seconds.
+                </p>
+            </div>
+
+        </div>
+
         <p
             id="status"
-            class="status">
+            class="status"
+            aria-live="polite">
             Waiting for verification…
         </p>
 
     </section>
 
 
+    <!-- Ticket -------------------------------------------------------- -->
+
     <section
         id="ticket-section"
         class="card"
         hidden>
 
-        <h2>
-            Bug-report ticket
-        </h2>
+        <div class="ticket-header">
 
-        <p class="label">
-            Your ticket number
-        </p>
+            <div class="success-mark">
+                ✓
+            </div>
 
-        <div class="ticket-row">
+            <h2>
+                Bug-report ticket
+            </h2>
 
-            <input
-                id="ticket-id"
-                type="text"
-                readonly
-                aria-label="Ticket number">
+            <p class="ticket-ready-text">
+                Your ticket is ready.
+            </p>
 
-            <button
-                id="copy-ticket"
-                type="button">
-                Copy
-            </button>
+            <p class="label">
+                Ticket number
+            </p>
+
+            <div class="ticket-row">
+
+                <input
+                    id="ticket-id"
+                    type="text"
+                    readonly
+                    aria-label="Ticket number">
+
+                <button
+                    id="copy-ticket"
+                    type="button">
+                    Copy
+                </button>
+
+            </div>
+
+            <p class="field-help">
+                Keep this number. It links your bug report,
+                save files, logs and screenshots together.
+            </p>
 
         </div>
 
-        <p>
-            Keep this number. It links your bug report,
-            save files and logs together.
-        </p>
 
         <div class="file-upload-box">
 
-            <p>
-                If the problem involves a save game, logs,
-                screenshots or other files, upload them to
-                the private Dropbox request created for this
-                ticket.
-            </p>
+            <h3>
+                Attach files
+                <span class="optional-label">
+                    optional
+                </span>
+            </h3>
 
-            <p class="field-help">
-                Dropbox may also ask for your name and email
-                address when files are uploaded.
+            <p>
+                Saves, logs and screenshots are often extremely
+                useful when investigating a bug.
             </p>
 
             <a
@@ -110,13 +142,117 @@
                 href="#"
                 target="_blank"
                 rel="noopener noreferrer">
-                Upload save / logs to Dropbox
+                Upload files to Dropbox
             </a>
+
+            <p class="field-help">
+                Dropbox may ask for your name and email address
+                when uploading. No Dropbox account is required.
+            </p>
+
+
+            <details class="file-help">
+
+                <summary>
+                    Where can I find my saves and logs?
+                </summary>
+
+                <div class="file-help-content">
+
+                    <h4>
+                        BepInEx log
+                    </h4>
+
+                    <p>
+                        Inside your Project Hospital installation:
+                    </p>
+
+                    <code>
+                        BepInEx\LogOutput.log
+                    </code>
+
+
+                    <h4>
+                        Project Hospital game log
+                    </h4>
+
+                    <p>
+                        Windows:
+                    </p>
+
+                    <code>
+                        %USERPROFILE%\AppData\LocalLow\Oxymoron Games\Project Hospital\output_log.txt
+                    </code>
+
+
+                    <h4>
+                        Save games
+                    </h4>
+
+                    <p>
+                        Windows:
+                    </p>
+
+                    <code>
+                        %USERPROFILE%\AppData\LocalLow\Oxymoron Games\Project Hospital\maps
+                    </code>
+
+                    <p class="field-help">
+                        Tip: copy one of the paths above into the
+                        Windows File Explorer address bar.
+                    </p>
+
+
+                    <details class="secondary-file-help">
+
+                        <summary>
+                            Linux / macOS
+                        </summary>
+
+                        <p>
+                            Linux game log:
+                        </p>
+
+                        <code>
+                            ~/.config/unity3d/Oxymoron Games/Project Hospital/Player.log
+                        </code>
+
+                        <p>
+                            Linux saves:
+                        </p>
+
+                        <code>
+                            ~/.config/unity3d/Oxymoron Games/Project Hospital/maps
+                        </code>
+
+                        <p>
+                            macOS game log:
+                        </p>
+
+                        <code>
+                            ~/Library/Logs/Unity/Player.log
+                        </code>
+
+                        <p>
+                            macOS saves:
+                        </p>
+
+                        <code>
+                            ~/Library/Application Support/unity.Oxymoron Games.Project Hospital/maps
+                        </code>
+
+                    </details>
+
+                </div>
+
+            </details>
 
         </div>
 
     </section>
 
+
+    <!-- Report -------------------------------------------------------- -->
 
     <section
         id="report-section"
@@ -129,8 +265,34 @@
 
         <p>
             Please provide enough information to reproduce
-            the issue.
+            and investigate the issue.
         </p>
+
+        <div class="info-box">
+
+            <strong>
+                All fields are required unless marked
+                “optional”.
+            </strong>
+
+            <p>
+                Your report will be sent directly to
+                Loupito75 by email.
+            </p>
+
+            <p>
+                Contact:
+                <a
+                    id="contact-email"
+                    class="contact-email"
+                    href="#"
+                    rel="nofollow">
+                    loupito75 [at] gmail [dot] com
+                </a>
+            </p>
+
+        </div>
+
 
         <form
             id="bug-report-form"
@@ -141,7 +303,7 @@
                 <div class="form-field">
 
                     <label for="reporter-name">
-                        Your name
+                        Your name or nickname
                     </label>
 
                     <input
@@ -149,8 +311,7 @@
                         type="text"
                         maxlength="100"
                         autocomplete="name"
-                        required
-                        placeholder="Name or nickname">
+                        required>
 
                 </div>
 
@@ -170,7 +331,7 @@
                         placeholder="you@example.com">
 
                     <p class="field-help">
-                        Used only if I need more information
+                        Used only if more information is needed
                         about this report.
                     </p>
 
@@ -239,25 +400,10 @@
                         type="text"
                         maxlength="64"
                         autocomplete="off"
-                        placeholder="Optional">
+                        required
+                        placeholder="Example: 1.2.XXXX">
 
                 </div>
-
-            </div>
-
-
-            <div class="form-field">
-
-                <label for="summary">
-                    Short summary
-                </label>
-
-                <input
-                    id="summary"
-                    type="text"
-                    maxlength="160"
-                    required
-                    placeholder="Briefly describe the problem">
 
             </div>
 
@@ -270,10 +416,10 @@
 
                 <textarea
                     id="description"
-                    rows="6"
+                    rows="7"
                     maxlength="5000"
                     required
-                    placeholder="Describe what you saw and what was happening when the problem occurred."></textarea>
+                    placeholder="Describe the problem, what was happening in the hospital and anything unusual you noticed."></textarea>
 
             </div>
 
@@ -289,7 +435,7 @@
                     rows="6"
                     maxlength="5000"
                     required
-                    placeholder="Describe the steps that reproduce the problem, if known."></textarea>
+                    placeholder="Explain how to reproduce the problem. If you don't know how to reproduce it, please say so."></textarea>
 
             </div>
 
@@ -298,13 +444,16 @@
 
                 <label for="expected">
                     Expected behaviour
+                    <span class="optional-label">
+                        optional
+                    </span>
                 </label>
 
                 <textarea
                     id="expected"
                     rows="4"
                     maxlength="3000"
-                    placeholder="Optional — what did you expect to happen?"></textarea>
+                    placeholder="What did you expect to happen instead?"></textarea>
 
             </div>
 
@@ -313,38 +462,66 @@
 
                 <label for="additional-notes">
                     Additional information
+                    <span class="optional-label">
+                        optional
+                    </span>
                 </label>
 
                 <textarea
                     id="additional-notes"
                     rows="4"
                     maxlength="3000"
-                    placeholder="Optional — anything else that may help."></textarea>
+                    placeholder="Character names, department, time of day, other installed mods, or anything else that may help."></textarea>
 
             </div>
 
 
-            <button
-                id="submit-report"
-                class="button primary-button"
-                type="submit"
-                disabled>
-                Submit bug report
-            </button>
+            <div class="submit-area">
 
-            <p
-                id="report-status"
-                class="status">
-                Report submission will be enabled after the
-                backend submission step is installed.
-            </p>
+                <button
+                    id="submit-report"
+                    class="button primary-button"
+                    type="submit"
+                    disabled>
+                    Submit bug report
+                </button>
+
+                <p
+                    id="report-status"
+                    class="status"
+                    aria-live="polite">
+                    Report submission will be enabled after
+                    the backend submission step is installed.
+                </p>
+
+            </div>
 
         </form>
 
     </section>
 
+
+    <!-- Footer -------------------------------------------------------- -->
+
+    <footer class="page-footer">
+
+        <p>
+            Project Hospital Mods by Loupito75
+        </p>
+
+        <a
+            href="https://github.com/Loupito75/Project-Hospital-Mods"
+            target="_blank"
+            rel="noopener noreferrer">
+            View Project Hospital Mods on GitHub
+        </a>
+
+    </footer>
+
 </main>
 
+
+<!-- Backend iframe --------------------------------------------------- -->
 
 <iframe
     id="backend-bridge"
@@ -352,6 +529,8 @@
     hidden>
 </iframe>
 
+
+<!-- Ticket creation -------------------------------------------------- -->
 
 <form
     id="ticket-init-form"
@@ -376,6 +555,8 @@
 
 </form>
 
+
+<!-- Report submission ------------------------------------------------ -->
 
 <form
     id="report-submit-form"
@@ -432,11 +613,6 @@
         id="submit-game-version"
         type="hidden"
         name="gameVersion">
-
-    <input
-        id="submit-summary"
-        type="hidden"
-        name="summary">
 
     <input
         id="submit-description"
