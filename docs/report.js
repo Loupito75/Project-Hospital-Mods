@@ -11,6 +11,11 @@ const MOD_MANIFEST_URL =
 const REPORT_SUBMISSION_ENABLED = false;
 
 
+const HIDDEN_MOD_GUIDS = [
+    'loupito75.HospitalModUpdateTest'
+];
+
+
 let recaptchaWidgetId = null;
 
 let activeClientNonce = null;
@@ -23,6 +28,10 @@ let activeReservationToken = '';
 
 let modManifest = null;
 
+
+/* ------------------------------------------------------------------ */
+/* reCAPTCHA                                                          */
+/* ------------------------------------------------------------------ */
 
 window.onRecaptchaLoaded = function () {
     const status =
@@ -50,6 +59,14 @@ window.onRecaptchaLoaded = function () {
                         return;
                     }
 
+                    stopTicketLoader();
+
+                    document.getElementById(
+                        'captcha-container'
+                    ).hidden = false;
+
+                    status.hidden = false;
+
                     status.textContent =
                         'Verification expired. Please try again.';
                 },
@@ -59,6 +76,14 @@ window.onRecaptchaLoaded = function () {
                         return;
                     }
 
+                    stopTicketLoader();
+
+                    document.getElementById(
+                        'captcha-container'
+                    ).hidden = false;
+
+                    status.hidden = false;
+
                     status.textContent =
                         'Verification failed to load.';
                 }
@@ -67,16 +92,14 @@ window.onRecaptchaLoaded = function () {
 };
 
 
+/* ------------------------------------------------------------------ */
+/* Ticket creation                                                    */
+/* ------------------------------------------------------------------ */
+
 function requestTicket(captchaToken) {
     if (ticketReady) {
         return;
     }
-
-    const status =
-        document.getElementById('status');
-
-    status.textContent =
-        'Creating your ticket…';
 
     activeClientNonce =
         createClientNonce();
@@ -89,13 +112,39 @@ function requestTicket(captchaToken) {
         'client-nonce'
     ).value = activeClientNonce;
 
+    startTicketLoader();
+
     const form =
         document.getElementById(
             'ticket-init-form'
         );
 
-    form.action = APPS_SCRIPT_URL;
+    form.action =
+        APPS_SCRIPT_URL;
+
     form.submit();
+}
+
+
+function startTicketLoader() {
+    document.getElementById(
+        'captcha-container'
+    ).hidden = true;
+
+    document.getElementById(
+        'status'
+    ).hidden = true;
+
+    document.getElementById(
+        'ticket-loader'
+    ).hidden = false;
+}
+
+
+function stopTicketLoader() {
+    document.getElementById(
+        'ticket-loader'
+    ).hidden = true;
 }
 
 
@@ -114,6 +163,10 @@ function createClientNonce() {
         .join('');
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Backend messages                                                   */
+/* ------------------------------------------------------------------ */
 
 window.addEventListener(
     'message',
@@ -165,6 +218,10 @@ window.addEventListener(
 );
 
 
+/* ------------------------------------------------------------------ */
+/* Ticket UI                                                          */
+/* ------------------------------------------------------------------ */
+
 function showTicket(data) {
     ticketReady = true;
 
@@ -174,6 +231,8 @@ function showTicket(data) {
     activeReservationToken =
         String(data.reservationToken || '');
 
+    stopTicketLoader();
+
     document.getElementById(
         'verification-section'
     ).hidden = true;
@@ -182,13 +241,10 @@ function showTicket(data) {
         'ticket-id'
     ).value = activeTicketId;
 
-    const dropboxLink =
-        document.getElementById(
-            'dropbox-link'
-        );
-
-    dropboxLink.href =
-        data.dropboxUrl;
+    document.getElementById(
+        'dropbox-link'
+    ).href =
+        String(data.dropboxUrl || '#');
 
     document.getElementById(
         'ticket-section'
@@ -203,14 +259,24 @@ function showTicket(data) {
 
 
 function showTicketError(data) {
+    stopTicketLoader();
+
+    const captchaContainer =
+        document.getElementById(
+            'captcha-container'
+        );
+
     const status =
         document.getElementById(
             'status'
         );
 
+    captchaContainer.hidden = false;
+    status.hidden = false;
+
     status.textContent =
         data.message ||
-        'Unable to create the ticket.';
+        'Unable to create the ticket. Please try again.';
 
     if (
         recaptchaWidgetId !== null &&
@@ -222,6 +288,10 @@ function showTicketError(data) {
     }
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Mod manifest                                                       */
+/* ------------------------------------------------------------------ */
 
 async function loadModManifest() {
     const select =
@@ -262,11 +332,27 @@ async function loadModManifest() {
             );
         }
 
-        modManifest =
-            manifest;
+        const visibleMods =
+            manifest.mods.filter(
+                function (mod) {
+                    const guid =
+                        String(
+                            mod.guid || ''
+                        );
+
+                    return !HIDDEN_MOD_GUIDS.includes(
+                        guid
+                    );
+                }
+            );
+
+        modManifest = {
+            ...manifest,
+            mods: visibleMods
+        };
 
         populateModList(
-            manifest.mods
+            visibleMods
         );
 
         status.textContent =
@@ -401,21 +487,54 @@ function handleModSelection() {
     }
 
     const version =
-        selectedOption.dataset.version || '';
+        selectedOption.dataset.version ||
+        '';
 
     versionInput.value =
         version;
 
-    if (version) {
-        latestVersion.textContent =
-            'Latest published version: ' +
-            version;
-    }
-    else {
-        latestVersion.textContent = '';
-    }
+    latestVersion.textContent =
+        version
+            ? 'Latest published version: ' + version
+            : '';
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Contact email                                                      */
+/* ------------------------------------------------------------------ */
+
+function setupContactEmail() {
+    /*
+     * Built at runtime instead of writing the complete address
+     * directly in the HTML. This is basic protection against
+     * simple email-address harvesters.
+     */
+    const user =
+        'loupito75';
+
+    const domain =
+        'gmail' + '.' + 'com';
+
+    const address =
+        user + '@' + domain;
+
+    const link =
+        document.getElementById(
+            'contact-email'
+        );
+
+    link.textContent =
+        address;
+
+    link.href =
+        'mailto:' + address;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Report submission                                                  */
+/* ------------------------------------------------------------------ */
 
 function updateSubmitAvailability() {
     const button =
@@ -455,7 +574,7 @@ function updateSubmitAvailability() {
     button.disabled = false;
 
     status.textContent =
-        'Your ticket is ready. Complete the report and submit it.';
+        'Complete all required fields and submit your report.';
 }
 
 
@@ -554,13 +673,6 @@ function submitReport(event) {
     );
 
     setHiddenValue(
-        'submit-summary',
-        document.getElementById(
-            'summary'
-        ).value.trim()
-    );
-
-    setHiddenValue(
         'submit-description',
         document.getElementById(
             'description'
@@ -619,13 +731,10 @@ function setHiddenValue(id, value) {
 }
 
 
-function showReportSubmitted(data) {
-    const button =
-        document.getElementById(
-            'submit-report'
-        );
-
-    button.disabled = true;
+function showReportSubmitted() {
+    document.getElementById(
+        'submit-report'
+    ).disabled = true;
 
     document.getElementById(
         'report-status'
@@ -645,12 +754,9 @@ function showReportSubmitted(data) {
 
 
 function showReportError(data) {
-    const status =
-        document.getElementById(
-            'report-status'
-        );
-
-    status.textContent =
+    document.getElementById(
+        'report-status'
+    ).textContent =
         data.message ||
         'Unable to submit the report. Please try again.';
 
@@ -659,6 +765,10 @@ function showReportError(data) {
     updateSubmitAvailability();
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Ticket copy                                                        */
+/* ------------------------------------------------------------------ */
 
 async function copyTicketNumber(button) {
     const value =
@@ -691,6 +801,10 @@ async function copyTicketNumber(button) {
 }
 
 
+/* ------------------------------------------------------------------ */
+/* Startup                                                            */
+/* ------------------------------------------------------------------ */
+
 window.addEventListener(
     'DOMContentLoaded',
     function () {
@@ -699,9 +813,7 @@ window.addEventListener(
         ).addEventListener(
             'click',
             function () {
-                copyTicketNumber(
-                    this
-                );
+                copyTicketNumber(this);
             }
         );
 
@@ -718,6 +830,8 @@ window.addEventListener(
             'submit',
             submitReport
         );
+
+        setupContactEmail();
 
         loadModManifest();
     }
