@@ -7,6 +7,12 @@ const RECAPTCHA_SITE_KEY =
 const MOD_MANIFEST_URL =
     'https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/mod-updates.json';
 
+const GENERAL_REPORT_GUID =
+    'general';
+
+const GENERAL_REPORT_NAME =
+    'General / Other';
+
 
 const REPORT_SUBMISSION_ENABLED = true;
 
@@ -356,7 +362,7 @@ async function loadModManifest() {
         );
 
         status.textContent =
-            'Select the mod affected by the problem.';
+            'Select the mod affected by the problem, or General / Other.';
 
         updateSubmitAvailability();
     }
@@ -452,6 +458,28 @@ function populateModList(mods) {
         }
     );
 
+
+    const generalOption =
+        document.createElement(
+            'option'
+        );
+
+    generalOption.value =
+        GENERAL_REPORT_GUID;
+
+    generalOption.textContent =
+        GENERAL_REPORT_NAME;
+
+    generalOption.dataset.name =
+        GENERAL_REPORT_NAME;
+
+    generalOption.dataset.version =
+        '';
+
+    select.appendChild(
+        generalOption
+    );
+
     select.disabled = false;
 }
 
@@ -465,6 +493,11 @@ function handleModSelection() {
     const versionInput =
         document.getElementById(
             'mod-version'
+        );
+
+    const optionalLabel =
+        document.getElementById(
+            'mod-version-optional'
         );
 
     const latestVersion =
@@ -482,9 +515,33 @@ function handleModSelection() {
         !selectedOption.value
     ) {
         versionInput.value = '';
+        versionInput.required = true;
+
+        optionalLabel.hidden = true;
+
         latestVersion.textContent = '';
+
         return;
     }
+
+    if (
+        selectedOption.value ===
+        GENERAL_REPORT_GUID
+    ) {
+        versionInput.value = '';
+        versionInput.required = false;
+
+        optionalLabel.hidden = false;
+
+        latestVersion.textContent =
+            'Not applicable for general reports.';
+
+        return;
+    }
+
+    versionInput.required = true;
+
+    optionalLabel.hidden = true;
 
     const version =
         selectedOption.dataset.version ||
@@ -778,9 +835,6 @@ function showReportSubmitted(data) {
             'submit-report'
         );
 
-    /*
-     * Do not show the submit button again after success.
-     */
     button.disabled = true;
     button.hidden = true;
 
