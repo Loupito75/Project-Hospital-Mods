@@ -30,10 +30,7 @@ on:
       - "catalog/source/news.json"
 
   schedule:
-    # Existing monthly signed-catalog refresh.
     - cron: "17 4 1 * *"
-    # Daily lightweight policy check. This performs the 2026-12-01 legacy
-    # deletion automatically, while avoiding a daily legacy catalog reseal.
     - cron: "15 5 * * *"
 
 permissions:
