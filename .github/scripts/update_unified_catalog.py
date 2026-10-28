@@ -1,32 +1,4 @@
 #!/usr/bin/env python3
-"""
-Build and sign the unified HMUC catalog.
-
-This script intentionally reuses the existing public release tooling in
-.github/scripts/update_latest_release.py for release parsing, ZIP inspection,
-SHA-256 calculation, README updates and RSA signing.
-
-Manual source files:
-  catalog/source/catalog-control.json
-  catalog/source/news.json
-
-Generated modern files:
-  catalog/mod-catalog.json
-  catalog/mod-catalog.json.sig
-
-Legacy behavior:
-  unifiedCatalogActive=false:
-    existing legacy workflow remains authoritative; this script mirrors it into
-    the unified catalog for testing.
-
-  unifiedCatalogActive=true, before legacyDeleteAfterUtc:
-    legacy files are reduced to HMUC only and mod-news.json contains one
-    migration notice.
-
-  at/after legacyDeleteAfterUtc:
-    mod-updates.json, mod-packages.json(.sig) and mod-details.json(.sig) are
-    deleted. mod-news.json remains as the migration/manual-download notice.
-"""
 
 import base64
 import copy
@@ -63,6 +35,7 @@ CATALOG_REFRESH_WHEN_DAYS_LEFT = 30
 CATALOG_MAX_BYTES = 524288
 CATALOG_MAX_MODS = 256
 CATALOG_MAX_NEWS = 64
+CATALOG_INITIAL_REVISION = 482731
 
 
 def load_legacy_tools():
@@ -299,7 +272,7 @@ def load_news_source():
 def empty_catalog():
     return {
         "formatVersion": CATALOG_FORMAT_VERSION,
-        "manifestRevision": 0,
+        "manifestRevision": CATALOG_INITIAL_REVISION - 1,
         "updatedUtc": "",
         "expiresUtc": "",
         "mods": [],
@@ -667,10 +640,6 @@ def process_release_direct(catalog):
 
 
 def rebuild_via_existing_release_tools(catalog):
-    # The existing rebuild function already performs the expensive and
-    # security-sensitive release ZIP inspection correctly. It may create full
-    # legacy catalogs temporarily in the worktree; after merging them here,
-    # apply_legacy_policy() either reduces or deletes them before publication.
     TOOLS.rebuild_package_catalog()
     merge_legacy_into_catalog(catalog)
 
@@ -1090,8 +1059,6 @@ def main():
                 "Unsupported unified-catalog mode: " + mode
             )
     else:
-        # The established legacy publisher ran first when appropriate.
-        # Mirror its working-tree outputs into the staged unified catalog.
         merge_legacy_into_catalog(catalog)
 
     catalog["news"] = news
@@ -1115,7 +1082,6 @@ def main():
         force_refresh=force_refresh,
     )
 
-    # Reload exact generated state if the seal changed revision/timestamps.
     catalog = load_catalog()
     apply_legacy_policy(catalog, control)
 
