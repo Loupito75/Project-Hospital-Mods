@@ -11,6 +11,7 @@ on:
         options:
           - single-release
           - rebuild-package-catalog
+          - refresh-catalog
 
       tag:
         description: "Release tag (required only for single-release)"
@@ -21,10 +22,16 @@ on:
     types:
       - published
 
+  push:
+    branches:
+      - main
+    paths:
+      - "catalog/source/catalog-control.json"
+      - "catalog/source/news.json"
+
   schedule:
-    # Refresh the signed HMUC package catalog once per month.
-    # New releases already refresh it automatically.
     - cron: "17 4 1 * *"
+    - cron: "15 5 * * *"
 
 permissions:
   contents: read
@@ -53,32 +60,74 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Update release metadata and README
+      - name: Read unified catalog switch
+        id: catalog-control
+        shell: bash
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          path = Path("catalog/source/catalog-control.json")
+          value = json.loads(path.read_text(encoding="utf-8"))
+
+          active = value.get("unifiedCatalogActive")
+
+          if type(active) is not bool:
+              raise SystemExit(
+                  "unifiedCatalogActive must be true or false"
+              )
+
+          print("active=" + ("true" if active else "false"))
+          PY
+
+      - name: Update established legacy metadata
+        if: >-
+          steps.catalog-control.outputs.active != 'true' &&
+          github.event_name != 'push' &&
+          (
+            github.event_name != 'schedule' ||
+            github.event.schedule == '17 4 1 * *'
+          ) &&
+          (
+            github.event_name != 'workflow_dispatch' ||
+            inputs.mode != 'refresh-catalog'
+          )
         env:
           GITHUB_TOKEN: ${{ github.token }}
           HMUC_PACKAGE_SIGNING_KEY_B64: ${{ secrets.HMUC_PACKAGE_SIGNING_KEY_B64 }}
         run: |
-          # Also adds new README mod rows and refreshes release/count badges.
           python3 .github/scripts/update_latest_release.py
 
-      - name: Check for metadata changes
+      - name: Build unified catalog and apply legacy policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HMUC_PACKAGE_SIGNING_KEY_B64: ${{ secrets.HMUC_PACKAGE_SIGNING_KEY_B64 }}
+          GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          python3 .github/scripts/update_unified_catalog.py
+
+      - name: Check for generated changes
         id: changes
         shell: bash
         run: |
           if [ -z "$(git status --porcelain -- \
             README.md \
+            catalog/mod-catalog.json \
+            catalog/mod-catalog.json.sig \
             mod-updates.json \
             mod-packages.json \
             mod-packages.json.sig \
             mod-details.json \
-            mod-details.json.sig)" ]; then
+            mod-details.json.sig \
+            mod-news.json)" ]; then
 
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish release metadata through pull request
+      - name: Publish generated metadata through pull request
         if: steps.changes.outputs.changed == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
@@ -86,7 +135,7 @@ jobs:
 
           script: |
             const fs = require('fs');
-            const { execSync } = require('child_process');
+            const { execFileSync, execSync } = require('child_process');
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
@@ -112,21 +161,57 @@ jobs:
 
             const paths = [
               'README.md',
+              'catalog/mod-catalog.json',
+              'catalog/mod-catalog.json.sig',
               'mod-updates.json',
               'mod-packages.json',
               'mod-packages.json.sig',
               'mod-details.json',
-              'mod-details.json.sig'
+              'mod-details.json.sig',
+              'mod-news.json'
             ];
 
-            const additions = paths
-              .filter(path => fs.existsSync(path))
-              .map(path => ({
-                path,
-                contents: fs
-                  .readFileSync(path)
-                  .toString('base64')
-              }));
+            const statusFor = path =>
+              execFileSync(
+                'git',
+                ['status', '--porcelain', '--', path],
+                { encoding: 'utf8' }
+              ).trim();
+
+            const trackedAtHead = path =>
+              execFileSync(
+                'git',
+                ['ls-files', '--', path],
+                { encoding: 'utf8' }
+              ).trim().length > 0;
+
+            const additions = [];
+            const deletions = [];
+
+            for (const path of paths) {
+              const status = statusFor(path);
+
+              if (!status) {
+                continue;
+              }
+
+              if (fs.existsSync(path)) {
+                additions.push({
+                  path,
+                  contents: fs
+                    .readFileSync(path)
+                    .toString('base64')
+                });
+              }
+              else if (trackedAtHead(path)) {
+                deletions.push({ path });
+              }
+            }
+
+            if (additions.length === 0 && deletions.length === 0) {
+              core.info('No publishable generated changes remain.');
+              return;
+            }
 
             core.info(
               `Creating automation branch ${branchName} from ${mainHeadOid}`
@@ -151,6 +236,16 @@ jobs:
                 }
               `;
 
+              const fileChanges = {};
+
+              if (additions.length > 0) {
+                fileChanges.additions = additions;
+              }
+
+              if (deletions.length > 0) {
+                fileChanges.deletions = deletions;
+              }
+
               const commitResult = await github.graphql(
                 mutation,
                 {
@@ -168,9 +263,7 @@ jobs:
                       body: 'Generated by GitHub-Actions'
                     },
 
-                    fileChanges: {
-                      additions
-                    }
+                    fileChanges
                   }
                 }
               );
@@ -201,8 +294,6 @@ jobs:
 
               for (let attempt = 1; attempt <= 5; attempt++) {
                 if (attempt === 1) {
-                  // GitHub can briefly report a freshly-created PR as
-                  // stale even when main has not actually changed.
                   await sleep(2000);
                 }
 

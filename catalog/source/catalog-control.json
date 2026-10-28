@@ -1,0 +1,10 @@
+{
+  "formatVersion": 1,
+  "unifiedCatalogActive": false,
+  "legacyDeleteAfterUtc": "2026-12-01T05:00:00Z",
+  "legacyMigrationNews": {
+    "id": 999999,
+    "title": "HMUC update required",
+    "text": "Hospital Mod Update Checker has moved to a new secure catalog system. Update HMUC before November 30, 2026. After this date, the legacy update catalogs will be removed. If automatic updating is no longer available, download the latest HMUC version from the Loupito75 Project Hospital Mods GitHub repository."
+  }
+}
