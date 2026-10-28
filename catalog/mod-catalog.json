@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 482731,
-  "updatedUtc": "2026-10-28T06:50:08Z",
-  "expiresUtc": "2027-01-26T06:50:08Z",
+  "manifestRevision": 482732,
+  "updatedUtc": "2026-10-28T06:55:32Z",
+  "expiresUtc": "2027-01-26T06:55:32Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -513,7 +513,7 @@
   ],
   "news": [
     {
-      "id": 17,
+      "id": 16,
       "title": "2026-10-25 ★ Hospital Runtime Optimizer - [[ -- NEW MOD -- ]]",
       "text": "→ Boosts performance by reducing redundant game and rendering work.\n→ Measured up to +27.8% FPS on the reference hospital test.\n→ Keeps normal simulation, pathfinding and gameplay decisions unchanged."
     },
