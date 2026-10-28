@@ -17,7 +17,7 @@
       "text": "→ More reliable Porter recognition and hiring.\n→ Corrected hospitalization UI layout.\n→ Improved chained patient transport and male Sample Cart animation."
     },
     {
-      "id": 17,
+      "id": 16,
       "title": "2026-10-25 ★ Hospital Runtime Optimizer - [[ -- NEW MOD -- ]]",
       "text": "→ Boosts performance by reducing redundant game and rendering work.\n→ Measured up to +27.8% FPS on the reference hospital test.\n→ Keeps normal simulation, pathfinding and gameplay decisions unchanged."
     }
