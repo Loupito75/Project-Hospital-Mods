@@ -362,6 +362,22 @@ namespace HospitalTrafficControl.Patches
                     typeof(ExactAccessGraphIsInGridPatch),
                     prefixName: nameof(ExactAccessGraphIsInGridPatch.Prefix));
 
+                Patch(
+                    harmony,
+                    AccessTools.Method(
+                        typeof(GridMap),
+                        nameof(GridMap.GetWaypoints),
+                        new Type[]
+                        {
+                            typeof(int),
+                            typeof(Vector2i),
+                            typeof(int),
+                            typeof(Vector2i),
+                            typeof(AccessRights)
+                        }),
+                    typeof(CandidateNoPathLogGuardPatch),
+                    transpilerName: nameof(CandidateNoPathLogGuardPatch.Transpiler));
+
                 s_applied = true;
                 EnsureFloorGraphs(gridMap, initializedFloor);
 
@@ -429,7 +445,8 @@ namespace HospitalTrafficControl.Patches
             MethodBase original,
             Type patchType,
             string prefixName = null,
-            string postfixName = null)
+            string postfixName = null,
+            string transpilerName = null)
         {
             if (object.ReferenceEquals(original, null))
             {
@@ -441,12 +458,14 @@ namespace HospitalTrafficControl.Patches
                 CreateHarmonyMethod(patchType, prefixName);
             HarmonyMethod postfix =
                 CreateHarmonyMethod(patchType, postfixName);
+            HarmonyMethod transpiler =
+                CreateHarmonyMethod(patchType, transpilerName);
 
             harmony.Patch(
                 original,
                 prefix,
                 postfix,
-                null,
+                transpiler,
                 null,
                 null);
         }

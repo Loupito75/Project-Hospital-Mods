@@ -63,6 +63,14 @@ namespace HospitalTrafficControl.Patches
         new Type[] { typeof(Vector2i), typeof(int), typeof(int) })]
     internal static class JanitorIndoorTileSelectionPatch
     {
+        [HarmonyPrepare]
+        private static bool Prepare()
+        {
+            return TrafficControlConfig.AvoidCleaningActiveProcedureRooms ||
+                   TrafficControlConfig.AvoidCleaningOccupiedBathrooms ||
+                   TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight;
+        }
+
         private static bool Prefix(
             Vector2i position,
             int floorIndex,
@@ -159,6 +167,13 @@ namespace HospitalTrafficControl.Patches
     [HarmonyPatch(typeof(BehaviorJanitor), "UpdateStateCleaning", new Type[] { typeof(float) })]
     internal static class JanitorProtectedCleaningStatePatch
     {
+        [HarmonyPrepare]
+        private static bool Prepare()
+        {
+            return TrafficControlConfig.AvoidCleaningActiveProcedureRooms ||
+                   TrafficControlConfig.AvoidCleaningOccupiedBathrooms;
+        }
+
         private static bool Prefix(BehaviorJanitor __instance)
         {
             return !JanitorCleaningManager.TryInterruptProtectedCleaningRoom(__instance);
@@ -308,8 +323,16 @@ namespace HospitalTrafficControl.Patches
             __state =
                 JanitorCleaningManager.PushJanitorCartDestinationContext(
                     __instance);
-            return !JanitorCleaningManager.TryInterruptProtectedRoomBeforeTravel(
-                __instance);
+
+            if (JanitorCleaningManager.TryInterruptProtectedRoomBeforeTravel(
+                    __instance))
+            {
+                return false;
+            }
+
+            return !JanitorCleaningManager
+                .TryReuseParkedExteriorCartForCurrentRoom(
+                    __instance);
         }
 
         private static void Postfix(

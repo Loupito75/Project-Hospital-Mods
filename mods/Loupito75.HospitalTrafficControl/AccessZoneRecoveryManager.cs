@@ -2209,6 +2209,7 @@ namespace HospitalTrafficControl
             Hashtable.Synchronized(new Hashtable());
 
         private static volatile int s_generation;
+        private static volatile int s_registeredJobCount;
 
         [ThreadStatic]
         private static AccessZoneRecoveryJobData s_pendingJobData;
@@ -2221,6 +2222,15 @@ namespace HospitalTrafficControl
 
         [ThreadStatic]
         private static int s_currentGeneration;
+
+        internal static bool HasActiveJobContext
+        {
+            get
+            {
+                return s_currentJobData != null &&
+                       s_currentGeneration == s_generation;
+            }
+        }
 
         internal static void PrepareNextJob(WalkComponent walk)
         {
@@ -2235,9 +2245,21 @@ namespace HospitalTrafficControl
                 return;
             }
 
-            Jobs[job] = new AccessZoneRecoveryJobRegistration(
-                s_pendingJobData,
-                s_pendingGeneration);
+            AccessZoneRecoveryJobRegistration registration =
+                new AccessZoneRecoveryJobRegistration(
+                    s_pendingJobData,
+                    s_pendingGeneration);
+
+            lock (Jobs.SyncRoot)
+            {
+                if (!Jobs.ContainsKey(job))
+                {
+                    s_registeredJobCount++;
+                }
+
+                Jobs[job] = registration;
+            }
+
             s_pendingJobData = null;
             s_pendingGeneration = 0;
         }
@@ -2250,10 +2272,16 @@ namespace HospitalTrafficControl
 
         internal static void Begin(PathfinderJob job)
         {
-            // Hashtable.Synchronized indexer returns null for a missing job.
-            // All registered values are non-null; one locked lookup is enough.
-            AccessZoneRecoveryJobRegistration registration =
-                job == null ? null : Jobs[job] as AccessZoneRecoveryJobRegistration;
+            AccessZoneRecoveryJobRegistration registration = null;
+
+            if (job != null && s_registeredJobCount > 0)
+            {
+                lock (Jobs.SyncRoot)
+                {
+                    registration =
+                        Jobs[job] as AccessZoneRecoveryJobRegistration;
+                }
+            }
 
             if (registration != null &&
                 registration.Generation == s_generation)
@@ -2272,10 +2300,7 @@ namespace HospitalTrafficControl
         {
             try
             {
-                if (job != null)
-                {
-                    Jobs.Remove(job);
-                }
+                RemoveRegisteredJob(job);
             }
             finally
             {
@@ -2286,11 +2311,7 @@ namespace HospitalTrafficControl
 
         internal static void Forget(PathfinderJob job)
         {
-            if (job != null)
-            {
-                Jobs.Remove(job);
-            }
-
+            RemoveRegisteredJob(job);
             s_currentJobData = null;
             s_currentGeneration = 0;
         }
@@ -2298,11 +2319,36 @@ namespace HospitalTrafficControl
         internal static void Reset()
         {
             s_generation++;
-            Jobs.Clear();
+
+            lock (Jobs.SyncRoot)
+            {
+                Jobs.Clear();
+                s_registeredJobCount = 0;
+            }
+
             s_pendingJobData = null;
             s_pendingGeneration = 0;
             s_currentJobData = null;
             s_currentGeneration = 0;
+        }
+
+        private static void RemoveRegisteredJob(PathfinderJob job)
+        {
+            if (job == null || s_registeredJobCount <= 0)
+            {
+                return;
+            }
+
+            lock (Jobs.SyncRoot)
+            {
+                if (!Jobs.ContainsKey(job))
+                {
+                    return;
+                }
+
+                Jobs.Remove(job);
+                s_registeredJobCount--;
+            }
         }
 
         internal static void AdjustAccessRights(

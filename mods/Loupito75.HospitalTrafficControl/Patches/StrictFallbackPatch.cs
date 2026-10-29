@@ -77,11 +77,29 @@ namespace HospitalTrafficControl.Patches
         private static readonly Hashtable PatientFallbackJobs =
             Hashtable.Synchronized(new Hashtable());
 
+        private static volatile int s_registeredJobCount;
+        private static volatile int s_generation;
+
         [ThreadStatic]
         private static bool s_registerNextPathfinderJobAsPatientFallback;
 
         [ThreadStatic]
         private static PathfinderJob s_currentPatientFallbackJob;
+
+        [ThreadStatic]
+        private static PatientFallbackContext s_currentPatientFallbackContext;
+
+        [ThreadStatic]
+        private static int s_currentGeneration;
+
+        internal static bool HasActiveJobContext
+        {
+            get
+            {
+                return s_currentPatientFallbackJob != null &&
+                       s_currentGeneration == s_generation;
+            }
+        }
 
         internal static bool IsPatient(WalkComponent walk)
         {
@@ -101,9 +119,19 @@ namespace HospitalTrafficControl.Patches
                 return;
             }
 
-            // The Prefix runs before ThreadedJob starts its worker thread.
             PatientFallbackContext context = CreateFallbackContext(job);
-            PatientFallbackJobs[job] = context == null ? (object)true : context;
+            object registration = context == null ? (object)true : context;
+
+            lock (PatientFallbackJobs.SyncRoot)
+            {
+                if (!PatientFallbackJobs.ContainsKey(job))
+                {
+                    s_registeredJobCount++;
+                }
+
+                PatientFallbackJobs[job] = registration;
+            }
+
             s_registerNextPathfinderJobAsPatientFallback = false;
         }
 
@@ -114,24 +142,46 @@ namespace HospitalTrafficControl.Patches
 
         internal static void Begin(PathfinderJob job)
         {
-            s_currentPatientFallbackJob =
-                job != null && PatientFallbackJobs.ContainsKey(job) ? job : null;
+            object registration = null;
+            int generation = s_generation;
+
+            if (job != null && s_registeredJobCount > 0)
+            {
+                lock (PatientFallbackJobs.SyncRoot)
+                {
+                    registration = PatientFallbackJobs[job];
+                }
+            }
+
+            if (registration != null &&
+                generation == s_generation)
+            {
+                s_currentPatientFallbackJob = job;
+                s_currentPatientFallbackContext =
+                    registration as PatientFallbackContext;
+                s_currentGeneration = generation;
+            }
+            else
+            {
+                s_currentPatientFallbackJob = null;
+                s_currentPatientFallbackContext = null;
+                s_currentGeneration = 0;
+            }
         }
 
         internal static void End(PathfinderJob job)
         {
             try
             {
-                if (job != null)
-                {
-                    PatientFallbackJobs.Remove(job);
-                }
+                RemoveRegisteredJob(job);
             }
             finally
             {
                 if (ReferenceEquals(s_currentPatientFallbackJob, job))
                 {
                     s_currentPatientFallbackJob = null;
+                    s_currentPatientFallbackContext = null;
+                    s_currentGeneration = 0;
                 }
             }
         }
@@ -143,18 +193,47 @@ namespace HospitalTrafficControl.Patches
                 return;
             }
 
-            PatientFallbackJobs.Remove(job);
+            RemoveRegisteredJob(job);
             if (ReferenceEquals(s_currentPatientFallbackJob, job))
             {
                 s_currentPatientFallbackJob = null;
+                s_currentPatientFallbackContext = null;
+                s_currentGeneration = 0;
             }
         }
 
         internal static void Reset()
         {
-            PatientFallbackJobs.Clear();
+            lock (PatientFallbackJobs.SyncRoot)
+            {
+                PatientFallbackJobs.Clear();
+                s_registeredJobCount = 0;
+                s_generation++;
+            }
+
             s_registerNextPathfinderJobAsPatientFallback = false;
             s_currentPatientFallbackJob = null;
+            s_currentPatientFallbackContext = null;
+            s_currentGeneration = 0;
+        }
+
+        private static void RemoveRegisteredJob(PathfinderJob job)
+        {
+            if (job == null || s_registeredJobCount <= 0)
+            {
+                return;
+            }
+
+            lock (PatientFallbackJobs.SyncRoot)
+            {
+                if (!PatientFallbackJobs.ContainsKey(job))
+                {
+                    return;
+                }
+
+                PatientFallbackJobs.Remove(job);
+                s_registeredJobCount--;
+            }
         }
 
         internal static void AdjustAccessRightsForEndpointBiohazardRoom(
@@ -165,7 +244,7 @@ namespace HospitalTrafficControl.Patches
             Vector2i targetPosition,
             ref int accessRightsLevel)
         {
-            if (s_currentPatientFallbackJob == null ||
+            if (!HasActiveJobContext ||
                 floor == null ||
                 accessRightsLevel >= (int)AccessRights.BIOHAZARD ||
                 !IsInsideFloor(floor, currentPosition) ||
@@ -185,7 +264,7 @@ namespace HospitalTrafficControl.Patches
 
             bool allowBiohazard = false;
             PatientFallbackContext context =
-                PatientFallbackJobs[s_currentPatientFallbackJob] as PatientFallbackContext;
+                s_currentPatientFallbackContext;
 
             if (context != null)
             {

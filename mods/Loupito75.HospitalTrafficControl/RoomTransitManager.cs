@@ -1,3 +1,4 @@
+using System;
 using GLib;
 using Lopital;
 
@@ -5,96 +6,165 @@ namespace HospitalTrafficControl
 {
     internal static class RoomTransitManager
     {
-        internal static void ApplyPenalty(Floor floor, Vector2i position, ref float movementCost)
+        [ThreadStatic]
+        private static PathfinderJob s_currentJob;
+
+        [ThreadStatic]
+        private static Room s_lastClassifiedRoom;
+
+        [ThreadStatic]
+        private static ID s_lastClassifiedRoomTypeId;
+
+        [ThreadStatic]
+        private static bool s_lastRoomShouldBePenalized;
+
+        internal static void Begin(PathfinderJob job)
         {
-            // Both GetMovementCost patches have HarmonyPrepare gates. Their
-            // only callers reach this method when RoomTransit was enabled with
-            // a positive penalty before PatchAll; those settings are loaded
-            // once in Plugin.Awake. Avoid repeating that gating on every cost.
-            if (floor == null)
+            if (!TrafficControlConfig.AvoidRoomShortcuts ||
+                TrafficControlConfig.RoomTransitPenalty <= 0f)
             {
+                ClearThreadContext();
                 return;
             }
 
-            PathfinderJob job = OneWayPathfinderTracker.CurrentJob;
-            if (job == null)
+            s_currentJob = job;
+            ClearRoomClassificationCache();
+        }
+
+        internal static void End(PathfinderJob job)
+        {
+            if (ReferenceEquals(s_currentJob, job))
+            {
+                ClearThreadContext();
+            }
+        }
+
+        internal static void ApplyPenalty(
+            Floor floor,
+            Vector2i position,
+            ref float movementCost)
+        {
+            PathfinderJob job = s_currentJob;
+            if (job == null ||
+                floor == null)
             {
                 return;
             }
 
             Room[,] roomTiles = floor.m_roomTiles;
             if (roomTiles == null ||
-                position.m_x < 0 || position.m_y < 0 ||
+                position.m_x < 0 ||
+                position.m_y < 0 ||
                 position.m_x >= roomTiles.GetLength(0) ||
                 position.m_y >= roomTiles.GetLength(1))
             {
                 return;
             }
 
-            Room room = roomTiles[position.m_x, position.m_y];
+            Room room =
+                roomTiles[position.m_x, position.m_y];
             if (room == null)
             {
                 return;
             }
 
-            // Outdoor routing keeps the game's native movement cost unchanged.
+            // Preserve the old live-room semantics. These references are
+            // deliberately not cached across calls.
+            Room startRoom =
+                GetRoomAt(roomTiles, job.m_start);
+            if (ReferenceEquals(room, startRoom))
+            {
+                return;
+            }
+
+            Room endRoom =
+                GetRoomAt(roomTiles, job.m_end);
+            if (ReferenceEquals(room, endRoom))
+            {
+                return;
+            }
+
+            // Keep outdoor state live as well.
             if (floor.IsOutdoors(position) ||
                 !ShouldPenalizeRoom(room))
             {
                 return;
             }
 
-            Room startRoom = GetRoomAt(roomTiles, job.m_start);
-            if (ReferenceEquals(room, startRoom))
-            {
-                return;
-            }
-
-            Room endRoom = GetRoomAt(roomTiles, job.m_end);
-            if (ReferenceEquals(room, endRoom))
-            {
-                return;
-            }
-
-            movementCost += TrafficControlConfig.RoomTransitPenalty;
+            movementCost +=
+                TrafficControlConfig.RoomTransitPenalty;
         }
 
-        private static Room GetRoomAt(Room[,] roomTiles, Vector2i position)
+        private static Room GetRoomAt(
+            Room[,] roomTiles,
+            Vector2i position)
         {
             if (roomTiles == null ||
-                position.m_x < 0 || position.m_y < 0 ||
+                position.m_x < 0 ||
+                position.m_y < 0 ||
                 position.m_x >= roomTiles.GetLength(0) ||
                 position.m_y >= roomTiles.GetLength(1))
             {
                 return null;
             }
 
-            return roomTiles[position.m_x, position.m_y];
+            return roomTiles[
+                position.m_x,
+                position.m_y];
         }
 
-        private static bool ShouldPenalizeRoom(Room room)
+        private static bool ShouldPenalizeRoom(
+            Room room)
         {
-            // Unzoned / empty tiles are normal transit and always keep vanilla movement cost.
-            if (room == null || room.m_roomPersistentData == null)
+            if (room == null ||
+                room.m_roomPersistentData == null)
             {
                 return false;
             }
 
-            GameDBPointer<GameDBRoomType> roomType = room.m_roomPersistentData.m_roomType;
-            if (!roomType.IsValid)
+            GameDBPointer<GameDBRoomType> roomType =
+                room.m_roomPersistentData.m_roomType;
+            ID roomTypeId = roomType.m_id;
+
+            if (ID.IsNullOrNoID(roomTypeId))
             {
                 return false;
             }
 
-            string roomTypeId = roomType.m_id.ToString();
-            if (TrafficControlConfig.IsTransitException(roomTypeId))
+            // Only Room + current type ID classification is reused.
+            // Retyping changes the interned ID reference and invalidates
+            // this one-entry cache immediately.
+            if (ReferenceEquals(room, s_lastClassifiedRoom) &&
+                ReferenceEquals(
+                    roomTypeId,
+                    s_lastClassifiedRoomTypeId))
             {
-                return false;
+                return s_lastRoomShouldBePenalized;
             }
 
-            // Every other actual room is treated as functional space rather than circulation.
-            // This automatically includes DLC rooms and custom room types added by other mods.
-            return true;
+            bool shouldPenalize =
+                !TrafficControlConfig.IsTransitException(
+                    roomTypeId.ToString());
+
+            s_lastClassifiedRoom = room;
+            s_lastClassifiedRoomTypeId = roomTypeId;
+            s_lastRoomShouldBePenalized =
+                shouldPenalize;
+
+            return shouldPenalize;
+        }
+
+        private static void ClearThreadContext()
+        {
+            s_currentJob = null;
+            ClearRoomClassificationCache();
+        }
+
+        private static void ClearRoomClassificationCache()
+        {
+            s_lastClassifiedRoom = null;
+            s_lastClassifiedRoomTypeId = null;
+            s_lastRoomShouldBePenalized = false;
         }
     }
 }

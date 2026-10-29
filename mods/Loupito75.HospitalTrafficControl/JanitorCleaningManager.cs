@@ -14,6 +14,11 @@ namespace HospitalTrafficControl
         private static readonly MethodInfo TryToSelectTileInARoomMethod =
             AccessTools.Method(typeof(BehaviorJanitor), "TryToSelectTileInARoom");
 
+        private static readonly MethodInfo TryToSelectTileInCurrentRoomMethod =
+            AccessTools.Method(
+                typeof(BehaviorJanitor),
+                "TryToSelectTileInCurrentRoom");
+
         private static readonly MethodInfo TryToSelectIndoorTileMethod =
             AccessTools.Method(
                 typeof(BehaviorJanitor),
@@ -120,6 +125,36 @@ namespace HospitalTrafficControl
         [ThreadStatic]
         private static BehaviorJanitor s_cartDestinationJanitor;
 
+        // Runtime-only proof that HTC itself selected an exterior Bucket Cart
+        // parking destination for the current room job. This must never be
+        // persisted: after save/load, the existing ROOM_WAIT_LOAD_RECOVERY
+        // still owns genuinely orphaned exterior wait destinations.
+        private sealed class ExteriorCartTravelState
+        {
+            internal Room Room;
+            internal Vector2i Destination;
+            internal int FloorIndex;
+        }
+
+        private static readonly Dictionary<Entity, ExteriorCartTravelState>
+            ExteriorCartTravels =
+                new Dictionary<Entity, ExteriorCartTravelState>();
+
+        // Runtime-only memory of a cart that HTC successfully parked outside
+        // a private target room. It lets a repeated selection of the SAME room
+        // keep using that cart instead of alternating between adjacent staging
+        // tiles. Every reuse is validated against the live cart position.
+        private sealed class ParkedExteriorCartState
+        {
+            internal Room Room;
+            internal Vector2i Position;
+            internal int FloorIndex;
+        }
+
+        private static readonly Dictionary<Entity, ParkedExteriorCartState>
+            ParkedExteriorCarts =
+                new Dictionary<Entity, ParkedExteriorCartState>();
+
         private static readonly Dictionary<Entity, string>
             LastCartRouteDiagnostics =
                 new Dictionary<Entity, string>();
@@ -180,6 +215,8 @@ namespace HospitalTrafficControl
             OccupiedWaitDecisions.Clear();
             OccupiedWaitRoomOwners.Clear();
             s_cartDestinationJanitor = null;
+            ExteriorCartTravels.Clear();
+            ParkedExteriorCarts.Clear();
             LastCartRouteDiagnostics.Clear();
             NextPatientDiagnosticRealtime.Clear();
             WcCleaningTraces.Clear();
@@ -767,41 +804,62 @@ namespace HospitalTrafficControl
 
         internal static bool TryInterruptProtectedCleaningRoom(BehaviorJanitor janitor)
         {
-            if (janitor == null ||
+            bool avoidActiveProcedureRooms =
+                TrafficControlConfig.AvoidCleaningActiveProcedureRooms;
+            bool avoidOccupiedBathrooms =
+                TrafficControlConfig.AvoidCleaningOccupiedBathrooms;
+
+            if ((!avoidActiveProcedureRooms && !avoidOccupiedBathrooms) ||
+                janitor == null ||
                 janitor.m_state == null ||
                 janitor.m_entity == null ||
-                janitor.m_state.m_janitorState != BehaviorJanitorState.Cleaning)
+                janitor.m_state.m_janitorState != BehaviorJanitorState.Cleaning ||
+                janitor.m_state.m_object != null)
             {
                 return false;
             }
 
             WalkComponent walk = janitor.GetComponent<WalkComponent>();
+            Vector2i currentTile =
+                walk == null
+                    ? Vector2i.ZERO_VECTOR
+                    : walk.GetCurrentTile();
             Room stateRoom = janitor.m_state.m_room == null
                 ? null
                 : janitor.m_state.m_room.GetEntity();
             Room physicalRoom = walk == null
                 ? null
                 : MapScriptInterface.Instance.GetRoomAt(
-                    walk.GetCurrentTile(),
+                    currentTile,
                     walk.GetFloorIndex());
 
             // Vanilla can enter Cleaning immediately after FulfillingNeeds,
-            // with no target acquired. That is not an active cleaning job and
-            // must be left entirely to the native SelectNextAction cycle.
-            bool hasRoomJob =
-                stateRoom != null &&
-                ReferenceEquals(stateRoom, physicalRoom) &&
-                ReferenceEquals(
-                    GetRoomReservationOwner(stateRoom),
-                    janitor.m_entity);
+            // with no target acquired. A tile-only job is already enough to
+            // prove real work; do not resolve a room owner in that common case.
+            Vector2i reservedTile =
+                janitor.m_state.m_reservedTile;
             bool hasTileJob =
                 walk != null &&
-                janitor.m_state.m_reservedTile !=
-                    Vector2i.ZERO_VECTOR &&
-                janitor.m_state.m_reservedTile ==
-                    walk.GetCurrentTile();
-            bool hasRepairJob = janitor.m_state.m_object != null;
-            if ((!hasRoomJob && !hasTileJob) || hasRepairJob)
+                reservedTile != Vector2i.ZERO_VECTOR &&
+                reservedTile == currentTile;
+
+            Entity roomOwner = null;
+            bool roomOwnerResolved = false;
+            bool hasRoomJob = false;
+            if (!hasTileJob &&
+                stateRoom != null &&
+                ReferenceEquals(stateRoom, physicalRoom))
+            {
+                roomOwner =
+                    GetRoomReservationOwner(stateRoom);
+                roomOwnerResolved = true;
+                hasRoomJob =
+                    ReferenceEquals(
+                        roomOwner,
+                        janitor.m_entity);
+            }
+
+            if (!hasRoomJob && !hasTileJob)
             {
                 return false;
             }
@@ -810,36 +868,42 @@ namespace HospitalTrafficControl
             // authoritative for the target, not a possibly stale m_state.m_room.
             Room room = physicalRoom ?? stateRoom;
 
-            Vector2i currentTile =
-                walk == null
-                    ? Vector2i.ZERO_VECTOR
-                    : walk.GetCurrentTile();
-            bool protectedRoom;
-            bool blockedBathroomTile;
-            CheckCleaningTargetProtection(
-                room,
-                currentTile,
-                null,
-                null,
-                out protectedRoom,
-                out blockedBathroomTile);
+            bool protectedRoom =
+                avoidActiveProcedureRooms &&
+                HasActiveProcedure(
+                    room,
+                    roomOwner,
+                    roomOwnerResolved);
+            bool blockedBathroomTile =
+                !protectedRoom &&
+                avoidOccupiedBathrooms &&
+                IsBathroomCleaningTileProtected(
+                    room,
+                    currentTile,
+                    null);
 
             // Vanilla reserves a room for a room-wide assignment, but the
             // indoor-tile fallback reserves only m_reservedTile. Never treat a
-            // tile-only job as a stolen room reservation: two janitors can
-            // legitimately clean different tiles of the same physical room.
-            // Compare room owners only if this is the janitor's room assignment.
-            Entity roomOwner = GetRoomReservationOwner(room);
+            // tile-only job as a stolen room reservation.
             bool roomAssignment =
                 stateRoom != null &&
                 ReferenceEquals(stateRoom, room) &&
-                janitor.m_state.m_reservedTile ==
-                    Vector2i.ZERO_VECTOR;
+                reservedTile == Vector2i.ZERO_VECTOR;
+
+            if (roomAssignment && !roomOwnerResolved)
+            {
+                roomOwner =
+                    GetRoomReservationOwner(room);
+                roomOwnerResolved = true;
+            }
+
             bool reservedByAnother =
-                TrafficControlConfig.AvoidCleaningActiveProcedureRooms &&
+                avoidActiveProcedureRooms &&
                 roomAssignment &&
                 roomOwner != null &&
-                !ReferenceEquals(roomOwner, janitor.m_entity);
+                !ReferenceEquals(
+                    roomOwner,
+                    janitor.m_entity);
 
             if (!protectedRoom &&
                 !blockedBathroomTile &&
@@ -1239,6 +1303,7 @@ namespace HospitalTrafficControl
 
             if (room == null || walk == null)
             {
+                ClearExteriorCartTravel(janitor);
                 ClearProtectedRoomWait(janitor);
                 return false;
             }
@@ -1258,11 +1323,15 @@ namespace HospitalTrafficControl
                 ClearProtectedRoomWait(janitor);
             }
 
-            // A native room-wide job always points INTO its assigned room.
-            // If the transient HTC approach state was lost on save/load, its
-            // saved exterior destination is not a valid vanilla arrival.
-            // In particular, never let vanilla park/destroy a cart outside.
+            // Vanilla room-wide jobs point INTO their assigned room. HTC may
+            // now deliberately select an exterior Bucket Cart parking tile,
+            // but only the runtime marker created by that selector proves the
+            // exterior destination is legitimate. Without that marker, keep
+            // the existing save/load recovery for an orphaned wait approach.
+            // In particular, never let vanilla mistake a lost wait tile for
+            // a valid room arrival and park/destroy a cart there.
             if (walk.m_state != null &&
+                !IsExpectedExteriorCartTravel(janitor, room, walk) &&
                 CanCheckDirectPatientOccupancy(room) &&
                 janitor.m_state.m_object == null &&
                 janitor.m_state.m_reservedTile == Vector2i.ZERO_VECTOR &&
@@ -3552,6 +3621,8 @@ namespace HospitalTrafficControl
             WalkComponent walk,
             Room room)
         {
+            ClearExteriorCartTravel(janitor);
+
             // Reuse vanilla's ReturningCart state rather than retrying an
             // impossible cart placement once per frame forever.
             ReleaseRoomReservation(janitor, room);
@@ -3607,6 +3678,7 @@ namespace HospitalTrafficControl
             }
 
             cart.SetAttachedToCharacter(false);
+            ClearExteriorCartTravel(janitor);
             return true;
         }
 
@@ -3792,6 +3864,7 @@ namespace HospitalTrafficControl
             BehaviorJanitor janitor,
             Room room)
         {
+            ClearExteriorCartTravel(janitor);
             ClearProtectedRoomWait(janitor);
             if (janitor.m_entity != null)
             {
@@ -3836,6 +3909,90 @@ namespace HospitalTrafficControl
             if (InvokeBool(TryToSelectTileInARoomMethod, janitor, null))
             {
                 return true;
+            }
+
+            if (InvokeBool(
+                    TryToSelectIndoorTileMethod,
+                    janitor,
+                    new object[] { 10 }))
+            {
+                return true;
+            }
+
+            return InvokeVoid(GoReturnCartMethod, janitor, null);
+        }
+
+        private static bool ReselectJanitorSkippingRoom(
+            BehaviorJanitor janitor,
+            Room room)
+        {
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                janitor.m_state == null ||
+                room == null ||
+                room.m_roomPersistentData == null)
+            {
+                return ReselectJanitor(janitor);
+            }
+
+            // The 1.5.2.30 ThreadStatic selector skip was too dependent on
+            // Harmony prefix ordering. Use the native room-reservation signal
+            // instead: both vanilla room selectors already reject any room
+            // whose m_reservedByCharacter is non-null.
+            //
+            // This reservation exists only for this synchronous re-selection
+            // call. No frame/update can observe a janitor "abandoning" it.
+            EntityIDPointer<Entity> previousReservation =
+                room.m_roomPersistentData.m_reservedByCharacter;
+            bool installedTemporaryReservation =
+                previousReservation == null;
+
+            if (installedTemporaryReservation)
+            {
+                room.m_roomPersistentData.m_reservedByCharacter =
+                    janitor.m_entity;
+            }
+
+            bool selectedRoom = false;
+            try
+            {
+                selectedRoom =
+                    InvokeBool(
+                        TryToSelectTileInARoomMethod,
+                        janitor,
+                        null);
+            }
+            finally
+            {
+                if (installedTemporaryReservation &&
+                    room.m_roomPersistentData.m_reservedByCharacter != null &&
+                    ReferenceEquals(
+                        room.m_roomPersistentData
+                            .m_reservedByCharacter.GetEntity(),
+                        janitor.m_entity))
+                {
+                    room.m_roomPersistentData.m_reservedByCharacter = null;
+                }
+            }
+
+            if (selectedRoom)
+            {
+                Room selected =
+                    janitor.m_state.m_room == null
+                        ? null
+                        : janitor.m_state.m_room.GetEntity();
+
+                // This should be impossible while the temporary native
+                // reservation is installed. Fail safe if another patch
+                // bypasses the reservation rule: do not let the same room
+                // restart the cart-staging cycle.
+                if (!ReferenceEquals(selected, room))
+                {
+                    return true;
+                }
+
+                ReleaseRoomReservation(janitor, room);
+                janitor.m_state.m_room = null;
             }
 
             if (InvokeBool(
@@ -4563,36 +4720,77 @@ namespace HospitalTrafficControl
             Vector2i selectedPosition = Vector2i.ZERO_VECTOR;
             Floor floor = Hospital.Instance.m_floors[floorIndex];
 
-            // The vanilla fallback scans the floor twice (blood, then regular dirt).
-            // Cache only the room-wide HTC decision during this one call.
-            Dictionary<Room, bool> procedureRoomCache = new Dictionary<Room, bool>();
+            bool avoidActiveProcedureRooms =
+                TrafficControlConfig.AvoidCleaningActiveProcedureRooms;
+            bool avoidOccupiedBathrooms =
+                TrafficControlConfig.AvoidCleaningOccupiedBathrooms;
+            bool nightDeferralActive =
+                TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight &&
+                DayTime.Instance != null &&
+                DayTime.Instance.GetShift() == Shift.NIGHT;
+
+            // Allocate only the per-call caches that can actually be used.
+            Dictionary<Room, bool> procedureRoomCache =
+                avoidActiveProcedureRooms
+                    ? new Dictionary<Room, bool>()
+                    : null;
             Dictionary<Room, BathroomCleaningTopology> bathroomTopologyCache =
-                new Dictionary<Room, BathroomCleaningTopology>();
-            Dictionary<Room, bool> nightCleaningCache = new Dictionary<Room, bool>();
+                avoidOccupiedBathrooms
+                    ? new Dictionary<Room, BathroomCleaningTopology>()
+                    : null;
+            Dictionary<Room, bool> nightCleaningCache =
+                nightDeferralActive
+                    ? new Dictionary<Room, bool>()
+                    : null;
 
-            for (int x = 0; x < floor.Size.m_x; x++)
+            int width = floor.Size.m_x;
+            int height = floor.Size.m_y;
+            var tiles = floor.m_mapPersistentData.m_tiles;
+            var foundations =
+                floor.m_mapPersistentData.m_foundationsLayer.m_foundations;
+            var tileObjects = floor.m_tileObjects;
+            var roomTiles = floor.m_roomTiles;
+
+            // Vanilla gives BLOOD absolute priority. Keep the same full scan and
+            // strict nearest-distance tie behavior, but reject farther tiles
+            // before touching dirt/protection state.
+            for (int x = 0; x < width; x++)
             {
-                for (int y = 0; y < floor.Size.m_y; y++)
-                {
-                    int distance =
-                        (x - position.m_x) * (x - position.m_x) +
-                        (y - position.m_y) * (y - position.m_y);
+                int dx = x - position.m_x;
+                int dxSquared = dx * dx;
 
-                    if (distance < closestDistance &&
-                        floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel > 0f &&
-                        floor.m_mapPersistentData.m_tiles[x, y].m_dirtType == DirtType.BLOOD &&
-                        floor.m_mapPersistentData.m_tiles[x, y].m_user == null &&
-                        floor.m_mapPersistentData.m_foundationsLayer.m_foundations[x, y] == 2 &&
-                        !floor.m_tileObjects[x, y].IsAnyObjectBlocking() &&
-                        !ShouldAvoidCleaningTileCached(
-                            floor.m_roomTiles[x, y],
-                            new Vector2i(x, y),
+                for (int y = 0; y < height; y++)
+                {
+                    int dy = y - position.m_y;
+                    int distance =
+                        dxSquared + dy * dy;
+                    if (distance >= closestDistance)
+                    {
+                        continue;
+                    }
+
+                    if (tiles[x, y].m_dirtLevel <= 0f ||
+                        tiles[x, y].m_dirtType != DirtType.BLOOD ||
+                        tiles[x, y].m_user != null ||
+                        foundations[x, y] != 2 ||
+                        tileObjects[x, y].IsAnyObjectBlocking())
+                    {
+                        continue;
+                    }
+
+                    Vector2i candidate =
+                        new Vector2i(x, y);
+                    if (ShouldAvoidCleaningTileCached(
+                            roomTiles[x, y],
+                            candidate,
                             procedureRoomCache,
                             bathroomTopologyCache))
                     {
-                        closestDistance = distance;
-                        selectedPosition = new Vector2i(x, y);
+                        continue;
                     }
+
+                    closestDistance = distance;
+                    selectedPosition = candidate;
                 }
             }
 
@@ -4605,21 +4803,41 @@ namespace HospitalTrafficControl
             Vector2i deferredPosition = Vector2i.ZERO_VECTOR;
             closestDistance = int.MaxValue;
 
-            for (int x = 0; x < floor.Size.m_x; x++)
+            for (int x = 0; x < width; x++)
             {
-                for (int y = 0; y < floor.Size.m_y; y++)
-                {
-                    int distance =
-                        (x - position.m_x) * (x - position.m_x) +
-                        (y - position.m_y) * (y - position.m_y);
+                int dx = x - position.m_x;
+                int dxSquared = dx * dx;
 
-                    if (floor.m_mapPersistentData.m_tiles[x, y].m_dirtLevel <= (float)threshold ||
-                        floor.m_mapPersistentData.m_tiles[x, y].m_user != null ||
-                        floor.m_mapPersistentData.m_foundationsLayer.m_foundations[x, y] != 2 ||
-                        floor.m_tileObjects[x, y].IsAnyObjectBlocking() ||
-                        ShouldAvoidCleaningTileCached(
-                            floor.m_roomTiles[x, y],
-                            new Vector2i(x, y),
+                for (int y = 0; y < height; y++)
+                {
+                    int dy = y - position.m_y;
+                    int distance =
+                        dxSquared + dy * dy;
+
+                    // If this tile cannot improve either possible winner, none
+                    // of the more expensive tile/room checks can affect the result.
+                    if (distance >= closestDistance &&
+                        (!nightDeferralActive ||
+                         distance >= deferredClosestDistance))
+                    {
+                        continue;
+                    }
+
+                    if (tiles[x, y].m_dirtLevel <= (float)threshold ||
+                        tiles[x, y].m_user != null ||
+                        foundations[x, y] != 2 ||
+                        tileObjects[x, y].IsAnyObjectBlocking())
+                    {
+                        continue;
+                    }
+
+                    Vector2i candidate =
+                        new Vector2i(x, y);
+                    Room room =
+                        roomTiles[x, y];
+                    if (ShouldAvoidCleaningTileCached(
+                            room,
+                            candidate,
                             procedureRoomCache,
                             bathroomTopologyCache))
                     {
@@ -4627,19 +4845,20 @@ namespace HospitalTrafficControl
                     }
 
                     if (ShouldDeferOrdinaryCleaningCached(
-                            floor.m_roomTiles[x, y],
-                            nightCleaningCache))
+                            room,
+                            nightCleaningCache,
+                            nightDeferralActive))
                     {
                         if (distance < deferredClosestDistance)
                         {
                             deferredClosestDistance = distance;
-                            deferredPosition = new Vector2i(x, y);
+                            deferredPosition = candidate;
                         }
                     }
                     else if (distance < closestDistance)
                     {
                         closestDistance = distance;
-                        selectedPosition = new Vector2i(x, y);
+                        selectedPosition = candidate;
                     }
                 }
             }
@@ -4844,9 +5063,83 @@ namespace HospitalTrafficControl
             return result;
         }
 
+        private static void RememberExteriorCartTravel(
+            BehaviorJanitor janitor,
+            Room room,
+            Vector2i destination,
+            int floorIndex)
+        {
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                room == null ||
+                destination == Vector2i.ZERO_VECTOR ||
+                room.IsPositionInRoom(destination))
+            {
+                ClearExteriorCartTravel(janitor);
+                return;
+            }
+
+            ParkedExteriorCarts.Remove(janitor.m_entity);
+            ExteriorCartTravels[janitor.m_entity] =
+                new ExteriorCartTravelState
+                {
+                    Room = room,
+                    Destination = destination,
+                    FloorIndex = floorIndex
+                };
+        }
+
+        private static bool IsExpectedExteriorCartTravel(
+            BehaviorJanitor janitor,
+            Room room,
+            WalkComponent walk)
+        {
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                room == null ||
+                walk == null ||
+                walk.m_state == null)
+            {
+                return false;
+            }
+
+            ExteriorCartTravelState expected;
+            if (!ExteriorCartTravels.TryGetValue(
+                    janitor.m_entity, out expected))
+            {
+                return false;
+            }
+
+            Vector2i destination =
+                ToTile(walk.m_state.m_destination);
+            bool matches =
+                ReferenceEquals(expected.Room, room) &&
+                expected.FloorIndex ==
+                    walk.m_state.m_destinationFloor &&
+                expected.Destination == destination &&
+                IsCartAttached(janitor);
+
+            if (!matches)
+            {
+                ExteriorCartTravels.Remove(janitor.m_entity);
+            }
+
+            return matches;
+        }
+
+        private static void ClearExteriorCartTravel(
+            BehaviorJanitor janitor)
+        {
+            if (janitor != null && janitor.m_entity != null)
+            {
+                ExteriorCartTravels.Remove(janitor.m_entity);
+            }
+        }
+
         internal static BehaviorJanitor PushJanitorCartDestinationContext(
             BehaviorJanitor janitor)
         {
+            ClearExteriorCartTravel(janitor);
             BehaviorJanitor previous = s_cartDestinationJanitor;
             s_cartDestinationJanitor = janitor;
             return previous;
@@ -5140,7 +5433,17 @@ namespace HospitalTrafficControl
             // No safe exterior cart tile is a compatibility fallback, not an
             // error: return false so the original Vanilla interior selector
             // runs exactly as before.
-            return result != Vector2i.ZERO_VECTOR;
+            if (result == Vector2i.ZERO_VECTOR)
+            {
+                return false;
+            }
+
+            RememberExteriorCartTravel(
+                janitor,
+                room,
+                result,
+                room.GetFloorIndex());
+            return true;
         }
 
         private static bool TrySelectJanitorCartDestinationInsideSharedRoom(
@@ -5667,6 +5970,185 @@ namespace HospitalTrafficControl
             return false;
         }
 
+        private static void RememberParkedExteriorCart(
+            BehaviorJanitor janitor,
+            Room room,
+            Vector2i position,
+            int floorIndex)
+        {
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                room == null ||
+                position == Vector2i.ZERO_VECTOR)
+            {
+                return;
+            }
+
+            ParkedExteriorCarts[janitor.m_entity] =
+                new ParkedExteriorCartState
+                {
+                    Room = room,
+                    Position = position,
+                    FloorIndex = floorIndex
+                };
+        }
+
+        private static void ClearParkedExteriorCart(
+            BehaviorJanitor janitor)
+        {
+            if (janitor != null && janitor.m_entity != null)
+            {
+                ParkedExteriorCarts.Remove(janitor.m_entity);
+            }
+        }
+
+        internal static bool TryReuseParkedExteriorCartForCurrentRoom(
+            BehaviorJanitor janitor)
+        {
+            if (janitor == null ||
+                janitor.m_entity == null ||
+                janitor.m_state == null ||
+                janitor.m_state.m_janitorState !=
+                    BehaviorJanitorState.WalkingToCartToNextRoom ||
+                janitor.m_state.m_cart == null ||
+                janitor.m_state.m_room == null ||
+                Hospital.Instance == null ||
+                Hospital.Instance.m_floors == null)
+            {
+                return false;
+            }
+
+            WalkComponent walk =
+                janitor.GetComponent<WalkComponent>();
+            if (walk == null || walk.IsBusy())
+            {
+                return false;
+            }
+
+            Room room = janitor.m_state.m_room.GetEntity();
+            TileObject cart = janitor.m_state.m_cart.GetEntity();
+            ParkedExteriorCartState parked;
+            if (room == null ||
+                cart == null ||
+                cart.m_state == null ||
+                !ParkedExteriorCarts.TryGetValue(
+                    janitor.m_entity, out parked))
+            {
+                return false;
+            }
+
+            if (!ReferenceEquals(parked.Room, room) ||
+                parked.FloorIndex != room.GetFloorIndex() ||
+                cart.GetFloorIndex() != parked.FloorIndex ||
+                cart.m_state.m_position != parked.Position ||
+                cart.IsAttachedToCharacter() ||
+                cart.m_state.m_moving ||
+                room.IsPositionInRoom(parked.Position) ||
+                parked.FloorIndex < 0 ||
+                parked.FloorIndex >= Hospital.Instance.m_floors.Count)
+            {
+                ClearParkedExteriorCart(janitor);
+                return false;
+            }
+
+            Floor floor =
+                Hospital.Instance.m_floors[parked.FloorIndex];
+            if (floor == null ||
+                !IsJanitorStagingArea(floor, parked.Position) ||
+                !IsJanitorCartPickupReachable(
+                    janitor,
+                    cart,
+                    floor,
+                    parked.Position,
+                    cart.Orientation))
+            {
+                ClearParkedExteriorCart(janitor);
+                return false;
+            }
+
+            // The cart is already exactly where HTC deliberately parked it for
+            // this room. Do not PickUpObject -> pathfind -> MoveObject again.
+            // Continue with the native current-room tile selector so cleaning
+            // time, skill progression and destination semantics stay vanilla.
+            janitor.m_state.m_cartAvailable = true;
+            bool forceTileSelection =
+                janitor.m_state.m_forceTileSelection;
+            if (InvokeBool(
+                    TryToSelectTileInCurrentRoomMethod,
+                    janitor,
+                    null))
+            {
+                if (TrafficControlConfig.JanitorCartDebug)
+                {
+                    Plugin.Log?.LogInfo(
+                        "[JanitorDebug] CART_STAGING_REUSE" +
+                        " | janitor=" +
+                            CharacterName(janitor.m_entity) +
+                        " | roomType=" + RoomTypeId(room) +
+                        " | floor=" + parked.FloorIndex +
+                        " | cartTile=" + parked.Position +
+                        " | action=continue-current-room.");
+                }
+                return true;
+            }
+
+            // A DLC assignment refresh deliberately forces one room
+            // reselection. Preserve that native behavior, but still keep the
+            // already-valid cart parked instead of moving it first.
+            if (forceTileSelection)
+            {
+                ReselectJanitor(janitor);
+                Room refreshedRoom =
+                    janitor.m_state.m_room == null
+                        ? null
+                        : janitor.m_state.m_room.GetEntity();
+                if (!ReferenceEquals(refreshedRoom, room))
+                {
+                    ClearParkedExteriorCart(janitor);
+                }
+
+                if (TrafficControlConfig.JanitorCartDebug)
+                {
+                    Plugin.Log?.LogInfo(
+                        "[JanitorDebug] CART_STAGING_REUSE" +
+                        " | janitor=" +
+                            CharacterName(janitor.m_entity) +
+                        " | roomType=" + RoomTypeId(room) +
+                        " | floor=" + parked.FloorIndex +
+                        " | cartTile=" + parked.Position +
+                        " | action=assignment-refresh.");
+                }
+                return true;
+            }
+
+            // No currently cleanable tile remains in this room. Exclude only
+            // this room from the immediate synchronous room-selection pass;
+            // other rooms and the native indoor fallback remain available.
+            // The room is eligible again on the next normal decision cycle.
+            ReselectJanitorSkippingRoom(janitor, room);
+            ClearParkedExteriorCart(janitor);
+            if (TrafficControlConfig.JanitorCartDebug)
+            {
+                Plugin.Log?.LogInfo(
+                    "[JanitorDebug] CART_STAGING_REUSE" +
+                    " | janitor=" +
+                        CharacterName(janitor.m_entity) +
+                    " | roomType=" + RoomTypeId(room) +
+                    " | floor=" + parked.FloorIndex +
+                    " | cartTile=" + parked.Position +
+                    " | action=no-cleanable-tile-reselect" +
+                    " | resultRoom=" +
+                        RoomTypeId(
+                            janitor.m_state.m_room == null
+                                ? null
+                                : janitor.m_state.m_room.GetEntity()) +
+                    " | resultState=" +
+                        janitor.m_state.m_janitorState +
+                    ".");
+            }
+            return true;
+        }
+
         internal static void PrepareExteriorJanitorCartParking(
             BehaviorJanitor janitor)
         {
@@ -5767,12 +6249,17 @@ namespace HospitalTrafficControl
             BehaviorJanitor janitor)
         {
             if (janitor == null ||
-                janitor.m_state == null ||
-                janitor.m_state.m_cart == null ||
+                janitor.m_state == null)
+            {
+                return;
+            }
+
+            if (janitor.m_state.m_cart == null ||
                 janitor.m_state.m_room == null ||
                 Hospital.Instance == null ||
                 Hospital.Instance.m_floors == null)
             {
+                ClearExteriorCartTravel(janitor);
                 return;
             }
 
@@ -5782,9 +6269,30 @@ namespace HospitalTrafficControl
                 janitor.m_state.m_room.GetEntity();
             if (cart == null ||
                 targetRoom == null ||
-                cart.m_state == null ||
-                cart.IsAttachedToCharacter() ||
-                cart.GetFloorIndex() < 0 ||
+                cart.m_state == null)
+            {
+                ClearExteriorCartTravel(janitor);
+                return;
+            }
+
+            if (cart.IsAttachedToCharacter())
+            {
+                return;
+            }
+
+            ExteriorCartTravelState expectedTravel;
+            bool hadExpectedExteriorTravel =
+                janitor.m_entity != null &&
+                ExteriorCartTravels.TryGetValue(
+                    janitor.m_entity,
+                    out expectedTravel) &&
+                ReferenceEquals(expectedTravel.Room, targetRoom) &&
+                expectedTravel.FloorIndex == cart.GetFloorIndex() &&
+                expectedTravel.Destination == cart.m_state.m_position;
+
+            ClearExteriorCartTravel(janitor);
+
+            if (cart.GetFloorIndex() < 0 ||
                 cart.GetFloorIndex() >=
                     Hospital.Instance.m_floors.Count)
             {
@@ -5816,6 +6324,15 @@ namespace HospitalTrafficControl
                  !exteriorParking))
             {
                 return;
+            }
+
+            if (hadExpectedExteriorTravel && exteriorParking)
+            {
+                RememberParkedExteriorCart(
+                    janitor,
+                    targetRoom,
+                    placement,
+                    cart.GetFloorIndex());
             }
 
             Direction safeOrientation;
@@ -5986,9 +6503,10 @@ namespace HospitalTrafficControl
 
         private static bool ShouldDeferOrdinaryCleaningCached(
             Room room,
-            Dictionary<Room, bool> nightCleaningCache)
+            Dictionary<Room, bool> nightCleaningCache,
+            bool nightDeferralActive)
         {
-            if (room == null)
+            if (!nightDeferralActive || room == null)
             {
                 return false;
             }
@@ -6000,7 +6518,8 @@ namespace HospitalTrafficControl
                 return deferred;
             }
 
-            deferred = ShouldDeferOrdinaryCleaning(room);
+            deferred =
+                ShouldDeferOrdinaryCleaningDuringActiveNight(room);
 
             if (nightCleaningCache != null)
             {
@@ -6014,14 +6533,25 @@ namespace HospitalTrafficControl
         {
             if (!TrafficControlConfig.ReduceOccupiedHospitalizationCleaningAtNight ||
                 DayTime.Instance == null ||
-                DayTime.Instance.GetShift() != Shift.NIGHT ||
-                !IsHospitalizationRoom(room))
+                DayTime.Instance.GetShift() != Shift.NIGHT)
+            {
+                return false;
+            }
+
+            return ShouldDeferOrdinaryCleaningDuringActiveNight(room);
+        }
+
+        private static bool ShouldDeferOrdinaryCleaningDuringActiveNight(
+            Room room)
+        {
+            if (!IsHospitalizationRoom(room))
             {
                 return false;
             }
 
             int floorIndex = room.GetFloorIndex();
-            if (floorIndex < 0 || floorIndex >= Hospital.Instance.m_floors.Count)
+            if (floorIndex < 0 ||
+                floorIndex >= Hospital.Instance.m_floors.Count)
             {
                 return false;
             }
@@ -6070,7 +6600,8 @@ namespace HospitalTrafficControl
             Dictionary<Room, bool> procedureRoomCache,
             Dictionary<Room, BathroomCleaningTopology> bathroomTopologyCache)
         {
-            if (IsProtectedRoomDeferred(room))
+            if (DeferredProtectedRooms.Count != 0 &&
+                IsProtectedRoomDeferred(room))
             {
                 return true;
             }
@@ -6149,6 +6680,17 @@ namespace HospitalTrafficControl
 
         internal static bool HasActiveProcedure(Room room)
         {
+            return HasActiveProcedure(
+                room,
+                null,
+                false);
+        }
+
+        private static bool HasActiveProcedure(
+            Room room,
+            Entity reservationOwner,
+            bool reservationOwnerResolved)
+        {
             if (room == null || room.m_roomPersistentData == null)
             {
                 return false;
@@ -6174,29 +6716,29 @@ namespace HospitalTrafficControl
                 return false;
             }
 
-            Entity procedureOwner = GetCurrentProcedureOwner(room);
-            Entity reservedBy = GetRoomReservationOwner(room);
+            Entity procedureOwner =
+                GetCurrentProcedureOwner(room);
+            if (!reservationOwnerResolved)
+            {
+                reservationOwner =
+                    GetRoomReservationOwner(room);
+            }
 
             // Native room ownership/reservation always wins while it exists.
-            if (procedureOwner != null || reservedBy is ProcedureScript)
+            if (procedureOwner != null ||
+                reservationOwner is ProcedureScript)
             {
                 return true;
             }
 
             // Direct source of truth after the cheap room exclusions below: if a
             // patient is physically inside this candidate clinical room, routine
-            // cleaning must wait. This intentionally does not depend on a procedure
-            // script because clinic patients can already be seated in the doctor's
-            // office while still in GoingToDoctor, before SelectNextProcedure()
-            // creates the examination script.
+            // cleaning must wait.
             if (!CanCheckDirectPatientOccupancy(room))
             {
                 return false;
             }
 
-            // The diagnostic enumerates other characters and is optional.
-            // Do not run it for an excluded room or a room whose native
-            // procedure owner already proves occupancy.
             if (TrafficControlConfig.PathfindingDebug)
             {
                 LogPatientOccupancyCheck(room, roomType);

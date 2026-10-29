@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Animation Length="1.2" Name="">
+    <KeyFrame Interpolation="LINEAR" Time="0.0">
+        <KeyFrameDefaultState>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="origin" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="3" ID="right_forearm" OffsetX="-0.00040089" OffsetY="-0.00016616" Rotation="-0.31427697" ScaleX="1.0" ScaleY="0.9170484"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_leg" OffsetX="0.0" OffsetY="0.0" Rotation="0.08022157" ScaleX="1.0" ScaleY="1.0658846"/>
+            <AnimModelNodeState Hidden="false" ZOffset="1" ID="right_arm" OffsetX="0.00056665" OffsetY="0.00085424" Rotation="0.00722597" ScaleX="1.0" ScaleY="0.9669227"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_calf" OffsetX="-0.00099995" OffsetY="0.00001" Rotation="0.0090494" ScaleX="1.05" ScaleY="0.85683231"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="bottom" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_foot" OffsetX="-0.00038101" OffsetY="0.0011319" Rotation="0.03808495" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_calf" OffsetX="0.00012997" OffsetY="-0.00020438" Rotation="0.02841012" ScaleX="1.0" ScaleY="0.87503281"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="head" OffsetX="0.001" OffsetY="-0.00108724" Rotation="0.13" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-2" ID="right_foot" OffsetX="0.00185273" OffsetY="0.00197494" Rotation="0.03693567" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="ref" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_forearm" OffsetX="0.00016589" OffsetY="0.00038281" Rotation="0.1849617" ScaleX="1.0" ScaleY="0.94964444"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_leg" OffsetX="0.0" OffsetY="0.0" Rotation="-0.0644404" ScaleX="1.0" ScaleY="0.2527732"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_arm" OffsetX="-0.0004206" OffsetY="0.00055686" Rotation="0.04459128" ScaleX="1.0" ScaleY="0.9366186"/>
+            <AnimModelNodeState Hidden="false" ZOffset="2" ID="right_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="body" OffsetX="0.0" OffsetY="-0.00023121" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+        </KeyFrameDefaultState>
+    </KeyFrame>
+    <KeyFrame Interpolation="SMOOTH_START" Time="0.23820047">
+        <KeyFrameDefaultState>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="origin" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="3" ID="right_forearm" OffsetX="-0.00040089" OffsetY="-0.00016616" Rotation="-0.29444875" ScaleX="1.0" ScaleY="0.9170484"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_leg" OffsetX="0.0" OffsetY="0.0" Rotation="0.08056179" ScaleX="1.0" ScaleY="1.0658846"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="right_arm" OffsetX="0.00202353" OffsetY="-0.00041728" Rotation="0.00998261" ScaleX="1.0" ScaleY="0.9669227"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_calf" OffsetX="0.0" OffsetY="0.0" Rotation="0.00725575" ScaleX="1.0" ScaleY="0.96397795"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="bottom" OffsetX="0.00025" OffsetY="-0.00075" Rotation="-0.1" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_foot" OffsetX="-0.00038101" OffsetY="0.0011319" Rotation="0.01602037" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_calf" OffsetX="0.00018287" OffsetY="-0.00013898" Rotation="0.02418928" ScaleX="1.0" ScaleY="0.67517834"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="head" OffsetX="0.001" OffsetY="-0.00159021" Rotation="0.16" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-2" ID="right_foot" OffsetX="0.0017857" OffsetY="0.00212105" Rotation="0.09654324" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="ref" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_forearm" OffsetX="0.00016589" OffsetY="0.00038281" Rotation="0.38477372" ScaleX="1.0" ScaleY="0.82473763"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_leg" OffsetX="0.0" OffsetY="0.0" Rotation="-0.05959799" ScaleX="1.0" ScaleY="0.44246806"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_arm" OffsetX="-0.00032007" OffsetY="0.00060504" Rotation="0.07361517" ScaleX="1.0" ScaleY="0.9066186"/>
+            <AnimModelNodeState Hidden="false" ZOffset="2" ID="right_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="body" OffsetX="0.0" OffsetY="-0.00127259" Rotation="0.06" ScaleX="1.0" ScaleY="0.97"/>
+        </KeyFrameDefaultState>
+    </KeyFrame>
+    <KeyFrame Interpolation="LINEAR" Time="0.32533544">
+        <KeyFrameDefaultState>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="origin" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="3" ID="right_forearm" OffsetX="-0.00040089" OffsetY="-0.00016616" Rotation="-0.36417012" ScaleX="1.0" ScaleY="0.9170484"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_leg" OffsetX="0.0" OffsetY="0.0" Rotation="0.08045493" ScaleX="1.0" ScaleY="1.02581161"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="right_arm" OffsetX="0.00190043" OffsetY="-0.00030985" Rotation="0.00683819" ScaleX="1.0" ScaleY="0.95847326"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_calf" OffsetX="0.0" OffsetY="0.0" Rotation="0.00923395" ScaleX="1.0" ScaleY="0.95492474"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="bottom" OffsetX="0.00022888" OffsetY="-0.00068663" Rotation="-0.0831011" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_foot" OffsetX="-0.00038101" OffsetY="0.0011319" Rotation="0.01621038" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_calf" OffsetX="0.00017946" OffsetY="-0.00013815" Rotation="0.02454591" ScaleX="1.0" ScaleY="0.69206484"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="head" OffsetX="0.001" OffsetY="-0.00150521" Rotation="0.15831012" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-2" ID="right_foot" OffsetX="0.00179107" OffsetY="0.00206803" Rotation="0.08987014" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="ref" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_forearm" OffsetX="0.00016589" OffsetY="0.00038281" Rotation="0.35221361" ScaleX="1.0" ScaleY="0.83715402"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_leg" OffsetX="0.0" OffsetY="0.0" Rotation="-0.05981621" ScaleX="1.0" ScaleY="0.45849614"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_arm" OffsetX="-0.00033425" OffsetY="0.00055362" Rotation="0.06723904" ScaleX="1.0" ScaleY="0.9116883"/>
+            <AnimModelNodeState Hidden="false" ZOffset="2" ID="right_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="body" OffsetX="0.0" OffsetY="-0.00124326" Rotation="0.05493033" ScaleX="1.0" ScaleY="0.97253484"/>
+        </KeyFrameDefaultState>
+    </KeyFrame>
+    <KeyFrame Interpolation="LINEAR" Time="0.53559595">
+        <KeyFrameDefaultState>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="origin" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="3" ID="right_forearm" OffsetX="-0.00040089" OffsetY="-0.00016616" Rotation="-0.14444882" ScaleX="1.0" ScaleY="0.9170484"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_leg" OffsetX="0.0" OffsetY="0.0" Rotation="0.07929708" ScaleX="1.0" ScaleY="0.59161717"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="right_arm" OffsetX="0.00056665" OffsetY="0.00085424" Rotation="-0.02723191" ScaleX="1.0" ScaleY="0.8669227"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_calf" OffsetX="0.0" OffsetY="0.0" Rotation="0.03066785" ScaleX="1.0" ScaleY="0.85683231"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="bottom" OffsetX="0.0" OffsetY="0.0" Rotation="0.1" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_foot" OffsetX="-0.00038101" OffsetY="0.0011319" Rotation="0.01826919" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_calf" OffsetX="0.0001425" OffsetY="-0.0001292" Rotation="0.02841013" ScaleX="1.0" ScaleY="0.87503281"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="head" OffsetX="0.001" OffsetY="-0.00058426" Rotation="0.14" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-2" ID="right_foot" OffsetX="0.0018493" OffsetY="0.00149361" Rotation="0.01756656" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="ref" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_forearm" OffsetX="0.00016589" OffsetY="0.00038281" Rotation="-0.00057819" ScaleX="1.0" ScaleY="0.97168681"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_leg" OffsetX="0.0" OffsetY="0.0" Rotation="-0.06218062" ScaleX="1.0" ScaleY="0.63216291"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_arm" OffsetX="-0.00048781" OffsetY="-0.0000035" Rotation="-0.00184701" ScaleX="1.0" ScaleY="0.9666186"/>
+            <AnimModelNodeState Hidden="false" ZOffset="2" ID="right_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="body" OffsetX="0.0" OffsetY="-0.00092546" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+        </KeyFrameDefaultState>
+    </KeyFrame>
+    <KeyFrame Interpolation="LINEAR" Time="0.80221">
+        <KeyFrameDefaultState>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="origin" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="3" ID="right_forearm" OffsetX="-0.00040089" OffsetY="-0.00016616" Rotation="-0.24444881" ScaleX="1.0" ScaleY="0.9170484"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_leg" OffsetX="0.0" OffsetY="0.0" Rotation="0.07916486" ScaleX="1.0" ScaleY="0.87617763"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="right_arm" OffsetX="-0.00070382" OffsetY="0.00068797" Rotation="-0.03136686" ScaleX="1.0" ScaleY="0.9669227"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_calf" OffsetX="-0.00018048" OffsetY="-0.00098358" Rotation="0.01566554" ScaleX="1.0" ScaleY="0.84611775"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="bottom" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_foot" OffsetX="-0.00038101" OffsetY="0.0011319" Rotation="0.11009018" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_calf" OffsetX="0.0001425" OffsetY="-0.0001292" Rotation="0.02532205" ScaleX="1.0" ScaleY="1.07488728"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="head" OffsetX="0.001" OffsetY="-0.00108724" Rotation="0.13999999" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-2" ID="right_foot" OffsetX="0.0017857" OffsetY="0.00212105" Rotation="0.02750753" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="ref" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_forearm" OffsetX="0.00016589" OffsetY="0.00038281" Rotation="0.09932798" ScaleX="1.0" ScaleY="0.98638173"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_leg" OffsetX="0.0" OffsetY="0.0" Rotation="-0.06370121" ScaleX="1.0" ScaleY="1.01155263"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_arm" OffsetX="-0.00052114" OffsetY="0.00050868" Rotation="-0.00765177" ScaleX="1.0" ScaleY="0.9666186"/>
+            <AnimModelNodeState Hidden="false" ZOffset="2" ID="right_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="body" OffsetX="0.0" OffsetY="-0.00023121" Rotation="0.06" ScaleX="1.0" ScaleY="1.0"/>
+        </KeyFrameDefaultState>
+    </KeyFrame>
+    <KeyFrame Interpolation="LINEAR" Time="1.0262038">
+        <KeyFrameDefaultState>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="origin" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="3" ID="right_forearm" OffsetX="-0.00040089" OffsetY="-0.00016616" Rotation="-0.30427695" ScaleX="1.0" ScaleY="0.9170484"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_leg" OffsetX="0.0" OffsetY="0.0" Rotation="0.07983902" ScaleX="1.0" ScaleY="1.0658846"/>
+            <AnimModelNodeState Hidden="false" ZOffset="1" ID="right_arm" OffsetX="0.00056665" OffsetY="0.00085424" Rotation="-0.00242223" ScaleX="1.0" ScaleY="0.9669227"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_calf" OffsetX="-0.00099995" OffsetY="0.00001" Rotation="0.02166016" ScaleX="1.05" ScaleY="0.85683231"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="bottom" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_foot" OffsetX="-0.00038101" OffsetY="0.0011319" Rotation="0.03808495" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_calf" OffsetX="0.00014932" OffsetY="-0.00004658" Rotation="0.02165676" ScaleX="1.0" ScaleY="0.87503281"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="head" OffsetX="0.001" OffsetY="-0.00108724" Rotation="0.13" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-2" ID="right_foot" OffsetX="0.00185273" OffsetY="0.00197494" Rotation="0.03693567" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="ref" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_forearm" OffsetX="0.00016589" OffsetY="0.00038281" Rotation="0.1849617" ScaleX="1.0" ScaleY="0.97168681"/>
+            <AnimModelNodeState Hidden="false" ZOffset="-1" ID="right_leg" OffsetX="0.0" OffsetY="0.0" Rotation="-0.06766867" ScaleX="1.0" ScaleY="0.44246806"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="left_arm" OffsetX="-0.0004206" OffsetY="0.00055686" Rotation="0.02717693" ScaleX="1.0" ScaleY="0.9666186"/>
+            <AnimModelNodeState Hidden="false" ZOffset="2" ID="right_hand" OffsetX="0.0" OffsetY="0.0" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+            <AnimModelNodeState Hidden="false" ZOffset="0" ID="body" OffsetX="0.0" OffsetY="-0.00023121" Rotation="0.0" ScaleX="1.0" ScaleY="1.0"/>
+        </KeyFrameDefaultState>
+    </KeyFrame>
+</Animation>

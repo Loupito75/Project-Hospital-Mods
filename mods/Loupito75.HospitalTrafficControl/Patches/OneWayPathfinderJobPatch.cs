@@ -15,6 +15,7 @@ namespace HospitalTrafficControl.Patches
             BiohazardEndpointAccessTracker.Begin(__instance);
             AccessZoneRecoveryTracker.Begin(__instance);
             OneWayPathfinderTracker.Begin(__instance);
+            RoomTransitManager.Begin(__instance);
 
             if (TrafficControlConfig.PathfindingDebug)
             {
@@ -24,6 +25,7 @@ namespace HospitalTrafficControl.Patches
 
         private static void Postfix(PathfinderJob __instance)
         {
+            RoomTransitManager.End(__instance);
             BiohazardEndpointAccessTracker.End(__instance);
             AccessZoneRecoveryTracker.End(__instance);
             OneWayPathfinderTracker.End(__instance);

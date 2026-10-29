@@ -84,18 +84,24 @@ namespace HospitalTrafficControl.Patches
                 return;
             }
 
-            AccessZoneRecoveryTracker.AdjustAccessRights(
-                __instance,
-                currentPosition,
-                ref accessRightsLevel);
+            if (AccessZoneRecoveryTracker.HasActiveJobContext)
+            {
+                AccessZoneRecoveryTracker.AdjustAccessRights(
+                    __instance,
+                    currentPosition,
+                    ref accessRightsLevel);
+            }
 
-            BiohazardEndpointAccessTracker.AdjustAccessRightsForEndpointBiohazardRoom(
-                __instance,
-                currentPosition,
-                nextPosition,
-                startPosition,
-                targetPosition,
-                ref accessRightsLevel);
+            if (BiohazardEndpointAccessTracker.HasActiveJobContext)
+            {
+                BiohazardEndpointAccessTracker.AdjustAccessRightsForEndpointBiohazardRoom(
+                    __instance,
+                    currentPosition,
+                    nextPosition,
+                    startPosition,
+                    targetPosition,
+                    ref accessRightsLevel);
+            }
         }
 
         private static void Postfix(
@@ -143,6 +149,7 @@ namespace HospitalTrafficControl.Patches
             // Access-zone recovery state exists only while PathfinderJob runs on
             // its worker thread. WalkComponent route validation never needs it.
             if (pathfinderSearch &&
+                AccessZoneRecoveryTracker.HasActiveJobContext &&
                 AccessZoneRecoveryTracker.ShouldDenyReentry(
                     __instance,
                     currentPosition,
