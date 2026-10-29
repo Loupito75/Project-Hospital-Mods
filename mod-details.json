@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 9,
-  "updatedUtc": "2026-10-25T07:12:12Z",
-  "expiresUtc": "2027-01-23T07:12:12Z",
+  "manifestRevision": 10,
+  "updatedUtc": "2026-10-29T04:07:24Z",
+  "expiresUtc": "2027-01-27T04:07:24Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -66,9 +66,9 @@
     },
     {
       "guid": "loupito75.HospitalTrafficControl",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "description": "Improves character access, movement rules and traffic management inside the hospital.",
-      "whatsNew": "Smarter janitor waiting, improved Bucket Cart door clearance, blocked-path bubble, safer cleaning and bathroom defaults, pathfinding performance improvements"
+      "whatsNew": "Fixed Bucket Cart staging/reselection bug, safer cross-floor visitor recovery, janitor and pathfinding performance improvements"
     }
   ]
 }
