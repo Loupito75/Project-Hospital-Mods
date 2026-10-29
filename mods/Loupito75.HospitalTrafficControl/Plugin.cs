@@ -14,8 +14,8 @@ namespace HospitalTrafficControl
         public const string HarmonyId = "Loupito75:HospitalTrafficControl";
         public const string PluginName = "Hospital Traffic Control";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.5.2";
-        public const string PluginWhatsNew = "Smarter janitor waiting, improved Bucket Cart door clearance, blocked-path bubble, safer cleaning and bathroom defaults, pathfinding performance improvements";
+        public const string PluginVersion = "1.5.3";
+        public const string PluginWhatsNew = "Fixed Bucket Cart staging/reselection bug, safer cross-floor visitor recovery, janitor and pathfinding performance improvements";
 
         internal static ManualLogSource Log { get; private set; }
 

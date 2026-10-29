@@ -152,7 +152,22 @@ namespace HospitalTrafficControl.Patches
                     hospitalization.m_state.m_hospitalizationState ==
                         HospitalizationState.OverridenByVisit)
                 {
-                    hospitalization.SwitchState(HospitalizationState.InBed);
+                    bool hasValidBed =
+                        hospitalization.m_state.m_bed != null &&
+                        hospitalization.m_state.m_bed.GetEntity() != null;
+
+                    if (hasValidBed)
+                    {
+                        hospitalization.SwitchState(HospitalizationState.InBed);
+                    }
+                    else
+                    {
+                        // Match HospitalizationComponent's native missing-bed
+                        // recovery instead of forcing an invalid InBed state.
+                        hospitalization.m_state.m_bed = null;
+                        hospitalization.SwitchState(
+                            HospitalizationState.FindNewBed);
+                    }
                 }
             }
 

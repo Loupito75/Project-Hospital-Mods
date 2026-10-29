@@ -12,8 +12,9 @@
     <!-- @HMUC:desc Extra movement cost applied to configured room transit when room-shortcut avoidance is enabled. -->
     <RoomTransitPenalty>8</RoomTransitPenalty>
 
+    <!-- Room type IDs, one per line. Values are trimmed and case-sensitive; duplicates are ignored with a warning, unknown IDs have no effect, and an empty list excludes no named rooms. -->
     <!-- @HMUC:set label="Room transit exceptions" control="multiline-list" -->
-    <!-- @HMUC:desc Room type IDs excluded from shortcut penalties, one per line. An empty list excludes no named rooms; native outdoor, unzoned, origin and destination exceptions still apply. -->
+    <!-- @HMUC:desc Room type IDs excluded from shortcut penalties, one per line. Values are case-sensitive; unknown IDs have no effect. An empty list excludes no named rooms; native outdoor, unzoned, origin and destination exceptions still apply. -->
     <Exceptions>
       <Value>ROOM_TYPE_CORRIDOR</Value>
       <Value>ROOM_TYPE_WAITING</Value>
@@ -67,7 +68,7 @@
     <ReleaseToiletOwnerAfterUse>true</ReleaseToiletOwnerAfterUse>
   </BathroomFlow>
 
-  <!-- @HMUC:desc Enables targeted diagnostics to investigate pathfinding, janitors and bathroom flow. -->
+  <!-- @HMUC:desc Enables targeted diagnostics to investigate pathfinding, janitors, doors and bathroom flow. -->
   <Debug>
     <!-- Boolean true/false. Default: false. true logs final NoPath jobs and the inaccessible transitions tested by the final PathfinderJob. -->
     <!-- @HMUC:set label="Pathfinding diagnostics" control="checkbox" -->

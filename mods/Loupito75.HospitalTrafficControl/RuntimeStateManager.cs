@@ -14,6 +14,7 @@ namespace HospitalTrafficControl
             AccessZoneRecoveryManager.Reset();
             OneWayPathfinderTracker.Reset();
             OneWayWalkValidationContext.Reset();
+            CandidateNoPathEvaluationContext.Reset();
             PathfindingDebugManager.Reset();
 
             OneWayPersistenceManager.Reset();
