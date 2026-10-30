@@ -3242,6 +3242,27 @@ namespace HospitalModUpdateChecker.Bootstrap
                 return;
             }
 
+            // A signed template may legitimately contain repeated collection
+            // rows. Fresh installs and missing-config updates reach this
+            // collector after copying the template, so collection entries must
+            // not be mistaken for ambiguous scalar/section siblings.
+            if (IsTargetValueCollection(element) ||
+                IsLegacyRoomList(element))
+            {
+                string collectionPath =
+                    parentPath.Length == 0
+                        ? element.Name
+                        : parentPath;
+
+                if (collectionPath.Length > 0)
+                {
+                    result.Add(
+                        collectionPath);
+                }
+
+                return;
+            }
+
             Dictionary<string, XmlElement> children =
                 GetUniqueElementChildren(element);
 

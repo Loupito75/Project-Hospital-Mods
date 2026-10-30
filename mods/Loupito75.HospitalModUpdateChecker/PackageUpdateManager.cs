@@ -208,24 +208,8 @@ namespace HospitalModUpdateChecker
         // GUID from tools/modtest.ps1; no other packages are classified by name.
         private const string TestPackageGuid =
             "loupito75.HospitalModUpdateTest";
-        private const string PackageManifestUrl =
-            "https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/mod-packages.json";
-
-        private const string PackageManifestSignatureUrl =
-            "https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/mod-packages.json.sig";
-
-        private const string PackageManifestRevisionKey =
-            "L75_HMUC_PACKAGE_MANIFEST_REVISION";
-
-        private const string PackageManifestHashKey =
-            "L75_HMUC_PACKAGE_MANIFEST_HASH";
-
-        private const int ManifestTimeoutSeconds = 10;
-        private const int MaximumManifestLifetimeDays = 120;
-        private const int MaximumManifestFutureHours = 24;
         private const int DownloadTimeoutSeconds = 900;
         private const float DownloadStallSeconds = 30f;
-        private const ulong MaximumManifestBytes = 131072UL;
         private const int MaximumDownloadAttempts = 3;
 
         private const string CacheFolderName =
@@ -283,485 +267,70 @@ namespace HospitalModUpdateChecker
             CleanupOrphanDownloads();
         }
 
-        internal static IEnumerator RefreshCatalog()
-        {
-            IEnumerator core =
-                RefreshCatalogCore();
-
-            try
-            {
-                while (true)
-                {
-                    bool hasNext = false;
-                    object current = null;
-                    Exception failure = null;
-
-                    try
-                    {
-                        hasNext =
-                            core.MoveNext();
-
-                        if (hasNext)
-                        {
-                            current =
-                                core.Current;
-                        }
-                    }
-                    catch (Exception exception)
-                    {
-                        failure =
-                            exception;
-                    }
-
-                    if (failure != null)
-                    {
-                        CatalogState =
-                            PackageCatalogState.Error;
-
-                        Plugin.Log.LogWarning(
-                            "Package catalog check failed: " +
-                            failure.GetType().Name +
-                            ": " +
-                            failure.Message);
-
-                        TitleScreenUpdatePanel.Refresh();
-                        break;
-                    }
-
-                    if (!hasNext)
-                    {
-                        break;
-                    }
-
-                    yield return current;
-                }
-            }
-            finally
-            {
-                IDisposable disposable =
-                    core as IDisposable;
-
-                if (disposable != null)
-                {
-                    disposable.Dispose();
-                }
-            }
-        }
-
-        private static IEnumerator RefreshCatalogCore()
+        internal static void BeginUnifiedCatalogRefresh()
         {
             _packages.Clear();
 
-            // The signed catalog also provides first-time installs, even when
-            // there are no updates for currently loaded plugins.
-            if (UpdateCheckerConfig.Debug)
-            {
-                CatalogState =
-                    PackageCatalogState.NotLoaded;
-                yield break;
-            }
+            CatalogState =
+                UpdateCheckerConfig.Debug
+                    ? PackageCatalogState.NotLoaded
+                    : PackageCatalogState.Loading;
 
-            string trustConfigurationError;
-            if (!PackageTrust.IsConfigured(
-                    out trustConfigurationError))
+            TitleScreenUpdatePanel.Refresh();
+        }
+
+        internal static void ApplyUnifiedCatalog(
+            UnifiedModCatalog catalog)
+        {
+            _packages.Clear();
+
+            if (catalog == null)
             {
                 CatalogState =
                     PackageCatalogState.Error;
 
-                Plugin.Log.LogWarning(
-                    "Package catalog trust is not configured: " +
-                    trustConfigurationError);
-
                 TitleScreenUpdatePanel.Refresh();
-                yield break;
+                return;
+            }
+
+            for (int i = 0;
+                i < catalog.Mods.Count;
+                i++)
+            {
+                UnifiedCatalogModEntry mod =
+                    catalog.Mods[i];
+
+                if (mod == null ||
+                    mod.Package == null)
+                {
+                    CatalogState =
+                        PackageCatalogState.Error;
+
+                    _packages.Clear();
+                    TitleScreenUpdatePanel.Refresh();
+                    return;
+                }
+
+                _packages[mod.Package.Guid] =
+                    mod.Package;
             }
 
             CatalogState =
-                PackageCatalogState.Loading;
+                PackageCatalogState.Ready;
 
             TitleScreenUpdatePanel.Refresh();
-
-            UnityWebRequest request = null;
-            UnityWebRequest signatureRequest = null;
-
-            try
-            {
-                request =
-                    UnityWebRequest.Get(
-                        PackageManifestUrl);
-
-                request.timeout =
-                    ManifestTimeoutSeconds;
-
-                yield return
-                    request.SendWebRequest();
-
-                if (request.isNetworkError ||
-                    request.isHttpError)
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Package catalog unavailable: HTTP " +
-                        request.responseCode.ToString(
-                            CultureInfo.InvariantCulture) +
-                        " | " +
-                        (request.error ??
-                         "unknown network error"));
-
-                    yield break;
-                }
-
-                if (request.downloadedBytes >
-                    MaximumManifestBytes)
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Package catalog was rejected because it is too large.");
-                    yield break;
-                }
-
-                byte[] manifestBytes =
-                    request.downloadHandler == null
-                        ? null
-                        : request.downloadHandler.data;
-
-                if (manifestBytes == null ||
-                    manifestBytes.Length == 0)
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Package catalog was rejected because its body is empty.");
-                    yield break;
-                }
-
-                signatureRequest =
-                    UnityWebRequest.Get(
-                        PackageManifestSignatureUrl);
-
-                signatureRequest.timeout =
-                    ManifestTimeoutSeconds;
-
-                yield return
-                    signatureRequest.SendWebRequest();
-
-                if (signatureRequest.isNetworkError ||
-                    signatureRequest.isHttpError)
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Package catalog signature unavailable: HTTP " +
-                        signatureRequest.responseCode.ToString(
-                            CultureInfo.InvariantCulture) +
-                        " | " +
-                        (signatureRequest.error ??
-                         "unknown network error"));
-
-                    yield break;
-                }
-
-                if (signatureRequest.downloadedBytes >
-                    (ulong)PackageTrust.SignatureFileMaximumBytes)
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Package catalog signature was rejected because it is too large.");
-                    yield break;
-                }
-
-                byte[] signatureBytes =
-                    signatureRequest.downloadHandler == null
-                        ? null
-                        : signatureRequest.downloadHandler.data;
-
-                string trustError;
-
-                if (!PackageTrust.TryVerify(
-                        manifestBytes,
-                        signatureBytes,
-                        out trustError))
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Package catalog signature was rejected: " +
-                        trustError);
-                    yield break;
-                }
-
-                string text;
-                string utf8Error;
-
-                if (!TryDecodeUtf8(
-                        manifestBytes,
-                        out text,
-                        out utf8Error))
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Signed package catalog is not valid UTF-8: " +
-                        utf8Error);
-
-                    yield break;
-                }
-
-                PackageManifest manifest;
-                string parseError;
-
-                if (!PackageManifest.TryParse(
-                        text,
-                        out manifest,
-                        out parseError))
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Signed package catalog was rejected: " +
-                        parseError);
-                    yield break;
-                }
-
-                string freshnessError;
-                if (!ValidateManifestFreshness(
-                        manifest,
-                        out freshnessError))
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Signed package catalog freshness check failed: " +
-                        freshnessError);
-                    yield break;
-                }
-
-                string rollbackError;
-                if (!AcceptManifestRevision(
-                        manifest,
-                        manifestBytes,
-                        out rollbackError))
-                {
-                    CatalogState =
-                        PackageCatalogState.Error;
-
-                    Plugin.Log.LogWarning(
-                        "Signed package catalog anti-rollback check failed: " +
-                        rollbackError);
-                    yield break;
-                }
-
-                for (int i = 0;
-                    i < manifest.Entries.Count;
-                    i++)
-                {
-                    PackageManifestEntry entry =
-                        manifest.Entries[i];
-
-                    _packages[entry.Guid] =
-                        entry;
-                }
-
-                CatalogState =
-                    PackageCatalogState.Ready;
-            }
-            finally
-            {
-                if (request != null)
-                {
-                    request.Dispose();
-                }
-
-                if (signatureRequest != null)
-                {
-                    signatureRequest.Dispose();
-                }
-
-                TitleScreenUpdatePanel.Refresh();
-            }
         }
 
-        private static bool TryDecodeUtf8(
-            byte[] bytes,
-            out string text,
-            out string error)
+        internal static void SetUnifiedCatalogError()
         {
-            text = null;
-            error = null;
+            _packages.Clear();
 
-            try
-            {
-                UTF8Encoding utf8 =
-                    new UTF8Encoding(
-                        false,
-                        true);
+            CatalogState =
+                UpdateCheckerConfig.Debug
+                    ? PackageCatalogState.NotLoaded
+                    : PackageCatalogState.Error;
 
-                text =
-                    utf8.GetString(
-                        bytes);
-
-                return true;
-            }
-            catch (Exception exception)
-            {
-                error =
-                    exception.GetType().Name;
-
-                return false;
-            }
-        }
-
-        private static bool ValidateManifestFreshness(
-            PackageManifest manifest,
-            out string error)
-        {
-            error = null;
-
-            if (manifest == null)
-            {
-                error =
-                    "Package manifest is missing.";
-                return false;
-            }
-
-            DateTime now =
-                DateTime.UtcNow;
-
-            if (manifest.ExpiresUtc <= now)
-            {
-                error =
-                    "Package manifest expired at " +
-                    manifest.ExpiresUtc.ToString(
-                        "yyyy-MM-ddTHH:mm:ssZ",
-                        CultureInfo.InvariantCulture) +
-                    ".";
-                return false;
-            }
-
-            if (manifest.UpdatedUtc >
-                now.AddHours(
-                    MaximumManifestFutureHours))
-            {
-                error =
-                    "Package manifest updatedUtc is too far in the future.";
-                return false;
-            }
-
-            if (manifest.ExpiresUtc >
-                manifest.UpdatedUtc.AddDays(
-                    MaximumManifestLifetimeDays))
-            {
-                error =
-                    "Package manifest validity period is too long.";
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool AcceptManifestRevision(
-            PackageManifest manifest,
-            byte[] manifestBytes,
-            out string error)
-        {
-            error = null;
-
-            long previousRevision = 0L;
-            string previousRevisionText =
-                PlayerPrefs.HasKey(
-                    PackageManifestRevisionKey)
-                    ? PlayerPrefs.GetString(
-                        PackageManifestRevisionKey)
-                    : string.Empty;
-
-            if (!string.IsNullOrEmpty(
-                    previousRevisionText))
-            {
-                long.TryParse(
-                    previousRevisionText,
-                    NumberStyles.Integer,
-                    CultureInfo.InvariantCulture,
-                    out previousRevision);
-            }
-
-            string currentHash;
-
-            using (SHA256Managed sha =
-                new SHA256Managed())
-            {
-                currentHash =
-                    BootstrapProvisioner.ToHex(
-                        sha.ComputeHash(
-                            manifestBytes));
-            }
-
-            string previousHash =
-                PlayerPrefs.HasKey(
-                    PackageManifestHashKey)
-                    ? PlayerPrefs.GetString(
-                        PackageManifestHashKey)
-                    : string.Empty;
-
-            if (previousRevision >
-                manifest.ManifestRevision)
-            {
-                error =
-                    "Package manifest revision " +
-                    manifest.ManifestRevision.ToString(
-                        CultureInfo.InvariantCulture) +
-                    " is older than trusted revision " +
-                    previousRevision.ToString(
-                        CultureInfo.InvariantCulture) +
-                    ".";
-                return false;
-            }
-
-            if (previousRevision ==
-                    manifest.ManifestRevision &&
-                !string.IsNullOrEmpty(
-                    previousHash) &&
-                !string.Equals(
-                    previousHash,
-                    currentHash,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                error =
-                    "Package manifest content changed without increasing manifestRevision.";
-                return false;
-            }
-
-            if (previousRevision !=
-                    manifest.ManifestRevision ||
-                !string.Equals(
-                    previousHash,
-                    currentHash,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                PlayerPrefs.SetString(
-                    PackageManifestRevisionKey,
-                    manifest.ManifestRevision.ToString(
-                        CultureInfo.InvariantCulture));
-
-                PlayerPrefs.SetString(
-                    PackageManifestHashKey,
-                    currentHash);
-
-                PlayerPrefs.Save();
-            }
-
-            return true;
+            TitleScreenUpdatePanel.Refresh();
         }
 
         internal static bool IsPackageAvailable(
@@ -1079,12 +648,33 @@ namespace HospitalModUpdateChecker
             }
 
             IEnumerator catalog =
-                RefreshCatalog();
+                UnifiedCatalogClient.Refresh();
 
             while (catalog.MoveNext())
             {
-                yield return catalog.Current;
+                yield return
+                    catalog.Current;
             }
+
+            UnifiedModCatalog refreshed =
+                UnifiedCatalogClient.Current;
+
+            if (refreshed == null)
+            {
+                SetUnifiedCatalogError();
+
+                Plugin.Log.LogWarning(
+                    "HMUC unified catalog retry failed before package staging: " +
+                    (string.IsNullOrEmpty(
+                         UnifiedCatalogClient.LastError)
+                        ? "unknown error"
+                        : UnifiedCatalogClient.LastError));
+
+                yield break;
+            }
+
+            ApplyUnifiedCatalog(
+                refreshed);
 
             if (CatalogState !=
                     PackageCatalogState.Ready)
@@ -1116,7 +706,8 @@ namespace HospitalModUpdateChecker
 
             while (download.MoveNext())
             {
-                yield return download.Current;
+                yield return
+                    download.Current;
             }
         }
 

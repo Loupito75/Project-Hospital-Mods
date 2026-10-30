@@ -12,6 +12,14 @@ namespace HospitalModUpdateChecker
         internal const string AuthorCreditId = "L75_HMUC_AUTHOR_CREDIT";
         internal const string ConfigureTooltipId = "L75_HMUC_CONFIGURE_TOOLTIP";
         internal const string ConfigureActionId = "L75_HMUC_CONFIGURE_ACTION";
+        internal const string MainMenuActionId = "L75_HMUC_MAIN_MENU_ACTION";
+        internal const string PluginIssuesTitleId = "L75_HMUC_PLUGIN_ISSUES_TITLE";
+        internal const string PluginIssuesHelpId = "L75_HMUC_PLUGIN_ISSUES_HELP";
+        internal const string PluginIssuesEmptyId = "L75_HMUC_PLUGIN_ISSUES_EMPTY";
+        internal const string PluginIssuesOpenTooltipId = "L75_HMUC_PLUGIN_ISSUES_OPEN_TOOLTIP";
+        internal const string PluginIssuesCopyId = "L75_HMUC_PLUGIN_ISSUES_COPY";
+        internal const string PluginIssuesCloseId = "L75_HMUC_PLUGIN_ISSUES_CLOSE";
+        internal const string PluginIssuesInfoId = "L75_HMUC_PLUGIN_ISSUES_INFO";
         internal const string RecommendedTitleId = "L75_HMUC_RECOMMENDED_TITLE";
         internal const string RecommendedInstallId = "L75_HMUC_RECOMMENDED_INSTALL";
         internal const string RecommendedEmptyId = "L75_HMUC_RECOMMENDED_EMPTY";
@@ -182,6 +190,105 @@ namespace HospitalModUpdateChecker
 
         private static readonly Dictionary<string, string[]> RecommendedTranslations =
             CreateRecommendedTranslations();
+
+        private static readonly Dictionary<string, string[]> PluginIssuesTranslations =
+            CreatePluginIssuesTranslations();
+
+        private static Dictionary<string, string[]> CreatePluginIssuesTranslations()
+        {
+            Dictionary<string, string[]> values =
+                new Dictionary<string, string[]>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            values["en"] = new string[] { "Mod log", "BepInEx messages attributed only to this mod during this launch.", "No BepInEx messages were captured for this mod.", "View this mod's log", "Copy", "Close", "Info" };
+            values["cs"] = new string[] { "Protokol modu", "Zprávy BepInEx přiřazené pouze tomuto modu během tohoto spuštění.", "Pro tento mod nebyly zachyceny žádné zprávy BepInEx.", "Zobrazit protokol tohoto modu", "Kopírovat", "Zavřít", "Informace" };
+            values["da"] = new string[] { "Modlog", "BepInEx-meddelelser, der kun er knyttet til denne mod under denne kørsel.", "Der blev ikke registreret nogen BepInEx-meddelelser for denne mod.", "Vis denne mods log", "Kopiér", "Luk", "Info" };
+            values["de"] = new string[] { "Mod-Protokoll", "BepInEx-Meldungen, die während dieses Starts nur diesem Mod zugeordnet wurden.", "Für diesen Mod wurden keine BepInEx-Meldungen erfasst.", "Protokoll dieses Mods anzeigen", "Kopieren", "Schließen", "Info" };
+            values["es"] = new string[] { "Registro del mod", "Mensajes de BepInEx atribuidos únicamente a este mod durante esta ejecución.", "No se capturaron mensajes de BepInEx para este mod.", "Ver el registro de este mod", "Copiar", "Cerrar", "Info" };
+            values["es-419"] = new string[] { "Registro del mod", "Mensajes de BepInEx atribuidos únicamente a este mod durante esta ejecución.", "No se capturaron mensajes de BepInEx para este mod.", "Ver el registro de este mod", "Copiar", "Cerrar", "Info" };
+            values["fr"] = new string[] { "Journal du mod", "Messages BepInEx attribués uniquement à ce mod pendant ce lancement.", "Aucun message BepInEx capturé pour ce mod.", "Voir le log de ce mod", "Copier", "Fermer", "Info" };
+            values["hu"] = new string[] { "Modnapló", "Csak ehhez a modhoz hozzárendelt BepInEx-üzenetek ebből a futtatásból.", "Ehhez a modhoz nem lett BepInEx-üzenet rögzítve.", "A mod naplójának megtekintése", "Másolás", "Bezárás", "Információ" };
+            values["it"] = new string[] { "Registro della mod", "Messaggi BepInEx attribuiti solo a questa mod durante questa sessione.", "Non è stato acquisito alcun messaggio BepInEx per questa mod.", "Visualizza il registro di questa mod", "Copia", "Chiudi", "Info" };
+            values["ja"] = new string[] { "MODログ", "今回の起動中にこのMODのみに関連付けられたBepInExメッセージです。", "このMODのBepInExメッセージは記録されていません。", "このMODのログを表示", "コピー", "閉じる", "情報" };
+            values["ko"] = new string[] { "모드 로그", "이번 실행 중 이 모드에만 연결된 BepInEx 메시지입니다.", "이 모드에 대해 캡처된 BepInEx 메시지가 없습니다.", "이 모드의 로그 보기", "복사", "닫기", "정보" };
+            values["nl"] = new string[] { "Modlogboek", "BepInEx-berichten die tijdens deze sessie alleen aan deze mod zijn toegewezen.", "Er zijn geen BepInEx-berichten voor deze mod vastgelegd.", "Logboek van deze mod bekijken", "Kopiëren", "Sluiten", "Info" };
+            values["pl"] = new string[] { "Dziennik moda", "Komunikaty BepInEx przypisane wyłącznie do tego moda podczas tego uruchomienia.", "Nie przechwycono żadnych komunikatów BepInEx dla tego moda.", "Wyświetl dziennik tego moda", "Kopiuj", "Zamknij", "Informacje" };
+            values["pt-br"] = new string[] { "Log do mod", "Mensagens do BepInEx atribuídas somente a este mod durante esta execução.", "Nenhuma mensagem do BepInEx foi capturada para este mod.", "Ver o log deste mod", "Copiar", "Fechar", "Info" };
+            values["ru"] = new string[] { "Журнал мода", "Сообщения BepInEx, относящиеся только к этому моду в текущем запуске.", "Для этого мода не было зафиксировано сообщений BepInEx.", "Открыть журнал этого мода", "Копировать", "Закрыть", "Информация" };
+            values["sv"] = new string[] { "Modlogg", "BepInEx-meddelanden som endast har kopplats till denna mod under den här körningen.", "Inga BepInEx-meddelanden registrerades för denna mod.", "Visa loggen för denna mod", "Kopiera", "Stäng", "Info" };
+            values["tr"] = new string[] { "Mod günlüğü", "Bu çalıştırma sırasında yalnızca bu moda atfedilen BepInEx iletileri.", "Bu mod için hiçbir BepInEx iletisi yakalanmadı.", "Bu modun günlüğünü görüntüle", "Kopyala", "Kapat", "Bilgi" };
+            values["uk"] = new string[] { "Журнал мода", "Повідомлення BepInEx, віднесені лише до цього мода під час цього запуску.", "Для цього мода не було зафіксовано повідомлень BepInEx.", "Переглянути журнал цього мода", "Копіювати", "Закрити", "Інформація" };
+            values["zh-cn"] = new string[] { "模组日志", "本次运行中仅归属于此模组的 BepInEx 消息。", "未捕获到此模组的 BepInEx 消息。", "查看此模组日志", "复制", "关闭", "信息" };
+            values["zh-tw"] = new string[] { "模組日誌", "本次執行中僅歸屬於此模組的 BepInEx 訊息。", "未擷取到此模組的 BepInEx 訊息。", "查看此模組日誌", "複製", "關閉", "資訊" };
+
+            return values;
+        }
+
+        private static readonly Dictionary<string, string[]> ConfigSchemaTranslations =
+            CreateConfigSchemaTranslations();
+
+        private static readonly Dictionary<string, string[]> SupplementalInstallerTranslations =
+            CreateSupplementalInstallerTranslations();
+
+        private static Dictionary<string, string[]> CreateSupplementalInstallerTranslations()
+        {
+            Dictionary<string, string[]> values =
+                new Dictionary<string, string[]>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            values["en"] = new string[] { "by", "HMUC UPDATE RECOMMENDED: Update Hospital Mod Update Checker first, then RESTART Project Hospital before updating any other mods.", "HMUC UPDATE QUEUED: RESTART Project Hospital to install HMUC before updating your other mods.", "New mod installed successfully.", "New mod installation failed. See the BepInEx log." };
+            values["cs"] = new string[] { "od", "DOPORUČENA AKTUALIZACE HMUC: Nejprve aktualizujte Hospital Mod Update Checker a poté RESTARTUJTE Project Hospital, než aktualizujete ostatní mody.", "AKTUALIZACE HMUC VE FRONTĚ: RESTARTUJTE Project Hospital, aby se HMUC nainstaloval před aktualizací ostatních modů.", "Nový mod byl úspěšně nainstalován.", "Instalace nového modu se nezdařila. Viz protokol BepInEx." };
+            values["da"] = new string[] { "af", "HMUC-OPDATERING ANBEFALES: Opdater først Hospital Mod Update Checker, og GENSTART derefter Project Hospital, før du opdaterer andre mods.", "HMUC-OPDATERING I KØ: GENSTART Project Hospital for at installere HMUC, før du opdaterer dine andre mods.", "Den nye mod blev installeret.", "Installationen af den nye mod mislykkedes. Se BepInEx-loggen." };
+            values["de"] = new string[] { "von", "HMUC-UPDATE EMPFOHLEN: Aktualisiere zuerst Hospital Mod Update Checker und STARTE Project Hospital anschließend NEU, bevor du andere Mods aktualisierst.", "HMUC-UPDATE EINGEREIHT: STARTE Project Hospital NEU, um HMUC zu installieren, bevor du deine anderen Mods aktualisierst.", "Der neue Mod wurde erfolgreich installiert.", "Die Installation des neuen Mods ist fehlgeschlagen. Siehe BepInEx-Protokoll." };
+            values["es"] = new string[] { "por", "ACTUALIZACIÓN DE HMUC RECOMENDADA: actualiza primero Hospital Mod Update Checker y luego REINICIA Project Hospital antes de actualizar otros mods.", "ACTUALIZACIÓN DE HMUC EN COLA: REINICIA Project Hospital para instalar HMUC antes de actualizar los demás mods.", "El nuevo mod se instaló correctamente.", "La instalación del nuevo mod falló. Consulta el registro de BepInEx." };
+            values["es-419"] = new string[] { "por", "ACTUALIZACIÓN DE HMUC RECOMENDADA: actualiza primero Hospital Mod Update Checker y luego REINICIA Project Hospital antes de actualizar otros mods.", "ACTUALIZACIÓN DE HMUC EN COLA: REINICIA Project Hospital para instalar HMUC antes de actualizar los demás mods.", "El nuevo mod se instaló correctamente.", "La instalación del nuevo mod falló. Consulta el registro de BepInEx." };
+            values["fr"] = new string[] { "par", "MISE À JOUR HMUC RECOMMANDÉE : mettez d'abord Hospital Mod Update Checker à jour, puis REDÉMARREZ Project Hospital avant de mettre à jour les autres mods.", "MISE À JOUR HMUC EN ATTENTE : REDÉMARREZ Project Hospital pour installer HMUC avant de mettre à jour les autres mods.", "Nouveau mod installé avec succès.", "Échec de l'installation du nouveau mod. Consultez le journal BepInEx." };
+            values["hu"] = new string[] { "készítette", "HMUC-FRISSÍTÉS AJÁNLOTT: Először frissítsd a Hospital Mod Update Checkert, majd INDÍTSD ÚJRA a Project Hospitalt, mielőtt más modokat frissítesz.", "HMUC-FRISSÍTÉS SORBAN ÁLL: INDÍTSD ÚJRA a Project Hospitalt a HMUC telepítéséhez, mielőtt a többi modot frissíted.", "Az új mod sikeresen települt.", "Az új mod telepítése sikertelen. Lásd a BepInEx naplóját." };
+            values["it"] = new string[] { "di", "AGGIORNAMENTO HMUC CONSIGLIATO: aggiorna prima Hospital Mod Update Checker, poi RIAVVIA Project Hospital prima di aggiornare altri mod.", "AGGIORNAMENTO HMUC IN CODA: RIAVVIA Project Hospital per installare HMUC prima di aggiornare gli altri mod.", "La nuova mod è stata installata correttamente.", "Installazione della nuova mod non riuscita. Consulta il registro BepInEx." };
+            values["ja"] = new string[] { "作成:", "HMUCの更新を推奨: まず Hospital Mod Update Checker を更新し、その後ほかのMODを更新する前に Project Hospital を再起動してください。", "HMUCの更新待機中: ほかのMODを更新する前に Project Hospital を再起動して HMUC をインストールしてください。", "新しいMODをインストールしました。", "新しいMODのインストールに失敗しました。BepInExログを確認してください。" };
+            values["ko"] = new string[] { "제작:", "HMUC 업데이트 권장: 먼저 Hospital Mod Update Checker를 업데이트한 다음, 다른 모드를 업데이트하기 전에 Project Hospital을 다시 시작하세요.", "HMUC 업데이트 대기 중: 다른 모드를 업데이트하기 전에 Project Hospital을 다시 시작하여 HMUC를 설치하세요.", "새 모드를 설치했습니다.", "새 모드 설치에 실패했습니다. BepInEx 로그를 확인하세요." };
+            values["nl"] = new string[] { "door", "HMUC-UPDATE AANBEVOLEN: werk eerst Hospital Mod Update Checker bij en HERSTART daarna Project Hospital voordat je andere mods bijwerkt.", "HMUC-UPDATE IN WACHTRIJ: HERSTART Project Hospital om HMUC te installeren voordat je andere mods bijwerkt.", "De nieuwe mod is geïnstalleerd.", "Installatie van de nieuwe mod is mislukt. Zie het BepInEx-logboek." };
+            values["pl"] = new string[] { "autor:", "ZALECANA AKTUALIZACJA HMUC: najpierw zaktualizuj Hospital Mod Update Checker, a następnie URUCHOM PONOWNIE Project Hospital przed aktualizacją innych modów.", "AKTUALIZACJA HMUC W KOLEJCE: URUCHOM PONOWNIE Project Hospital, aby zainstalować HMUC przed aktualizacją pozostałych modów.", "Nowy mod został pomyślnie zainstalowany.", "Instalacja nowego moda nie powiodła się. Zobacz dziennik BepInEx." };
+            values["pt-br"] = new string[] { "por", "ATUALIZAÇÃO DO HMUC RECOMENDADA: atualize primeiro o Hospital Mod Update Checker e depois REINICIE o Project Hospital antes de atualizar outros mods.", "ATUALIZAÇÃO DO HMUC NA FILA: REINICIE o Project Hospital para instalar o HMUC antes de atualizar os outros mods.", "Novo mod instalado com sucesso.", "Falha na instalação do novo mod. Consulte o log do BepInEx." };
+            values["ru"] = new string[] { "автор:", "РЕКОМЕНДУЕТСЯ ОБНОВИТЬ HMUC: сначала обновите Hospital Mod Update Checker, затем ПЕРЕЗАПУСТИТЕ Project Hospital перед обновлением других модов.", "ОБНОВЛЕНИЕ HMUC В ОЧЕРЕДИ: ПЕРЕЗАПУСТИТЕ Project Hospital, чтобы установить HMUC перед обновлением остальных модов.", "Новый мод успешно установлен.", "Не удалось установить новый мод. См. журнал BepInEx." };
+            values["sv"] = new string[] { "av", "HMUC-UPPDATERING REKOMMENDERAS: uppdatera först Hospital Mod Update Checker och STARTA sedan OM Project Hospital innan du uppdaterar andra mods.", "HMUC-UPPDATERING I KÖ: STARTA OM Project Hospital för att installera HMUC innan du uppdaterar dina andra mods.", "Den nya modden installerades.", "Installationen av den nya modden misslyckades. Se BepInEx-loggen." };
+            values["tr"] = new string[] { "yapan:", "HMUC GÜNCELLEMESİ ÖNERİLİYOR: Önce Hospital Mod Update Checker'ı güncelleyin, ardından diğer modları güncellemeden önce Project Hospital'ı YENİDEN BAŞLATIN.", "HMUC GÜNCELLEMESİ SIRADA: Diğer modları güncellemeden önce HMUC'yi yüklemek için Project Hospital'ı YENİDEN BAŞLATIN.", "Yeni mod başarıyla yüklendi.", "Yeni mod yüklenemedi. BepInEx günlüğüne bakın." };
+            values["uk"] = new string[] { "автор:", "РЕКОМЕНДОВАНО ОНОВИТИ HMUC: спочатку оновіть Hospital Mod Update Checker, а потім ПЕРЕЗАПУСТІТЬ Project Hospital перед оновленням інших модів.", "ОНОВЛЕННЯ HMUC У ЧЕРЗІ: ПЕРЕЗАПУСТІТЬ Project Hospital, щоб установити HMUC перед оновленням інших модів.", "Новий мод успішно встановлено.", "Не вдалося встановити новий мод. Див. журнал BepInEx." };
+            values["zh-cn"] = new string[] { "作者：", "建议更新 HMUC：请先更新 Hospital Mod Update Checker，然后在更新其他模组前重启 Project Hospital。", "HMUC 更新已排队：请重启 Project Hospital 以安装 HMUC，然后再更新其他模组。", "新模组安装成功。", "新模组安装失败。请查看 BepInEx 日志。" };
+            values["zh-tw"] = new string[] { "作者：", "建議更新 HMUC：請先更新 Hospital Mod Update Checker，然後在更新其他模組前重新啟動 Project Hospital。", "HMUC 更新已排入佇列：請重新啟動 Project Hospital 以安裝 HMUC，然後再更新其他模組。", "新模組安裝成功。", "新模組安裝失敗。請查看 BepInEx 日誌。" };
+
+            return values;
+        }
+
+        private static Dictionary<string, string[]> CreateConfigSchemaTranslations()
+        {
+            Dictionary<string, string[]> values =
+                new Dictionary<string, string[]>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            values["en"] = new string[] { "Warning: new XML settings format detected; migration failed. Check the XML file and BepInEx log.", "Warning: XML settings could not be migrated. Check the files and BepInEx log:" };
+            values["cs"] = new string[] { "Upozornění: byl zjištěn nový formát nastavení XML; migrace se nezdařila. Zkontrolujte soubor XML a protokol BepInEx.", "Upozornění: nastavení XML se nepodařilo migrovat. Zkontrolujte soubory a protokol BepInEx:" };
+            values["da"] = new string[] { "Advarsel: nyt XML-indstillingsformat fundet; migreringen mislykkedes. Kontrollér XML-filen og BepInEx-loggen.", "Advarsel: XML-indstillingerne kunne ikke migreres. Kontrollér filerne og BepInEx-loggen:" };
+            values["de"] = new string[] { "Warnung: Neues XML-Einstellungsformat erkannt; Migration fehlgeschlagen. XML-Datei und BepInEx-Protokoll prüfen.", "Warnung: XML-Einstellungen konnten nicht migriert werden. Dateien und BepInEx-Protokoll prüfen:" };
+            values["es"] = new string[] { "Advertencia: se detectó un nuevo formato de configuración XML; la migración falló. Revisa el archivo XML y el registro de BepInEx.", "Advertencia: no se pudo migrar la configuración XML. Revisa los archivos y el registro de BepInEx:" };
+            values["es-419"] = new string[] { "Advertencia: se detectó un nuevo formato de configuración XML; la migración falló. Revisa el archivo XML y el registro de BepInEx.", "Advertencia: no se pudo migrar la configuración XML. Revisa los archivos y el registro de BepInEx:" };
+            values["fr"] = new string[] { "Attention : nouveau format XML détecté, migration impossible. Vérifiez le fichier XML et le journal BepInEx.", "Attention : configuration XML non migrée. Vérifiez les fichiers et le journal BepInEx :" };
+            values["hu"] = new string[] { "Figyelmeztetés: új XML-beállításformátum észlelve; az áttelepítés sikertelen. Ellenőrizd az XML-fájlt és a BepInEx naplóját.", "Figyelmeztetés: az XML-beállításokat nem sikerült áttelepíteni. Ellenőrizd a fájlokat és a BepInEx naplóját:" };
+            values["it"] = new string[] { "Avviso: rilevato un nuovo formato di impostazioni XML; migrazione non riuscita. Controlla il file XML e il registro BepInEx.", "Avviso: impossibile migrare le impostazioni XML. Controlla i file e il registro BepInEx:" };
+            values["ja"] = new string[] { "警告: 新しいXML設定形式が検出されましたが、移行に失敗しました。XMLファイルとBepInExログを確認してください。", "警告: XML設定を移行できませんでした。ファイルとBepInExログを確認してください:" };
+            values["ko"] = new string[] { "경고: 새 XML 설정 형식이 감지되었지만 마이그레이션에 실패했습니다. XML 파일과 BepInEx 로그를 확인하세요.", "경고: XML 설정을 마이그레이션하지 못했습니다. 파일과 BepInEx 로그를 확인하세요:" };
+            values["nl"] = new string[] { "Waarschuwing: nieuwe XML-instellingenindeling gedetecteerd; migratie mislukt. Controleer het XML-bestand en het BepInEx-logboek.", "Waarschuwing: XML-instellingen konden niet worden gemigreerd. Controleer de bestanden en het BepInEx-logboek:" };
+            values["pl"] = new string[] { "Ostrzeżenie: wykryto nowy format ustawień XML; migracja nie powiodła się. Sprawdź plik XML i dziennik BepInEx.", "Ostrzeżenie: nie udało się zmigrować ustawień XML. Sprawdź pliki i dziennik BepInEx:" };
+            values["pt-br"] = new string[] { "Aviso: novo formato de configurações XML detectado; a migração falhou. Verifique o arquivo XML e o log do BepInEx.", "Aviso: não foi possível migrar as configurações XML. Verifique os arquivos e o log do BepInEx:" };
+            values["ru"] = new string[] { "Предупреждение: обнаружен новый формат настроек XML; миграция не удалась. Проверьте XML-файл и журнал BepInEx.", "Предупреждение: не удалось перенести настройки XML. Проверьте файлы и журнал BepInEx:" };
+            values["sv"] = new string[] { "Varning: ett nytt XML-inställningsformat upptäcktes; migreringen misslyckades. Kontrollera XML-filen och BepInEx-loggen.", "Varning: XML-inställningarna kunde inte migreras. Kontrollera filerna och BepInEx-loggen:" };
+            values["tr"] = new string[] { "Uyarı: yeni XML ayar biçimi algılandı; geçiş başarısız oldu. XML dosyasını ve BepInEx günlüğünü kontrol edin.", "Uyarı: XML ayarları taşınamadı. Dosyaları ve BepInEx günlüğünü kontrol edin:" };
+            values["uk"] = new string[] { "Попередження: виявлено новий формат налаштувань XML; міграція не вдалася. Перевірте XML-файл і журнал BepInEx.", "Попередження: не вдалося перенести налаштування XML. Перевірте файли та журнал BepInEx:" };
+            values["zh-cn"] = new string[] { "警告：检测到新的 XML 设置格式；迁移失败。请检查 XML 文件和 BepInEx 日志。", "警告：无法迁移 XML 设置。请检查文件和 BepInEx 日志：" };
+            values["zh-tw"] = new string[] { "警告：偵測到新的 XML 設定格式；移轉失敗。請檢查 XML 檔案和 BepInEx 日誌。", "警告：無法移轉 XML 設定。請檢查檔案和 BepInEx 日誌：" };
+
+            return values;
+        }
 
         private static Dictionary<string, string[]> CreateRecommendedTranslations()
         {
@@ -597,6 +704,41 @@ namespace HospitalModUpdateChecker
                 return ConfigureActionTranslations["en"];
             }
 
+            if (stringId == MainMenuActionId)
+            {
+                return "HMUC";
+            }
+
+            if (stringId == PluginIssuesTitleId ||
+                stringId == PluginIssuesHelpId ||
+                stringId == PluginIssuesEmptyId ||
+                stringId == PluginIssuesOpenTooltipId ||
+                stringId == PluginIssuesCopyId ||
+                stringId == PluginIssuesCloseId ||
+                stringId == PluginIssuesInfoId)
+            {
+                string[] labels;
+
+                if (!PluginIssuesTranslations.TryGetValue(
+                        language,
+                        out labels))
+                {
+                    labels =
+                        PluginIssuesTranslations["en"];
+                }
+
+                int index =
+                    stringId == PluginIssuesTitleId ? 0 :
+                    stringId == PluginIssuesHelpId ? 1 :
+                    stringId == PluginIssuesEmptyId ? 2 :
+                    stringId == PluginIssuesOpenTooltipId ? 3 :
+                    stringId == PluginIssuesCopyId ? 4 :
+                    stringId == PluginIssuesCloseId ? 5 :
+                    6;
+
+                return labels[index];
+            }
+
             if (stringId == ConfigureTooltipId)
             {
                 string caption;
@@ -608,14 +750,20 @@ namespace HospitalModUpdateChecker
             if (stringId == ConfigSchemaMigrationAlertId ||
                 stringId == ConfigSchemaIssuesHeadingId)
             {
-                bool french = language == "fr";
-                if (stringId == ConfigSchemaMigrationAlertId)
-                    return french
-                        ? "Attention : nouveau format XML détecté, migration impossible. Vérifiez le fichier XML et le journal BepInEx."
-                        : "Warning: new XML settings format detected; migration failed. Check the XML file and BepInEx log.";
-                return french
-                    ? "Attention : configuration XML non migrée. Vérifiez les fichiers et le journal BepInEx :"
-                    : "Warning: XML settings could not be migrated. Check the files and BepInEx log:";
+                string[] labels;
+
+                if (!ConfigSchemaTranslations.TryGetValue(
+                        language,
+                        out labels))
+                {
+                    labels =
+                        ConfigSchemaTranslations["en"];
+                }
+
+                return labels[
+                    stringId == ConfigSchemaMigrationAlertId
+                        ? 0
+                        : 1];
             }
 
             string configEditorValue;
@@ -728,9 +876,27 @@ namespace HospitalModUpdateChecker
                 return installerValue;
             }
 
-            // Existing translations have a fixed 22-entry contract.
-            // Newly introduced message IDs use the English fallback until
-            // translated, without changing legacy locale arrays.
+            string[] supplemental;
+
+            if (SupplementalInstallerTranslations.TryGetValue(
+                    language,
+                    out supplemental))
+            {
+                int supplementalIndex =
+                    stringId == AuthorCreditId ? 0 :
+                    stringId == HmucPriorityNoticeId ? 1 :
+                    stringId == HmucPriorityRestartId ? 2 :
+                    stringId == NewInstallSucceededId ? 3 :
+                    stringId == NewInstallFailedId ? 4 :
+                    -1;
+
+                if (supplementalIndex >= 0)
+                {
+                    return supplemental[
+                        supplementalIndex];
+                }
+            }
+
             if (EnglishInstallerStrings.TryGetValue(
                     stringId,
                     out installerValue))

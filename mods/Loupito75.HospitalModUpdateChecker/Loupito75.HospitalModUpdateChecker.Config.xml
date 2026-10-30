@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <HospitalModUpdateChecker>
   <!--
-    true: show the News block on the HMUC title-screen dashboard.
+    true: show the News block on the HMUC title-screen dashboard (default).
     false: hide the News block completely.
   -->
   <!-- @HMUC:set label="Show news" control="checkbox" -->
@@ -10,7 +10,7 @@
 
   <!--
     true: use built-in HMUC test content for updates, news and status rendering; installable mod recommendations are unavailable.
-    false: use normal live data.
+    false: use normal live data (default).
   -->
   <!-- @HMUC:set label="Debug mode" control="checkbox" -->
   <!-- @HMUC:desc Use built-in HMUC test data rather than live news and updates. Installable mod recommendations are unavailable while Debug mode is enabled. -->
