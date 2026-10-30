@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 20,
-  "updatedUtc": "2026-10-29T04:07:24Z",
-  "expiresUtc": "2027-01-27T04:07:24Z",
+  "manifestRevision": 21,
+  "updatedUtc": "2026-10-30T09:29:32Z",
+  "expiresUtc": "2027-01-28T09:29:32Z",
   "packages": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -94,11 +94,11 @@
     {
       "guid": "loupito75.HospitalModUpdateChecker",
       "name": "Hospital Mod Update Checker",
-      "version": "1.4.0",
-      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalModUpdateChecker-v1.4.0/Loupito75.HospitalModUpdateChecker-v1.4.0.zip",
-      "sha256": "3111a96ca0e8f35ab944d80f6e356dfa2c508cf1f61fb7934fe950c2c5a170b1",
-      "packageBytes": 474586,
-      "maximumUnpackedBytes": 687917,
+      "version": "1.5.0",
+      "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalModUpdateChecker-v1.5.0/Loupito75.HospitalModUpdateChecker-v1.5.0.zip",
+      "sha256": "221ceea8d873a4d5a24e49c64dacb902d288d7c9ca1ef100430cf5dce9cfe086",
+      "packageBytes": 488036,
+      "maximumUnpackedBytes": 729921,
       "installDirectory": "Loupito75.HospitalModUpdateChecker",
       "archiveRoot": "Loupito75.HospitalModUpdateChecker",
       "pluginFile": "Loupito75.HospitalModUpdateChecker.dll",
