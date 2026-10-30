@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731462,
-  "updatedUtc": "2026-10-29T04:07:23Z",
+  "manifestRevision": 731463,
+  "updatedUtc": "2026-10-30T09:29:32Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -43,7 +43,7 @@
       "guid": "loupito75.HospitalModUpdateChecker",
       "name": "Hospital Mod Update Checker",
       "author": "Loupito75",
-      "version": "1.4.0"
+      "version": "1.5.0"
     },
     {
       "guid": "loupito75.HospitalRadio",
