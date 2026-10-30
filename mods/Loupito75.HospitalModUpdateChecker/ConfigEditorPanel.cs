@@ -88,12 +88,14 @@ namespace HospitalModUpdateChecker
             GameObject header = NewBox(
                 "Header", window.transform, HeadingColor());
             RectTransform head = header.GetComponent<RectTransform>();
-            TopRect(head, -8f, 44f, 8f, 8f);
+            // The title strip is the window header itself: no light frame
+            // around it. Match the HMUC dashboard/native dialog treatment.
+            TopRect(head, 0f, 44f, 0f, 0f);
 
             Text title = NewText(
                 "Title", header.transform,
                 (_session.PluginName ?? string.Empty).ToUpperInvariant(),
-                Math.Max(_source.fontSize + 1, 17),
+                HmucUiStyle.TitleFontSize,
                 TextAnchor.MiddleLeft);
             title.fontStyle = FontStyle.Bold;
             RectTransform titleRect = title.rectTransform;
@@ -119,7 +121,8 @@ namespace HospitalModUpdateChecker
             infoRect.sizeDelta = new Vector2(-24f, 50f);
 
             _status = NewText(
-                "Status", infoPanel.transform, Loc("hover_help"), 15,
+                "Status", infoPanel.transform, Loc("hover_help"),
+                HmucUiStyle.BodyFontSize,
                 TextAnchor.MiddleLeft);
             RectTransform statusRect = _status.rectTransform;
             Stretch(statusRect);
@@ -169,7 +172,9 @@ namespace HospitalModUpdateChecker
                 viewport.AddComponent<RectTransform>();
             viewportRect.anchorMin = new Vector2(0f, 0f);
             viewportRect.anchorMax = new Vector2(1f, 1f);
-            viewportRect.offsetMin = new Vector2(17f, 121f);
+            // Align the viewport with the 12 px outer margins used by
+            // the adjacent info and action panels.
+            viewportRect.offsetMin = new Vector2(12f, 121f);
             viewportRect.offsetMax = new Vector2(-44f, -62f);
             viewport.AddComponent<RectMask2D>();
             Image hit = viewport.AddComponent<Image>();
@@ -344,7 +349,7 @@ namespace HospitalModUpdateChecker
             Text text = NewText(
                 "SectionName", header.transform,
                 TruncateLabel(section.ToUpperInvariant(), 44),
-                Math.Max(_source.fontSize + 2, 16),
+                HmucUiStyle.SectionFontSize,
                 TextAnchor.MiddleLeft);
             text.fontStyle = FontStyle.Bold;
             RectTransform textRect = text.rectTransform;
@@ -384,8 +389,9 @@ namespace HospitalModUpdateChecker
                 (option.CompactRow ? 42 : 34));
             Text name = NewText(
                 "Name", row.transform, visibleLabel,
-                multiline ? 16 :
-                (option.CompactRow ? 15 : 17),
+                option.CompactRow
+                    ? HmucUiStyle.RowSecondaryFontSize
+                    : HmucUiStyle.RowPrimaryFontSize,
                 TextAnchor.MiddleLeft);
             name.supportRichText = false;
             name.raycastTarget = true;
@@ -741,7 +747,7 @@ namespace HospitalModUpdateChecker
             {
                 _optionTooltip = NewBox(
                     "OptionTooltip", _windowRect,
-                    TooltipColor());
+                    HmucUiStyle.TooltipColor());
                 Image tooltipBackground =
                     _optionTooltip.GetComponent<Image>();
                 if (tooltipBackground != null)
@@ -755,13 +761,18 @@ namespace HospitalModUpdateChecker
                 root.sizeDelta = new Vector2(360f, 48f);
 
                 _optionTooltipText = NewText(
-                    "TooltipText", _optionTooltip.transform, "", 14,
+                    "TooltipText", _optionTooltip.transform, "",
+                    HmucUiStyle.TooltipFontSize,
                     TextAnchor.MiddleLeft);
                 RectTransform textRect =
                     _optionTooltipText.rectTransform;
                 Stretch(textRect);
-                textRect.offsetMin = new Vector2(10f, 7f);
-                textRect.offsetMax = new Vector2(-10f, -7f);
+                textRect.offsetMin = new Vector2(
+                    HmucUiStyle.TooltipPaddingHorizontal,
+                    HmucUiStyle.TooltipPaddingVertical);
+                textRect.offsetMax = new Vector2(
+                    -HmucUiStyle.TooltipPaddingHorizontal,
+                    -HmucUiStyle.TooltipPaddingVertical);
                 _optionTooltipText.horizontalOverflow =
                     HorizontalWrapMode.Wrap;
                 _optionTooltipText.verticalOverflow =
@@ -774,14 +785,16 @@ namespace HospitalModUpdateChecker
 
             RectTransform tooltipRect =
                 _optionTooltip.GetComponent<RectTransform>();
-            float width = Mathf.Clamp(
-                _optionTooltipText.preferredWidth + 28f,
-                220f, Width - 32f);
-            tooltipRect.sizeDelta = new Vector2(width, 48f);
+            float width =
+                HmucUiStyle.TooltipWidth(
+                    _optionTooltipText.preferredWidth);
+            tooltipRect.sizeDelta = new Vector2(
+                width,
+                HmucUiStyle.TooltipMinHeight);
             Canvas.ForceUpdateCanvases();
-            float height = Mathf.Clamp(
-                _optionTooltipText.preferredHeight + 20f,
-                42f, Height - 90f);
+            float height =
+                HmucUiStyle.TooltipHeight(
+                    _optionTooltipText.preferredHeight);
             tooltipRect.sizeDelta = new Vector2(width, height);
 
             Canvas canvas = _windowRect.GetComponentInParent<Canvas>();
@@ -800,17 +813,25 @@ namespace HospitalModUpdateChecker
                 float tooltipHalfHeight = tooltipRect.rect.height * .5f;
 
                 float minY =
-                    -halfHeight + tooltipHalfHeight + 8f;
+                    -halfHeight +
+                    tooltipHalfHeight +
+                    HmucUiStyle.TooltipEdgeMargin;
                 float maxY =
-                    halfHeight - tooltipHalfHeight - 8f;
+                    halfHeight -
+                    tooltipHalfHeight -
+                    HmucUiStyle.TooltipEdgeMargin;
 
                 // Prefer above the pointer. For the first section there may
                 // not be enough room; in that case place the tooltip below
                 // instead of clamping it back across the hovered header.
                 float aboveY =
-                    pointer.y + tooltipHalfHeight + 18f;
+                    pointer.y +
+                    tooltipHalfHeight +
+                    HmucUiStyle.TooltipPointerGap;
                 float belowY =
-                    pointer.y - tooltipHalfHeight - 18f;
+                    pointer.y -
+                    tooltipHalfHeight -
+                    HmucUiStyle.TooltipPointerGap;
                 float tooltipY =
                     aboveY <= maxY
                         ? aboveY
@@ -821,8 +842,12 @@ namespace HospitalModUpdateChecker
                 tooltipRect.anchoredPosition = new Vector2(
                     Mathf.Clamp(
                         pointer.x,
-                        -halfWidth + tooltipHalfWidth + 8f,
-                        halfWidth - tooltipHalfWidth - 8f),
+                        -halfWidth +
+                            tooltipHalfWidth +
+                            HmucUiStyle.TooltipEdgeMargin,
+                        halfWidth -
+                            tooltipHalfWidth -
+                            HmucUiStyle.TooltipEdgeMargin),
                     tooltipY);
             }
 
@@ -942,12 +967,6 @@ namespace HospitalModUpdateChecker
         private static Color HeadingColor()
         {
             return DarkPanelColor();
-        }
-
-        private static Color TooltipColor()
-        {
-            return new Color(
-                .3019608f, .3019608f, .3019608f, .9411765f);
         }
 
         private static Color GaugeBackColor()

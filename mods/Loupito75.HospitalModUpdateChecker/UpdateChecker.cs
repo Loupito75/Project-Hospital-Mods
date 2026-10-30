@@ -5,7 +5,6 @@ using System.Globalization;
 using BepInEx;
 using BepInEx.Bootstrap;
 using UnityEngine;
-using UnityEngine.Networking;
 
 namespace HospitalModUpdateChecker
 {
@@ -20,17 +19,8 @@ namespace HospitalModUpdateChecker
 
     internal static class UpdateChecker
     {
-        private const string ManifestUrl =
-            "https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/mod-updates.json";
-
-        private const string NewsManifestUrl =
-            "https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/mod-news.json";
-
-        private const int RequestTimeoutSeconds = 10;
-        private const ulong MaximumManifestBytes = 65536UL;
-        private const ulong MaximumNewsManifestBytes = 32768UL;
         private const string CachedNewsManifestKey =
-            "Loupito75.HospitalModUpdateChecker.CachedNewsManifest";
+            "Loupito75.HospitalModUpdateChecker.CachedUnifiedNewsManifest";
 
         private const string DebugUpdateManifest =
             "{\n" +
@@ -114,8 +104,19 @@ namespace HospitalModUpdateChecker
                 }
                 catch (Exception exception)
                 {
-                    UpdateState = RemoteContentState.Error;
-                    NewsState = RemoteContentState.Error;
+                    UpdateState =
+                        RemoteContentState.Error;
+
+                    NewsState =
+                        UpdateCheckerConfig.ShowNews
+                            ? RemoteContentState.Error
+                            : RemoteContentState.Empty;
+
+                    PackageUpdateManager
+                        .SetUnifiedCatalogError();
+
+                    ModDetailsCatalog.Clear();
+
                     TitleScreenUpdatePanel.Refresh();
 
                     Plugin.Log.LogWarning(
@@ -137,190 +138,223 @@ namespace HospitalModUpdateChecker
         {
             if (UpdateCheckerConfig.Debug)
             {
+                PackageUpdateManager.BeginUnifiedCatalogRefresh();
+                ModDetailsCatalog.Clear();
+
                 LoadDebugUpdateManifest();
-                TitleScreenUpdatePanel.Refresh();
-            }
-            else
-            {
-                IEnumerator updateRoutine = CheckUpdateManifest();
 
-                while (updateRoutine.MoveNext())
+                if (UpdateCheckerConfig.ShowNews)
                 {
-                    yield return updateRoutine.Current;
+                    LoadDebugNewsManifest();
                 }
-            }
-
-            if (!UpdateCheckerConfig.Debug)
-            {
-                IEnumerator packageRoutine =
-                    PackageUpdateManager.RefreshCatalog();
-
-                while (packageRoutine.MoveNext())
+                else
                 {
-                    yield return packageRoutine.Current;
+                    _newsItems.Clear();
+                    NewsState =
+                        RemoteContentState.Empty;
                 }
-            }
 
-            if (!UpdateCheckerConfig.Debug)
-            {
-                // Optional descriptive catalog must never prevent updates
-                // or news when its own network/parse/cache handling fails.
-                IEnumerator detailsRoutine = ModDetailsCatalog.Refresh();
-                try
-                {
-                    while (true)
-                    {
-                        bool next;
-                        object current = null;
-                        try
-                        {
-                            next = detailsRoutine.MoveNext();
-                            if (next)
-                                current = detailsRoutine.Current;
-                        }
-                        catch (Exception exception)
-                        {
-                            Plugin.Log.LogWarning(
-                                "Optional signed mod details unavailable: " +
-                                exception.GetType().Name);
-                            break;
-                        }
-                        if (!next)
-                            break;
-                        yield return current;
-                    }
-                }
-                finally
-                {
-                    IDisposable disposable = detailsRoutine as IDisposable;
-                    if (disposable != null)
-                        disposable.Dispose();
-                }
-            }
-
-            if (!UpdateCheckerConfig.ShowNews)
-            {
-                _newsItems.Clear();
-                NewsState = RemoteContentState.Empty;
                 TitleScreenUpdatePanel.Refresh();
                 yield break;
             }
 
-            if (UpdateCheckerConfig.Debug)
-            {
-                LoadDebugNewsManifest();
-                TitleScreenUpdatePanel.Refresh();
-                yield break;
-            }
+            _availableUpdates.Clear();
+            _newsItems.Clear();
 
-            IEnumerator newsRoutine = CheckNewsManifest();
+            UpdateState =
+                RemoteContentState.Loading;
 
-            while (newsRoutine.MoveNext())
-            {
-                yield return newsRoutine.Current;
-            }
-        }
+            NewsState =
+                UpdateCheckerConfig.ShowNews
+                    ? RemoteContentState.Loading
+                    : RemoteContentState.Empty;
 
-        private static IEnumerator CheckUpdateManifest()
-        {
-            UpdateState = RemoteContentState.Loading;
+            PackageUpdateManager.BeginUnifiedCatalogRefresh();
+            ModDetailsCatalog.Clear();
             TitleScreenUpdatePanel.Refresh();
 
-            UnityWebRequest request = null;
+            IEnumerator catalogRoutine =
+                UnifiedCatalogClient.Refresh();
 
             try
             {
-                request = UnityWebRequest.Get(ManifestUrl);
-                request.timeout = RequestTimeoutSeconds;
-
-                yield return request.SendWebRequest();
-
-                if (request.isNetworkError || request.isHttpError)
+                while (catalogRoutine.MoveNext())
                 {
-                    UpdateState = RemoteContentState.Error;
-                    Plugin.Log.LogWarning(
-                        "Update check failed: HTTP " +
-                        request.responseCode.ToString(
-                            CultureInfo.InvariantCulture) +
-                        " | " +
-                        (request.error ?? "unknown error"));
-                    yield break;
+                    yield return
+                        catalogRoutine.Current;
                 }
-
-                if (request.downloadedBytes > MaximumManifestBytes)
-                {
-                    UpdateState = RemoteContentState.Error;
-                    Plugin.Log.LogWarning(
-                        "Update manifest was rejected because it is too large.");
-                    yield break;
-                }
-
-                string text = request.downloadHandler == null
-                    ? null
-                    : request.downloadHandler.text;
-
-                UpdateManifest manifest;
-                string parseError;
-
-                if (!UpdateManifest.TryParse(
-                        text,
-                        out manifest,
-                        out parseError))
-                {
-                    UpdateState = RemoteContentState.Error;
-                    Plugin.Log.LogWarning(
-                        "Update manifest was rejected: " + parseError);
-                    yield break;
-                }
-
-                _availableUpdates.Clear();
-
-                for (int i = 0; i < manifest.Entries.Count; i++)
-                {
-                    UpdateManifestEntry remote = manifest.Entries[i];
-                    PluginInfo installed;
-
-                    if (!Chainloader.PluginInfos.TryGetValue(
-                            remote.Guid,
-                            out installed) ||
-                        installed == null ||
-                        installed.Metadata == null ||
-                        installed.Metadata.Version == null)
-                    {
-                        continue;
-                    }
-
-                    Version localVersion = installed.Metadata.Version;
-                    if (remote.Version.CompareTo(localVersion) <= 0)
-                    {
-                        continue;
-                    }
-
-                    _availableUpdates.Add(
-                        new AvailableUpdate(
-                            remote.Guid,
-                            remote.Name,
-                            remote.Author,
-                            localVersion,
-                            remote.Version));
-                }
-
-                SortAvailableUpdates();
-
-                UpdateState = _availableUpdates.Count == 0
-                    ? RemoteContentState.Empty
-                    : RemoteContentState.Ready;
-
             }
             finally
             {
-                if (request != null)
+                IDisposable disposable =
+                    catalogRoutine as IDisposable;
+
+                if (disposable != null)
                 {
-                    request.Dispose();
+                    disposable.Dispose();
+                }
+            }
+
+            UnifiedModCatalog catalog =
+                UnifiedCatalogClient.Current;
+
+            if (catalog == null)
+            {
+                UpdateState =
+                    RemoteContentState.Error;
+
+                PackageUpdateManager.SetUnifiedCatalogError();
+                ModDetailsCatalog.Clear();
+
+                string failure =
+                    "HMUC unified catalog check failed: " +
+                    (string.IsNullOrEmpty(
+                         UnifiedCatalogClient.LastError)
+                        ? "unknown error"
+                        : UnifiedCatalogClient.LastError);
+
+                bool usedCachedNews =
+                    false;
+
+                if (UpdateCheckerConfig.ShowNews)
+                {
+                    usedCachedNews =
+                        TryUseCachedNewsFallback(
+                            failure);
+
+                    if (!usedCachedNews)
+                    {
+                        _newsItems.Clear();
+                        NewsState =
+                            RemoteContentState.Error;
+                    }
+                }
+                else
+                {
+                    _newsItems.Clear();
+                    NewsState =
+                        RemoteContentState.Empty;
+                }
+
+                if (!usedCachedNews)
+                {
+                    Plugin.Log.LogWarning(
+                        failure);
                 }
 
                 TitleScreenUpdatePanel.Refresh();
+                yield break;
             }
+
+            ApplyUnifiedCatalogUpdates(
+                catalog);
+
+            PackageUpdateManager.ApplyUnifiedCatalog(
+                catalog);
+
+            ModDetailsCatalog.ApplyUnifiedCatalog(
+                catalog);
+
+            if (UpdateCheckerConfig.ShowNews)
+            {
+                ApplyUnifiedCatalogNews(
+                    catalog);
+
+                SaveNewsCache(
+                    catalog.CreateNewsCacheManifest());
+            }
+            else
+            {
+                _newsItems.Clear();
+                NewsState =
+                    RemoteContentState.Empty;
+            }
+
+            TitleScreenUpdatePanel.Refresh();
+        }
+
+        private static void ApplyUnifiedCatalogUpdates(
+            UnifiedModCatalog catalog)
+        {
+            _availableUpdates.Clear();
+
+            if (catalog == null)
+            {
+                UpdateState =
+                    RemoteContentState.Error;
+                return;
+            }
+
+            for (int i = 0;
+                i < catalog.Mods.Count;
+                i++)
+            {
+                UnifiedCatalogModEntry mod =
+                    catalog.Mods[i];
+
+                UpdateManifestEntry remote =
+                    mod == null
+                        ? null
+                        : mod.Update;
+
+                if (remote == null)
+                {
+                    continue;
+                }
+
+                PluginInfo installed;
+
+                if (!Chainloader.PluginInfos.TryGetValue(
+                        remote.Guid,
+                        out installed) ||
+                    installed == null ||
+                    installed.Metadata == null ||
+                    installed.Metadata.Version == null)
+                {
+                    continue;
+                }
+
+                Version localVersion =
+                    installed.Metadata.Version;
+
+                if (remote.Version.CompareTo(
+                        localVersion) <= 0)
+                {
+                    continue;
+                }
+
+                _availableUpdates.Add(
+                    new AvailableUpdate(
+                        remote.Guid,
+                        remote.Name,
+                        remote.Author,
+                        localVersion,
+                        remote.Version));
+            }
+
+            SortAvailableUpdates();
+
+            UpdateState =
+                _availableUpdates.Count == 0
+                    ? RemoteContentState.Empty
+                    : RemoteContentState.Ready;
+        }
+
+        private static void ApplyUnifiedCatalogNews(
+            UnifiedModCatalog catalog)
+        {
+            _newsItems.Clear();
+
+            if (catalog != null)
+            {
+                _newsItems.AddRange(
+                    catalog.News);
+            }
+
+            NewsState =
+                _newsItems.Count == 0
+                    ? RemoteContentState.Empty
+                    : RemoteContentState.Ready;
         }
 
         private static void LoadDebugUpdateManifest()
@@ -468,96 +502,6 @@ namespace HospitalModUpdateChecker
                 ? RemoteContentState.Empty
                 : RemoteContentState.Ready;
 
-        }
-
-        private static IEnumerator CheckNewsManifest()
-        {
-            NewsState = RemoteContentState.Loading;
-            TitleScreenUpdatePanel.Refresh();
-
-            UnityWebRequest request = null;
-
-            try
-            {
-                request = UnityWebRequest.Get(NewsManifestUrl);
-                request.timeout = RequestTimeoutSeconds;
-
-                yield return request.SendWebRequest();
-
-                if (request.isNetworkError || request.isHttpError)
-                {
-                    string failure =
-                        "News check failed: HTTP " +
-                        request.responseCode.ToString(
-                            CultureInfo.InvariantCulture) +
-                        " | " +
-                        (request.error ?? "unknown error");
-
-                    if (TryUseCachedNewsFallback(failure))
-                    {
-                        yield break;
-                    }
-
-                    NewsState = RemoteContentState.Error;
-                    Plugin.Log.LogWarning(failure);
-                    yield break;
-                }
-
-                if (request.downloadedBytes > MaximumNewsManifestBytes)
-                {
-                    const string failure =
-                        "News manifest was rejected because it is too large.";
-
-                    if (TryUseCachedNewsFallback(failure))
-                    {
-                        yield break;
-                    }
-
-                    NewsState = RemoteContentState.Error;
-                    Plugin.Log.LogWarning(failure);
-                    yield break;
-                }
-
-                string text = request.downloadHandler == null
-                    ? null
-                    : request.downloadHandler.text;
-
-                NewsManifest manifest;
-                string parseError;
-
-                if (!NewsManifest.TryParse(
-                        text,
-                        out manifest,
-                        out parseError))
-                {
-                    string failure =
-                        "News manifest was rejected: " + parseError;
-
-                    if (TryUseCachedNewsFallback(failure))
-                    {
-                        yield break;
-                    }
-
-                    NewsState = RemoteContentState.Error;
-                    Plugin.Log.LogWarning(failure);
-                    yield break;
-                }
-
-                ApplyNewsManifest(
-                    manifest,
-                    false);
-
-                SaveNewsCache(text);
-            }
-            finally
-            {
-                if (request != null)
-                {
-                    request.Dispose();
-                }
-
-                TitleScreenUpdatePanel.Refresh();
-            }
         }
 
         private static bool TryUseCachedNewsFallback(

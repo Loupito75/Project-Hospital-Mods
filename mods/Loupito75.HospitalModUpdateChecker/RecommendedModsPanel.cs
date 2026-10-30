@@ -458,7 +458,10 @@ namespace HospitalModUpdateChecker
             result.text = value ?? "";
             result.alignment = align;
             result.color = Color.white;
-            result.fontSize = Math.Max(_source.fontSize + 1, 13);
+            result.fontSize =
+                bold
+                    ? HmucUiStyle.RowPrimaryFontSize
+                    : HmucUiStyle.RowSecondaryFontSize;
             result.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
             result.supportRichText = false;
             result.raycastTarget = false;
