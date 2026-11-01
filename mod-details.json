@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 11,
-  "updatedUtc": "2026-10-30T09:29:32Z",
-  "expiresUtc": "2027-01-28T09:29:32Z",
+  "manifestRevision": 12,
+  "updatedUtc": "2026-11-01T04:56:40Z",
+  "expiresUtc": "2027-01-30T04:56:40Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
