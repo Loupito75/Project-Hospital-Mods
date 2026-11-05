@@ -29,6 +29,23 @@ README_TIMEZONE = ZoneInfo("America/Toronto")
 TEST_MOD_TECHNICAL_NAME = "HospitalModUpdateTest"
 TEST_MOD_DISPLAY_NAME = "HMUC Test Mod"
 
+MOD_ACRONYM_FALLBACKS = {
+    "HospitalAlwaysLit": "HAL",
+    "HospitalCareLevelTransfer": "HCLT",
+    "HospitalDebugTools": "HDT",
+    "HospitalEMS": "HEMS",
+    "HospitalFlowOptimizer": "HFO",
+    "HospitalFixes": "HFX",
+    "HospitalModUpdateChecker": "HMUC",
+    "HospitalPatientLife": "HPL",
+    "HospitalPorters": "HPO",
+    "HospitalRadio": "HRA",
+    "HospitalRuntimeOptimizer": "HRO",
+    "HospitalShiftHandover": "HSH",
+    "HospitalTrafficControl": "HTC",
+}
+
+
 PACKAGE_FORMAT_VERSION = 1
 PACKAGE_VALIDITY_DAYS = 90
 PACKAGE_MAX_ENTRIES = 256
@@ -107,32 +124,43 @@ def get_technical_mod_name_from_cell(cell):
     return None
 
 
-def derive_mod_acronym(display_name):
-    words = re.findall(
-        r"[A-Za-z0-9]+",
-        display_name,
-    )
+def get_mod_acronym(
+    root,
+    technical_mod_name,
+):
+    acronym_node = root.find(".//ModAcronym")
 
-    if not words:
+    if (
+        acronym_node is not None
+        and acronym_node.text
+        and acronym_node.text.strip()
+    ):
+        acronym = acronym_node.text.strip()
+        source = "ModAcronym"
+    else:
+        acronym = MOD_ACRONYM_FALLBACKS.get(
+            technical_mod_name,
+            "",
+        )
+        source = "fallback table"
+
+    if not acronym:
         raise RuntimeError(
-            "Could not derive a README acronym from mod name: "
-            + display_name
+            "Public project ModAcronym is missing and no "
+            "fallback acronym exists for "
+            + technical_mod_name
+            + "."
         )
 
-    parts = []
-
-    for word in words:
-        if len(word) > 1 and word.isupper():
-            parts.append(word)
-        else:
-            parts.append(word[0].upper())
-
-    acronym = "".join(parts)
-
-    if not re.fullmatch(r"[A-Z0-9]{3,12}", acronym):
+    if not re.fullmatch(
+        r"[A-Z0-9]{3,12}",
+        acronym,
+    ):
         raise RuntimeError(
-            "Derived README acronym is invalid for "
-            + display_name
+            "Invalid "
+            + source
+            + " acronym for "
+            + technical_mod_name
             + ": "
             + acronym
         )
@@ -191,6 +219,10 @@ def get_public_readme_metadata(
 
     product_node = root.find(".//Product")
     version_node = root.find(".//Version")
+    acronym = get_mod_acronym(
+        root,
+        technical_mod_name,
+    )
 
     display_name = " ".join(
         (
@@ -256,8 +288,6 @@ def get_public_readme_metadata(
             + technical_mod_name
             + "."
         )
-
-    acronym = derive_mod_acronym(display_name)
 
     return (
         display_name,
