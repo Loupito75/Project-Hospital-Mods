@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 482736,
-  "updatedUtc": "2026-11-05T08:50:47Z",
-  "expiresUtc": "2027-02-03T08:50:47Z",
+  "manifestRevision": 482737,
+  "updatedUtc": "2026-11-05T08:57:16Z",
+  "expiresUtc": "2027-02-03T08:57:16Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -581,24 +581,14 @@
   ],
   "news": [
     {
-      "id": 16,
-      "title": "2026-10-25 ★ Hospital Runtime Optimizer - [[ -- NEW MOD -- ]]",
-      "text": "→ Boosts performance by reducing redundant game and rendering work.\n→ Measured up to +27.8% FPS on the reference hospital test.\n→ Keeps normal simulation, pathfinding and gameplay decisions unchanged."
-    },
-    {
-      "id": 18,
-      "title": "2026-10-22 ★ HPO - Fixes",
-      "text": "→ More reliable Porter recognition and hiring.\n→ Corrected hospitalization UI layout.\n→ Improved chained patient transport and male Sample Cart animation."
-    },
-    {
       "id": 19,
-      "title": "2026-10-22 ★ HFO/HPO/HTC/HSH - Update",
-      "text": "→ HFO, HPO, HTC and HSH received a performance optimization pass.\n→ Update recommended for smoother performance, especially in large or busy hospitals.\n→ Their latest fixes and gameplay improvements are included too."
+      "title": "2026-11-05 ★ Hospital Fixes - [[ -- NEW MOD -- ]]",
+      "text": "→ 29 targeted Vanilla fixes for patient, staff and hospital behavior.\n→ Clearer interface feedback, safer construction and improved visuals.\n→ Every fix can be configured independently."
     },
     {
       "id": 20,
-      "title": "2026-10-17 ★ Hospital Flow Optimizer - [[ -- NEW MOD -- ]]",
-      "text": "→ Smarter doctor, room and laboratory workload distribution.\n→ Better follow-up and patient transport flow.\n→ Helps keep Trauma Center capacity available for critical patients."
+      "title": "2026-10-25 ★ Hospital Runtime Optimizer - [[ -- NEW MOD -- ]]",
+      "text": "→ Boosts performance by reducing redundant game and rendering work.\n→ Measured up to +27.8% FPS on the reference hospital test.\n→ Keeps normal simulation, pathfinding and gameplay decisions unchanged."
     }
   ]
 }
