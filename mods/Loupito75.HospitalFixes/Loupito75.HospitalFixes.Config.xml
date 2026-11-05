@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HospitalFixesConfig>
+  <!-- Boolean options accept true/false. All fixes default to true; EnableDiagnostics defaults to false. Set a fix to false to keep that behavior Vanilla. -->
+
+  <!-- @HMUC:desc Interface fixes, player preferences and information-panel corrections. -->
+  <InterfaceAndPreferences>
+    <!-- @HMUC:set label="Hiring perk reveal cost" control="checkbox" -->
+    <!-- @HMUC:desc Enables the Hospital Fixes correction for hiring perk reveal costs. -->
+    <FixHiringPerkRevealCost>true</FixHiringPerkRevealCost>
+
+    <!-- @HMUC:set label="Custom character age" control="checkbox" -->
+    <!-- @HMUC:desc Enables the Hospital Fixes correction for custom-character age handling. -->
+    <FixCustomCharacterAge>true</FixCustomCharacterAge>
+
+    <!-- @HMUC:set label="Remember transparency preferences" control="checkbox" -->
+    <!-- @HMUC:desc Preserves the player's supported transparency preferences. -->
+    <RememberTransparencyPreferences>true</RememberTransparencyPreferences>
+
+    <!-- @HMUC:set label="Pause after loading save" control="checkbox" -->
+    <!-- @HMUC:desc Pauses the game after loading a save when this Hospital Fixes behavior is enabled. -->
+    <PauseAfterLoadingSave>true</PauseAfterLoadingSave>
+
+    <!-- @HMUC:set label="Clarify waiting-room notifications" control="checkbox" -->
+    <!-- @HMUC:desc Adds a localized hint to the Vanilla missing-waiting-room popups explaining that a valid waiting room should be available near the department's examination rooms. -->
+    <ClarifyWaitingRoomNotifications>true</ClarifyWaitingRoomNotifications>
+
+    <!-- @HMUC:set label="Fix popup text overflow" control="checkbox" -->
+    <!-- @HMUC:desc Lets Vanilla popup body text shrink below its original 12 px minimum when required to fit long localized messages. -->
+    <FixPopupTextOverflow>true</FixPopupTextOverflow>
+
+    <!-- @HMUC:set label="Fix supervisor display" control="checkbox" -->
+    <!-- @HMUC:desc Displays the supervisor using the actual Vanilla supervisor profession, including the native 3-level Janitor gauge for Services supervisors. -->
+    <FixSupervisorDisplay>true</FixSupervisorDisplay>
+
+    <!-- @HMUC:set label="Show active patient-list filter" control="checkbox" -->
+    <!-- @HMUC:desc Shows the active Patients-table category in the heading instead of always displaying only "Patients". -->
+    <FixPatientListHeading>true</FixPatientListHeading>
+
+    <!-- @HMUC:set label="Fix employee-list level display" control="checkbox" -->
+    <!-- @HMUC:desc Restores the native Doctor, Nurse, Lab Specialist and Janitor level-gauge visuals and proportions in the Employees table while leaving custom occupations owner-controlled. -->
+    <FixEmployeeListLevelDisplay>true</FixEmployeeListLevelDisplay>
+
+    <!-- @HMUC:set label="Secure workspace employee selection" control="checkbox" -->
+    <!-- @HMUC:desc Shows one All-candidates filter during workspace assignment without an opening filter flash, keeps its selection marker and trailing separator attached, keeps only admissible candidates in the table, and maps sorted rows back to the actual employee before Vanilla assigns the workspace. -->
+    <FixWorkspaceEmployeeSelection>true</FixWorkspaceEmployeeSelection>
+  </InterfaceAndPreferences>
+
+  <!-- @HMUC:desc Visual and rendering corrections that do not change gameplay decisions. -->
+  <RenderingAndVisuals>
+    <!-- @HMUC:set label="Mobile object ghosts" control="checkbox" -->
+    <!-- @HMUC:desc Enables the Hospital Fixes correction for mobile-object ghost states. -->
+    <FixMobileObjectGhosts>true</FixMobileObjectGhosts>
+
+    <!-- @HMUC:set label="Moving object lighting" control="checkbox" -->
+    <!-- @HMUC:desc Enables the Hospital Fixes correction for lighting on moving objects. -->
+    <FixMovingObjectLighting>true</FixMovingObjectLighting>
+
+    <!-- @HMUC:set label="Fix character visual depth" control="checkbox" -->
+    <!-- @HMUC:desc Corrects standing active-use depth when the real use position is on a different tile from the used object, while preserving Vanilla's native -0.24/-0.26 local depth bias. Same-tile, seated and lying interactions remain Vanilla. -->
+    <FixCharacterVisualDepth>true</FixCharacterVisualDepth>
+  </RenderingAndVisuals>
+
+  <!-- @HMUC:desc Patient/staff flow and movable-equipment corrections. -->
+  <HospitalOperations>
+    <!-- @HMUC:set label="Preserve blocked mobile equipment" control="checkbox" -->
+    <!-- @HMUC:desc Enables the Hospital Fixes handling that preserves blocked mobile equipment. -->
+    <PreserveBlockedMobileEquipment>true</PreserveBlockedMobileEquipment>
+
+    <!-- @HMUC:set label="Prevent premature outpatient exit" control="checkbox" -->
+    <!-- @HMUC:desc Enables the Hospital Fixes correction that prevents premature outpatient exit behavior. -->
+    <PreventPrematureOutpatientExit>true</PreventPrematureOutpatientExit>
+
+    <!-- @HMUC:set label="Prevent immediate observation readmission" control="checkbox" -->
+    <!-- @HMUC:desc Prevents a completed Observation from being offered again while the patient is only returning to or waiting in the clinic. A fresh doctor review can offer Observation again normally. -->
+    <PreventImmediateObservationReadmission>true</PreventImmediateObservationReadmission>
+
+    <!-- @HMUC:set label="Recover missing hospital bed" control="checkbox" -->
+    <!-- @HMUC:desc Lets Vanilla recover an InBed patient whose bed reference is missing or no longer resolves, instead of failing in the bedside-cabinet update. -->
+    <RecoverMissingHospitalBed>true</RecoverMissingHospitalBed>
+
+    <!-- @HMUC:set label="Keep outgoing bed reserved until pickup" control="checkbox" -->
+    <!-- @HMUC:desc Prevents Vanilla from releasing an outgoing hospitalized patient's bed as soon as an external ambulance becomes available while the patient is still physically on that bed. -->
+    <PreventPrematureTransportBedRelease>true</PreventPrematureTransportBedRelease>
+
+    <!-- @HMUC:set label="Fix hospitalized procedure equipment selection" control="checkbox" -->
+    <!-- @HMUC:desc Scores transportable procedure equipment by its real stretcher access tile for hospitalized patients and keeps negative distances only as a fallback when no measurable candidate exists. -->
+    <FixHospitalizedProcedureEquipmentSelection>true</FixHospitalizedProcedureEquipmentSelection>
+
+    <!-- @HMUC:set label="Prevent duplicate janitor cleaning" control="checkbox" -->
+    <!-- @HMUC:desc Keeps Vanilla janitor room-dirt selection inside the room's real tile topology and reserves each next cleaning destination, including the first 3x3 cart landing tile, so multiple janitors can clean in parallel without converging on the same tile. -->
+    <PreventDuplicateJanitorCleaning>true</PreventDuplicateJanitorCleaning>
+  </HospitalOperations>
+
+  <!-- @HMUC:desc Controls targeted staff visual cues during Vanilla procedures without changing movement, procedure logic, reservations or timing. -->
+  <ProcedureVisuals>
+    <!-- @HMUC:set label="Clinical procedure waiting visuals" control="checkbox" -->
+    <!-- @HMUC:desc Adds waiting visuals only to reviewed procedure states where clinical staff are genuinely waiting, including patient-arrival waits and pre-op surgery preparation. Native animations, equipment use and speech keep priority. -->
+    <ClinicalProcedureWaitingVisuals>true</ClinicalProcedureWaitingVisuals>
+
+    <!-- @HMUC:set label="Collapse transport-nurse waiting visuals" control="checkbox" -->
+    <!-- @HMUC:desc After the native three-second collapse acknowledgement bubble ends, shows the HFX waiting bubble and native stand_wait animation while the dedicated transport nurse is intentionally stopped and reserved. Vanilla still chooses the stretcher and sends the nurse to it; HFX does not move or reserve anything. -->
+    <CollapseTransportNurseWaitingVisuals>true</CollapseTransportNurseWaitingVisuals>
+
+    <!-- @HMUC:set label="Clinical procedure thinking visuals" control="checkbox" -->
+    <!-- @HMUC:desc Adds reviewed thinking/work visuals to genuine procedure pauses such as the confirmed pre-prescription pause in ProcedureScriptTreatmentReceipt. Native speech and procedure timing remain unchanged. -->
+    <ClinicalProcedureThinkingVisuals>true</ClinicalProcedureThinkingVisuals>
+  </ProcedureVisuals>
+
+  <!-- @HMUC:desc Daily staff-state corrections. -->
+  <DailyStaff>
+    <!-- @HMUC:set label="Prevent duplicate employee day start" control="checkbox" -->
+    <!-- @HMUC:desc Runs Vanilla employee daily initialization once per day instead of replaying the global employee loop once for every hospital floor. -->
+    <PreventDuplicateEmployeeDayStart>true</PreventDuplicateEmployeeDayStart>
+  </DailyStaff>
+
+  <!-- @HMUC:desc Construction placement corrections. -->
+  <Construction>
+    <!-- @HMUC:set label="Wall/ceiling objects above selected ground objects" control="checkbox" -->
+    <!-- @HMUC:desc Allows sufficiently high wall- or ceiling-mounted objects above HFX-reviewed ground objects while retaining Vanilla placement, access and warning behavior. -->
+    <WallAndCeilingObjectsAboveGroundObjects>true</WallAndCeilingObjectsAboveGroundObjects>
+
+    <!-- @HMUC:set label="Elevator exterior wall decorations" control="checkbox" -->
+    <!-- @HMUC:desc Allows the Hospital Fixes correction for supported decorations on elevator exterior walls. -->
+    <ElevatorExteriorWallDecorations>true</ElevatorExteriorWallDecorations>
+
+  </Construction>
+
+  <!-- @HMUC:desc Patient examination clothing and optional Hospital Shift Handover locker visuals. -->
+  <Clothing>
+    <!-- @HMUC:set label="Avoid redundant examination clothing changes" control="checkbox" -->
+    <!-- @HMUC:desc Keeps an outpatient in compatible examination clothing while examinations continue in the same consultation room, then restores Vanilla clothing before leaving or starting other care. -->
+    <AvoidRedundantExamClothingChanges>true</AvoidRedundantExamClothingChanges>
+
+    <!-- @HMUC:set label="Animate patient clothing changes" control="checkbox" -->
+    <!-- @HMUC:desc Plays a short visual animation during Vanilla's existing three-second patient clothing-change pause, without changing procedure timing or patient gameplay state. -->
+    <AnimatePatientClothingChanges>true</AnimatePatientClothingChanges>
+
+    <!-- @HMUC:set label="Animate HSH staff clothing changes" control="checkbox" -->
+    <!-- @HMUC:desc Adds the Hospital Fixes visual clothing-change effect to locker dressing performed by Hospital Shift Handover. Ignored when HSH is not installed and never affects Vanilla biohazard clothing changes. -->
+    <AnimateHshStaffClothingChanges>true</AnimateHshStaffClothingChanges>
+  </Clothing>
+  <!-- @HMUC:desc Optional runtime diagnostics for validating when HFX fixes actually intervene. Disabled by default. -->
+  <Diagnostics>
+    <!-- @HMUC:set label="Enable diagnostics" control="checkbox" -->
+    <!-- @HMUC:desc Logs actual HFX interventions, relevant Vanilla source methods, outcomes and a session summary. Repeated hot-path events are rate-limited. -->
+    <EnableDiagnostics>false</EnableDiagnostics>
+  </Diagnostics>
+</HospitalFixesConfig>
