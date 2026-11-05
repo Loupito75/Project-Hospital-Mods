@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Database>
+  <GameDBAsset ID="L75_HFX_ASSET_RESERVED_STAFF_WAIT_BUBBLE">
+    <Type>TEXTURE_CUSTOM_SPRITE</Type>
+    <File>MOD_ROOT/Textures/UI/L75_HFX_RESERVED_STAFF_WAIT_BUBBLE.png</File>
+  </GameDBAsset>
+
+  <GameDBAsset ID="L75_HFX_ASSET_CLINICAL_THINKING_BUBBLE">
+    <Type>TEXTURE_CUSTOM_SPRITE</Type>
+    <File>MOD_ROOT/Textures/UI/L75_HFX_CLINICAL_THINKING_BUBBLE.png</File>
+  </GameDBAsset>
+
+  <!--
+    HFX construction metadata.
+    L75_HFX_WALL_CLEARANCE_<ground object ID> = minimum effective HeightOffset
+    required for a wall/ceiling object above that reviewed ground object.
+
+    These are HFX-owned GameDBTweakableFloat entries. They do not override
+    the referenced Vanilla GameDBObject definitions.
+  -->
+
+  <!-- 0.5+ -->
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_CHAIR_SMALL"><Value>0.5</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_SIGNBOARD"><Value>0.5</Value></GameDBTweakableFloat>
+
+  <!-- 1.2+ -->
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_CHAIR_OFFICE_01"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_DLC_CHAIR_OFFICE"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_WC"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_PUMPKIN_DECORATIONS"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_BEAMER_BEAMER"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_ANGIO_CONTROL_PANEL"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_BUCKET_CART"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_EQUIPMENT_CABINET_MOBILE"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_MOBILE_WORKSTATION"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_GROUND_PLANT"><Value>1.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_TSHIRT_STAND"><Value>1.2</Value></GameDBTweakableFloat>
+
+  <!-- 2.0+ -->
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_COMPOSITE_OBJECT_BEAMER"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_COMPOSITE_OBJECT_PATHOLOGY_FREEZER_A"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_COMPOSITE_OBJECT_PATHOLOGY_FREEZER_B"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_CARD_FILE"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_EQUIPMENT_CABINET_TALL"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_EQUIPMENT_CABINET_TALL_X"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_SCRUBS_SHELF_TALL"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_STAT_LAB_FRIDGE"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_DIALISIS"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_ANESTHETIC_MACHINE"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_MEAL_COUNTER"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_THORA_DEVICE"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_WATER_DISPENSER"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_DLC_CHARTBOARD"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_DRUG_SHELF_SMALL"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_DRUG_SHELF_SMALL_GLASS"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_NEWS_MAGAZINES"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_BALLOONS"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_FRUIT"><Value>2.0</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_FLOWERS_SHELF"><Value>2.0</Value></GameDBTweakableFloat>
+
+  <!-- 2.2+ -->
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_LAB_HALF_DESK_A"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_LAB_HALF_DESK_B"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_LAB_CABINET_A"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_LAB_CABINET_B"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_WARMING_CABINET_DOUBLE"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_BOOKCASE"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_DRESSING_SCREEN"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_VENDING_MACHINE"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_DLC_VENDING_MACHINE"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_FRIDGE"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_LAB_SHELF"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_SHELF"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_DRUG_SHELF_TALL_GLASS"><Value>2.2</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_CLEARANCE_OBJECT_STANDING_LAMP"><Value>2.2</Value></GameDBTweakableFloat>
+
+
+  <!-- Effective heights for native wall/ceiling objects with no HeightOffset. -->
+  <GameDBTweakableFloat ID="L75_HFX_WALL_HEIGHT_OBJECT_LIFE_MONITOR_WALL"><Value>1.1</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_HEIGHT_OBJECT_ANGIO_IMAGING"><Value>1.1</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_HEIGHT_OBJECT_MONITORING_MACHINE"><Value>1.1</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_HEIGHT_OBJECT_LIFE_SUPPORT"><Value>1.1</Value></GameDBTweakableFloat>
+  <GameDBTweakableFloat ID="L75_HFX_WALL_HEIGHT_OBJECT_LIFE_MONITOR_OLD"><Value>1.2</Value></GameDBTweakableFloat>
+
+</Database>
