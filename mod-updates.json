@@ -1,85 +1,13 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731464,
-  "updatedUtc": "2026-11-05T08:50:46Z",
+  "manifestRevision": 731465,
+  "updatedUtc": "2026-11-05T09:06:49Z",
   "mods": [
-    {
-      "guid": "loupito75.HospitalAlwaysLit",
-      "name": "Hospital Always Lit",
-      "author": "Loupito75",
-      "version": "1.2.0"
-    },
-    {
-      "guid": "loupito75.HospitalCareLevelTransfer",
-      "name": "Hospital Care Level Transfer",
-      "author": "Loupito75",
-      "version": "1.1.0"
-    },
-    {
-      "guid": "loupito75.HospitalEMS",
-      "name": "Hospital EMS",
-      "author": "Loupito75",
-      "version": "1.0.1"
-    },
-    {
-      "guid": "loupito75.HospitalPatientLife",
-      "name": "Hospital Patient Life",
-      "author": "Loupito75",
-      "version": "1.0.1"
-    },
-    {
-      "guid": "loupito75.HospitalTrafficControl",
-      "name": "Hospital Traffic Control",
-      "author": "Loupito75",
-      "version": "1.5.3"
-    },
-    {
-      "guid": "loupito75.HospitalShiftHandover",
-      "name": "Hospital Shift Handover",
-      "author": "Loupito75",
-      "version": "1.2.0"
-    },
     {
       "guid": "loupito75.HospitalModUpdateChecker",
       "name": "Hospital Mod Update Checker",
       "author": "Loupito75",
       "version": "1.5.0"
-    },
-    {
-      "guid": "loupito75.HospitalRadio",
-      "name": "Hospital Radio",
-      "author": "Loupito75",
-      "version": "1.0.0"
-    },
-    {
-      "guid": "loupito75.HospitalPorters",
-      "name": "Hospital Porters",
-      "author": "Loupito75",
-      "version": "1.3.1"
-    },
-    {
-      "guid": "loupito75.HospitalModUpdateTest",
-      "name": "HMUC Test Mod",
-      "author": "Loupito75",
-      "version": "1.0.1"
-    },
-    {
-      "guid": "loupito75.HospitalFlowOptimizer",
-      "name": "Hospital Flow Optimizer",
-      "author": "Loupito75",
-      "version": "1.1.1"
-    },
-    {
-      "guid": "loupito75.HospitalRuntimeOptimizer",
-      "name": "Hospital Runtime Optimizer",
-      "author": "Loupito75",
-      "version": "1.0.0"
-    },
-    {
-      "guid": "loupito75.HospitalFixes",
-      "name": "Hospital Fixes",
-      "author": "Loupito75",
-      "version": "1.0.0"
     }
   ]
 }
