@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 12,
-  "updatedUtc": "2026-11-01T04:56:40Z",
-  "expiresUtc": "2027-01-30T04:56:40Z",
+  "manifestRevision": 13,
+  "updatedUtc": "2026-11-05T08:50:47Z",
+  "expiresUtc": "2027-02-03T08:50:47Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -21,6 +21,12 @@
       "version": "1.0.1",
       "description": "Project Hospital ambulance, helicopter and prehospital care mod powered by BepInEx and Harmony.",
       "whatsNew": ""
+    },
+    {
+      "guid": "loupito75.HospitalFixes",
+      "version": "1.0.0",
+      "description": "Fixes targeted Vanilla bugs and inconsistencies in Project Hospital across hospital operations, interface, construction and visuals.",
+      "whatsNew": "29 targeted Vanilla fixes, workflow corrections, interface and construction fixes, visual improvements"
     },
     {
       "guid": "loupito75.HospitalFlowOptimizer",

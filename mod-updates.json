@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731463,
-  "updatedUtc": "2026-10-30T09:29:32Z",
+  "manifestRevision": 731464,
+  "updatedUtc": "2026-11-05T08:50:46Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -72,6 +72,12 @@
     {
       "guid": "loupito75.HospitalRuntimeOptimizer",
       "name": "Hospital Runtime Optimizer",
+      "author": "Loupito75",
+      "version": "1.0.0"
+    },
+    {
+      "guid": "loupito75.HospitalFixes",
+      "name": "Hospital Fixes",
       "author": "Loupito75",
       "version": "1.0.0"
     }
