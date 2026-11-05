@@ -1,80 +1,14 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 13,
-  "updatedUtc": "2026-11-05T08:50:47Z",
-  "expiresUtc": "2027-02-03T08:50:47Z",
+  "manifestRevision": 14,
+  "updatedUtc": "2026-11-05T09:06:49Z",
+  "expiresUtc": "2027-02-03T09:06:49Z",
   "mods": [
-    {
-      "guid": "loupito75.HospitalAlwaysLit",
-      "version": "1.2.0",
-      "description": "Project Hospital lighting-control mod powered by BepInEx and Harmony.",
-      "whatsNew": ""
-    },
-    {
-      "guid": "loupito75.HospitalCareLevelTransfer",
-      "version": "1.1.0",
-      "description": "Project Hospital care-level transfer mod powered by BepInEx and Harmony.",
-      "whatsNew": ""
-    },
-    {
-      "guid": "loupito75.HospitalEMS",
-      "version": "1.0.1",
-      "description": "Project Hospital ambulance, helicopter and prehospital care mod powered by BepInEx and Harmony.",
-      "whatsNew": ""
-    },
-    {
-      "guid": "loupito75.HospitalFixes",
-      "version": "1.0.0",
-      "description": "Fixes targeted Vanilla bugs and inconsistencies in Project Hospital across hospital operations, interface, construction and visuals.",
-      "whatsNew": "29 targeted Vanilla fixes, workflow corrections, interface and construction fixes, visual improvements"
-    },
-    {
-      "guid": "loupito75.HospitalFlowOptimizer",
-      "version": "1.1.1",
-      "description": "Improves hospital flow by distributing doctors, rooms, laboratory work, staff needs and transport tasks more efficiently while preserving Project Hospital's normal medical and pathfinding rules.",
-      "whatsNew": "Smart Staff Needs meal selection fix, reduced staff-needs processing overhead"
-    },
     {
       "guid": "loupito75.HospitalModUpdateChecker",
       "version": "1.5.0",
       "description": "Checks installed Project Hospital BepInEx mods for newer public versions and displays available updates directly on the title screen.",
       "whatsNew": "Unified signed catalog, direct title-screen Mod Center access, per-mod read-only log viewer, more reliable XML configuration installs and updates, complete localization for new HMUC interface text"
-    },
-    {
-      "guid": "loupito75.HospitalPatientLife",
-      "version": "1.0.1",
-      "description": "Project Hospital patient-life and hospital activity mod powered by BepInEx and Harmony.",
-      "whatsNew": ""
-    },
-    {
-      "guid": "loupito75.HospitalPorters",
-      "version": "1.3.1",
-      "description": "Adds dedicated hospital porters for patient transport and laboratory sample transport using stretchers, wheelchairs and a dedicated sample cart.",
-      "whatsNew": "Reliable Porter recognition and hiring, corrected hospitalization UI layout, correct chained-patient pickup, matched male Sample Cart animation"
-    },
-    {
-      "guid": "loupito75.HospitalRadio",
-      "version": "1.0.0",
-      "description": "Global hospital radio with music playlists and announcements for Project Hospital.",
-      "whatsNew": ""
-    },
-    {
-      "guid": "loupito75.HospitalRuntimeOptimizer",
-      "version": "1.0.0",
-      "description": "Improves Project Hospital performance by reducing redundant Vanilla runtime and rendering work without changing simulation, pathfinding or gameplay decisions.",
-      "whatsNew": "Faster hidden-floor rendering, lighter character and room updates, lower staff overhead, optimized shift/opening/closing work, fewer distance recalculations, fewer statistics writes"
-    },
-    {
-      "guid": "loupito75.HospitalShiftHandover",
-      "version": "1.2.0",
-      "description": "Makes staff arrivals, shift changes and handovers more natural and realistic.",
-      "whatsNew": "Door-aware handover staging, safer doctor handovers, locker dressing enabled by default, locker dressing sounds and bubbles, handover wait bubble"
-    },
-    {
-      "guid": "loupito75.HospitalTrafficControl",
-      "version": "1.5.3",
-      "description": "Improves character access, movement rules and traffic management inside the hospital.",
-      "whatsNew": "Fixed Bucket Cart staging/reselection bug, safer cross-floor visitor recovery, janitor and pathfinding performance improvements"
     }
   ]
 }
