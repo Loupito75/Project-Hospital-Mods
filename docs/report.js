@@ -5,7 +5,7 @@ const RECAPTCHA_SITE_KEY =
     '6LdUnwIuAAAAAKu2H-GxH3OAFLKxXxOf8a7XpG-f';
 
 const MOD_MANIFEST_URL =
-    'https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/mod-updates.json';
+    'https://raw.githubusercontent.com/Loupito75/Project-Hospital-Mods/main/catalog/mod-catalog.json';
 
 const GENERAL_REPORT_GUID =
     'general';
