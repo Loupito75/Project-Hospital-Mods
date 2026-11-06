@@ -293,20 +293,49 @@ namespace HospitalModUpdateChecker
             }
         }
 
-        internal static bool IsTrustedSnapshot(string config,
+        internal static bool IsTemplateSnapshotIntact(
+            string config,
             Snapshot state)
         {
             if (state == null)
                 return false;
+
+            try
+            {
+                string template =
+                    TemplatePath(config);
+
+                return File.Exists(template) &&
+                    string.Equals(
+                        HashFile(template),
+                        state.TemplateHash,
+                        StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        internal static bool IsTrustedSnapshot(string config,
+            Snapshot state)
+        {
+            if (state == null ||
+                !IsTemplateSnapshotIntact(
+                    config,
+                    state))
+            {
+                return false;
+            }
+
             string plugin = ResolvePluginFile(config, state.PluginFile);
             if (plugin == null || !File.Exists(plugin))
                 return false;
+
             try
             {
                 return string.Equals(HashFile(plugin), state.PluginHash,
-                    StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(HashFile(TemplatePath(config)),
-                        state.TemplateHash, StringComparison.OrdinalIgnoreCase);
+                    StringComparison.OrdinalIgnoreCase);
             }
             catch
             {

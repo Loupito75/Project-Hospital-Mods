@@ -54,6 +54,14 @@ namespace HospitalModUpdateChecker
             internal RectTransform ProgressFill;
         }
 
+        private sealed class ReinstallRowView
+        {
+            internal PluginInfo Plugin;
+            internal Button Button;
+            internal Text ButtonText;
+            internal bool ConfirmationPending;
+        }
+
         private sealed class LoadedPluginDisplayEntry
         {
             internal string Name;
@@ -83,6 +91,8 @@ namespace HospitalModUpdateChecker
         private static SectionView _pluginsSection;
         private static readonly List<UpdateRowView> _updateRows =
             new List<UpdateRowView>();
+        private static readonly List<ReinstallRowView> _reinstallRows =
+            new List<ReinstallRowView>();
         private static GameObject _hmucPriorityBanner;
         private static Text _hmucPriorityText;
         private static bool _dismissedForSession;
@@ -102,6 +112,21 @@ namespace HospitalModUpdateChecker
 
             DestroyPanel();
             Refresh();
+        }
+
+        internal static void Detach(
+            TitleScreenController controller)
+        {
+            if (_controller !=
+                controller)
+            {
+                return;
+            }
+
+            DestroyPanel();
+
+            _controller = null;
+            _dismissedForSession = false;
         }
 
         internal static bool IsOpenAndFront
@@ -241,6 +266,13 @@ namespace HospitalModUpdateChecker
                         row.Update);
                 }
             }
+
+            for (int i = 0; i < _reinstallRows.Count; i++)
+            {
+                ApplyReinstallRowState(
+                    _reinstallRows[i]);
+            }
+
             RefreshHmucPriorityMessage();
             RecommendedModsPanel.UpdateState();
         }
@@ -1843,10 +1875,21 @@ namespace HospitalModUpdateChecker
 
         private static void RefreshPluginRows()
         {
+            bool preserveScroll =
+                _pluginsSection != null &&
+                _pluginsSection.ScrollRect != null &&
+                _pluginRows.Count > 0;
+
+            float previousScroll =
+                preserveScroll
+                    ? _pluginsSection.ScrollRect.verticalNormalizedPosition
+                    : 1f;
+
             for (int i = 0; i < _pluginRows.Count; i++)
                 if (_pluginRows[i] != null)
                     UnityEngine.Object.Destroy(_pluginRows[i]);
             _pluginRows.Clear();
+            _reinstallRows.Clear();
 
             if (_pluginsSection == null || _sourceText == null ||
                 _pluginEntries.Count == 0)
@@ -1892,11 +1935,22 @@ namespace HospitalModUpdateChecker
                 bool configurable = entry.Plugin != null &&
                     ConfigEditorData.TryFindConfig(
                         entry.Plugin, out configPath);
+                bool reinstallable =
+                    entry.Plugin != null &&
+                    PackageUpdateManager.IsReinstallAvailable(
+                        entry.Plugin);
                 int pluginFontSize =
                     HmucUiStyle.RowPrimaryFontSize;
                 int pluginSecondaryFontSize =
                     HmucUiStyle.RowSecondaryFontSize;
-                float pluginRightInset = configurable ? 118f : 8f;
+                int actionCount =
+                    (configurable ? 1 : 0) +
+                    (reinstallable ? 1 : 0);
+                float pluginRightInset =
+                    actionCount == 0
+                        ? 8f
+                        : 7f +
+                            actionCount * 111f;
 
                 Text nameText = CreateTextClone(
                     _sourceText, "PluginName", row.transform);
@@ -2194,10 +2248,248 @@ namespace HospitalModUpdateChecker
                     caption.color = GetVanillaButtonTextColor();
                     caption.raycastTarget = false;
                 }
+
+                if (reinstallable)
+                {
+                    const float reinstallWidth = 104f;
+
+                    float reinstallRight =
+                        configurable
+                            ? 118f
+                            : 7f;
+
+                    GameObject reinstallRoot =
+                        new GameObject(
+                            "Reinstall");
+
+                    reinstallRoot.transform.SetParent(
+                        row.transform,
+                        false);
+
+                    RectTransform reinstallRect =
+                        reinstallRoot.AddComponent<RectTransform>();
+
+                    reinstallRect.anchorMin =
+                        reinstallRect.anchorMax =
+                            new Vector2(
+                                1f,
+                                .5f);
+
+                    reinstallRect.pivot =
+                        new Vector2(
+                            1f,
+                            .5f);
+
+                    reinstallRect.anchoredPosition =
+                        new Vector2(
+                            -reinstallRight,
+                            0f);
+
+                    reinstallRect.sizeDelta =
+                        new Vector2(
+                            reinstallWidth,
+                            30f);
+
+                    Image reinstallImage =
+                        reinstallRoot.AddComponent<Image>();
+
+                    reinstallImage.color =
+                        Color.white;
+
+                    Button reinstallButton =
+                        reinstallRoot.AddComponent<Button>();
+
+                    reinstallButton.targetGraphic =
+                        reinstallImage;
+
+                    ApplyVanillaLightButtonColors(
+                        reinstallButton);
+
+                    reinstallButton.interactable =
+                        PackageUpdateManager.CanStartReinstall(
+                            entry.Plugin);
+
+                    Text reinstallCaption =
+                        CreateTextClone(
+                            _sourceText,
+                            "ReinstallLabel",
+                            reinstallRoot.transform);
+
+                    RectTransform reinstallCaptionRect =
+                        reinstallCaption.rectTransform;
+
+                    reinstallCaptionRect.anchorMin =
+                        Vector2.zero;
+
+                    reinstallCaptionRect.anchorMax =
+                        Vector2.one;
+
+                    reinstallCaptionRect.offsetMin =
+                        reinstallCaptionRect.offsetMax =
+                            Vector2.zero;
+
+                    reinstallCaption.text =
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.ReinstallActionId);
+
+                    reinstallCaption.alignment =
+                        TextAnchor.MiddleCenter;
+
+                    reinstallCaption.fontSize =
+                        HmucUiStyle.ButtonFontSize;
+
+                    reinstallCaption.color =
+                        GetVanillaButtonTextColor();
+
+                    reinstallCaption.raycastTarget =
+                        false;
+
+                    ReinstallRowView reinstallView =
+                        new ReinstallRowView();
+
+                    reinstallView.Plugin =
+                        entry.Plugin;
+
+                    reinstallView.Button =
+                        reinstallButton;
+
+                    reinstallView.ButtonText =
+                        reinstallCaption;
+
+                    reinstallButton.onClick.AddListener(
+                        delegate
+                        {
+                            SelectPluginRow(
+                                clickedEntry);
+
+                            HandleReinstallClick(
+                                reinstallView);
+                        });
+
+                    _reinstallRows.Add(
+                        reinstallView);
+
+                    ApplyReinstallRowState(
+                        reinstallView);
+
+                    reinstallRoot.AddComponent<
+                        HoverTooltipDelay>();
+
+                    HmucTooltipHover reinstallTooltip =
+                        reinstallRoot.AddComponent<
+                            HmucTooltipHover>();
+
+                    reinstallTooltip.StringId =
+                        UpdatePanelLocalization.ReinstallTooltipId;
+                }
                 _pluginRows.Add(row);
             }
 
-            _pluginsSection.ScrollRect.verticalNormalizedPosition = 1f;
+            _pluginsSection.ScrollRect.verticalNormalizedPosition =
+                preserveScroll
+                    ? previousScroll
+                    : 1f;
+        }
+
+        private static void HandleReinstallClick(
+            ReinstallRowView row)
+        {
+            if (row == null ||
+                row.Plugin == null)
+            {
+                return;
+            }
+
+            if (!PackageUpdateManager.CanStartReinstall(
+                    row.Plugin))
+            {
+                row.ConfirmationPending =
+                    false;
+
+                ApplyReinstallRowState(
+                    row);
+
+                return;
+            }
+
+            if (!row.ConfirmationPending)
+            {
+                row.ConfirmationPending =
+                    true;
+
+                ApplyReinstallRowState(
+                    row);
+
+                return;
+            }
+
+            row.ConfirmationPending =
+                false;
+
+            if (PackageUpdateManager.StartReinstall(
+                    row.Plugin))
+            {
+                row.Button.interactable =
+                    false;
+
+                row.ButtonText.text =
+                    UpdatePanelLocalization.Get(
+                        UpdatePanelLocalization.WorkingActionId);
+            }
+            else
+            {
+                ApplyReinstallRowState(
+                    row);
+            }
+        }
+
+        private static void ApplyReinstallRowState(
+            ReinstallRowView row)
+        {
+            if (row == null ||
+                row.Plugin == null ||
+                row.Plugin.Metadata == null ||
+                row.Button == null ||
+                row.ButtonText == null)
+            {
+                return;
+            }
+
+            PackageOperation operation =
+                PackageUpdateManager.GetOperation(
+                    row.Plugin.Metadata.GUID);
+
+            if (operation != null &&
+                operation.State !=
+                    PackageOperationState.Error &&
+                operation.State !=
+                    PackageOperationState.Cancelled)
+            {
+                row.ConfirmationPending =
+                    false;
+
+                row.Button.interactable =
+                    false;
+
+                row.ButtonText.text =
+                    UpdatePanelLocalization.Get(
+                        operation.State ==
+                            PackageOperationState.PendingRestart
+                            ? UpdatePanelLocalization.QueuedActionId
+                            : UpdatePanelLocalization.WorkingActionId);
+
+                return;
+            }
+
+            row.ButtonText.text =
+                UpdatePanelLocalization.Get(
+                    row.ConfirmationPending
+                        ? UpdatePanelLocalization.ReinstallConfirmActionId
+                        : UpdatePanelLocalization.ReinstallActionId);
+
+            row.Button.interactable =
+                PackageUpdateManager.CanStartReinstall(
+                    row.Plugin);
         }
 
         private static string GetPluginKey(LoadedPluginDisplayEntry entry)
@@ -2954,6 +3246,7 @@ namespace HospitalModUpdateChecker
                 if (_pluginRows[i] != null)
                     UnityEngine.Object.Destroy(_pluginRows[i]);
             _pluginRows.Clear();
+            _reinstallRows.Clear();
             _pluginEntries.Clear();
 
             if (_panel != null)

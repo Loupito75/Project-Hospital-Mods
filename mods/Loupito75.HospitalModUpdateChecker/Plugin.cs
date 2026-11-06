@@ -11,12 +11,12 @@ namespace HospitalModUpdateChecker
             "loupito75.HospitalModUpdateChecker";
         public const string PluginName =
             "Hospital Mod Update Checker";
-        public const string PluginVersion = "1.5.0";
+        public const string PluginVersion = "1.6.0";
         public const string PluginAuthor = "Loupito75";
         // Release highlights: synchronized with the public version at release.
         // Kept as a compiled constant for safe read-only metadata inspection.
         public const string PluginWhatsNew =
-            "Unified signed catalog, direct title-screen Mod Center access, per-mod read-only log viewer, more reliable XML configuration installs and updates, complete localization for new HMUC interface text";
+            "Reinstall support, config defaults and resets, smoother updates, fixed macOS/Linux mounted-drive disk-space detection, title-menu fixes";
         public const string HarmonyId =
             "Loupito75:HospitalModUpdateChecker";
 

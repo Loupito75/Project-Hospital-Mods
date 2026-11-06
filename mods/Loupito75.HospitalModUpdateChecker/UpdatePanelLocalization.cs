@@ -12,6 +12,9 @@ namespace HospitalModUpdateChecker
         internal const string AuthorCreditId = "L75_HMUC_AUTHOR_CREDIT";
         internal const string ConfigureTooltipId = "L75_HMUC_CONFIGURE_TOOLTIP";
         internal const string ConfigureActionId = "L75_HMUC_CONFIGURE_ACTION";
+        internal const string ReinstallActionId = "L75_HMUC_REINSTALL_ACTION";
+        internal const string ReinstallConfirmActionId = "L75_HMUC_REINSTALL_CONFIRM_ACTION";
+        internal const string ReinstallTooltipId = "L75_HMUC_REINSTALL_TOOLTIP";
         internal const string MainMenuActionId = "L75_HMUC_MAIN_MENU_ACTION";
         internal const string PluginIssuesTitleId = "L75_HMUC_PLUGIN_ISSUES_TITLE";
         internal const string PluginIssuesHelpId = "L75_HMUC_PLUGIN_ISSUES_HELP";
@@ -62,11 +65,17 @@ namespace HospitalModUpdateChecker
         internal const string ConfigWarningId = "L75_HMUC_CONFIG_WARNING";
         internal const string ConfigHoverHelpId = "L75_HMUC_CONFIG_HOVER_HELP";
         internal const string ConfigListHelpId = "L75_HMUC_CONFIG_LIST_HELP";
+        internal const string ConfigDefaultValueId = "L75_HMUC_CONFIG_DEFAULT_VALUE";
+        internal const string ConfigMinimumValueId = "L75_HMUC_CONFIG_MINIMUM_VALUE";
+        internal const string ConfigMaximumValueId = "L75_HMUC_CONFIG_MAXIMUM_VALUE";
         internal const string ConfigRestartId = "L75_HMUC_CONFIG_RESTART";
         internal const string ConfigInfoId = "L75_HMUC_CONFIG_INFO";
         internal const string ConfigSaveId = "L75_HMUC_CONFIG_SAVE";
         internal const string ConfigCloseId = "L75_HMUC_CONFIG_CLOSE";
         internal const string ConfigDiscardConfirmId = "L75_HMUC_CONFIG_DISCARD_CONFIRM";
+        internal const string ConfigResetAllId = "L75_HMUC_CONFIG_RESET_ALL";
+        internal const string ConfigResetAllConfirmId = "L75_HMUC_CONFIG_RESET_ALL_CONFIRM";
+        internal const string ConfigResetOneTooltipId = "L75_HMUC_CONFIG_RESET_ONE_TOOLTIP";
         internal const string ConfigErrorId = "L75_HMUC_CONFIG_ERROR";
         internal const string ConfigNoEditableId = "L75_HMUC_CONFIG_NO_EDITABLE";
         internal const string ConfigProcessingErrorId = "L75_HMUC_CONFIG_PROCESSING_ERROR";
@@ -185,6 +194,72 @@ namespace HospitalModUpdateChecker
             values["uk"] = "Налаштувати";
             values["zh-cn"] = "配置";
             values["zh-tw"] = "設定";
+            return values;
+        }
+
+        private static readonly Dictionary<string, string[]> ReinstallTranslations =
+            CreateReinstallTranslations();
+
+        private static Dictionary<string, string[]> CreateReinstallTranslations()
+        {
+            Dictionary<string, string[]> values =
+                new Dictionary<string, string[]>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            values["en"] = new string[] { "Reinstall", "Confirm", "Download and stage a fresh copy of the signed public package. Your configuration is preserved. Restart required." };
+            values["cs"] = new string[] { "Přeinstalovat", "Potvrdit", "Stáhne a připraví novou kopii podepsaného veřejného balíčku. Konfigurace zůstane zachována. Je nutný restart." };
+            values["da"] = new string[] { "Geninstaller", "Bekræft", "Henter og klargør en ny kopi af den signerede offentlige pakke. Din konfiguration bevares. Genstart kræves." };
+            values["de"] = new string[] { "Neu installieren", "Bestätigen", "Lädt eine frische Kopie des signierten öffentlichen Pakets herunter und bereitet sie vor. Deine Konfiguration bleibt erhalten. Neustart erforderlich." };
+            values["es"] = new string[] { "Reinstalar", "Confirmar", "Descarga y prepara una copia nueva del paquete público firmado. La configuración se conserva. Requiere reinicio." };
+            values["es-419"] = new string[] { "Reinstalar", "Confirmar", "Descarga y prepara una copia nueva del paquete público firmado. La configuración se conserva. Requiere reinicio." };
+            values["fr"] = new string[] { "Réinstaller", "Confirmer", "Retélécharge et prépare une copie propre du paquet public signé. La configuration est conservée. Redémarrage requis." };
+            values["hu"] = new string[] { "Újratelepítés", "Megerősítés", "Letölti és előkészíti az aláírt nyilvános csomag friss példányát. A konfiguráció megmarad. Újraindítás szükséges." };
+            values["it"] = new string[] { "Reinstalla", "Conferma", "Scarica e prepara una nuova copia del pacchetto pubblico firmato. La configurazione viene conservata. Riavvio richiesto." };
+            values["ja"] = new string[] { "再インストール", "確認", "署名済み公開パッケージを再ダウンロードして準備します。設定は保持されます。再起動が必要です。" };
+            values["ko"] = new string[] { "재설치", "확인", "서명된 공개 패키지를 새로 다운로드해 준비합니다. 설정은 유지됩니다. 다시 시작해야 합니다." };
+            values["nl"] = new string[] { "Opnieuw installeren", "Bevestigen", "Downloadt en bereidt een nieuwe kopie van het ondertekende openbare pakket voor. Je configuratie blijft behouden. Herstart vereist." };
+            values["pl"] = new string[] { "Zainstaluj ponownie", "Potwierdź", "Pobiera i przygotowuje świeżą kopię podpisanego pakietu publicznego. Konfiguracja zostaje zachowana. Wymagany restart." };
+            values["pt-br"] = new string[] { "Reinstalar", "Confirmar", "Baixa e prepara uma nova cópia do pacote público assinado. A configuração é preservada. Reinício necessário." };
+            values["ru"] = new string[] { "Переустановить", "Подтвердить", "Скачивает и подготавливает свежую копию подписанного публичного пакета. Конфигурация сохраняется. Требуется перезапуск." };
+            values["sv"] = new string[] { "Installera om", "Bekräfta", "Hämtar och förbereder en ny kopia av det signerade offentliga paketet. Konfigurationen bevaras. Omstart krävs." };
+            values["tr"] = new string[] { "Yeniden yükle", "Onayla", "İmzalı genel paketin yeni bir kopyasını indirip hazırlar. Yapılandırmanız korunur. Yeniden başlatma gerekir." };
+            values["uk"] = new string[] { "Перевстановити", "Підтвердити", "Завантажує й готує свіжу копію підписаного публічного пакета. Конфігурація зберігається. Потрібен перезапуск." };
+            values["zh-cn"] = new string[] { "重新安装", "确认", "重新下载并准备已签名的公开软件包。配置会保留。需要重启。" };
+            values["zh-tw"] = new string[] { "重新安裝", "確認", "重新下載並準備已簽署的公開套件。設定會保留。需要重新啟動。" };
+
+            return values;
+        }
+
+        private static readonly Dictionary<string, string[]> ConfigResetTranslations =
+            CreateConfigResetTranslations();
+
+        private static Dictionary<string, string[]> CreateConfigResetTranslations()
+        {
+            Dictionary<string, string[]> values =
+                new Dictionary<string, string[]>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            values["en"] = new string[] { "Defaults", "Click Defaults again to reset every setting to the signed template defaults.", "Reset to default value." };
+            values["cs"] = new string[] { "Výchozí", "Kliknutím na Výchozí znovu obnovíte všechna nastavení podle podepsané šablony.", "Obnovit výchozí hodnotu." };
+            values["da"] = new string[] { "Standard", "Klik på Standard igen for at nulstille alle indstillinger til den signerede skabelons standardværdier.", "Nulstil til standardværdien." };
+            values["de"] = new string[] { "Standardwerte", "Klicke erneut auf Standardwerte, um alle Einstellungen auf die Werte der signierten Vorlage zurückzusetzen.", "Auf Standardwert zurücksetzen." };
+            values["es"] = new string[] { "Predeterminados", "Vuelve a pulsar Predeterminados para restablecer todos los ajustes a los valores de la plantilla firmada.", "Restablecer el valor predeterminado." };
+            values["es-419"] = new string[] { "Predeterminados", "Vuelve a pulsar Predeterminados para restablecer todos los ajustes a los valores de la plantilla firmada.", "Restablecer el valor predeterminado." };
+            values["fr"] = new string[] { "Par défaut", "Cliquez à nouveau sur Par défaut pour réinitialiser tous les réglages avec les valeurs du template signé.", "Remettre la valeur par défaut." };
+            values["hu"] = new string[] { "Alapértékek", "Kattints ismét az Alapértékek gombra az összes beállítás visszaállításához az aláírt sablon értékeire.", "Visszaállítás az alapértelmezett értékre." };
+            values["it"] = new string[] { "Predefiniti", "Fai di nuovo clic su Predefiniti per ripristinare tutte le impostazioni ai valori del modello firmato.", "Ripristina il valore predefinito." };
+            values["ja"] = new string[] { "既定値", "もう一度「既定値」をクリックすると、すべての設定を署名済みテンプレートの既定値に戻します。", "既定値に戻します。" };
+            values["ko"] = new string[] { "기본값", "기본값을 다시 클릭하면 모든 설정을 서명된 템플릿의 기본값으로 되돌립니다.", "기본값으로 재설정합니다." };
+            values["nl"] = new string[] { "Standaard", "Klik nogmaals op Standaard om alle instellingen terug te zetten naar de waarden van de ondertekende sjabloon.", "Terugzetten naar de standaardwaarde." };
+            values["pl"] = new string[] { "Domyślne", "Kliknij Domyślne ponownie, aby przywrócić wszystkie ustawienia do wartości z podpisanego szablonu.", "Przywróć wartość domyślną." };
+            values["pt-br"] = new string[] { "Padrões", "Clique em Padrões novamente para redefinir todas as configurações para os valores do modelo assinado.", "Restaurar o valor padrão." };
+            values["ru"] = new string[] { "По умолчанию", "Нажмите «По умолчанию» ещё раз, чтобы сбросить все параметры к значениям подписанного шаблона.", "Сбросить к значению по умолчанию." };
+            values["sv"] = new string[] { "Standard", "Klicka på Standard igen för att återställa alla inställningar till den signerade mallens standardvärden.", "Återställ till standardvärdet." };
+            values["tr"] = new string[] { "Varsayılanlar", "Tüm ayarları imzalı şablon varsayılanlarına döndürmek için Varsayılanlar'a tekrar tıklayın.", "Varsayılan değere sıfırla." };
+            values["uk"] = new string[] { "Типові", "Натисніть «Типові» ще раз, щоб скинути всі параметри до значень підписаного шаблону.", "Скинути до типового значення." };
+            values["zh-cn"] = new string[] { "默认值", "再次点击“默认值”可将所有设置重置为已签名模板中的默认值。", "恢复默认值。" };
+            values["zh-tw"] = new string[] { "預設值", "再次按一下「預設值」可將所有設定重設為已簽署範本中的預設值。", "還原預設值。" };
+
             return values;
         }
 
@@ -335,6 +410,41 @@ namespace HospitalModUpdateChecker
         private static readonly Dictionary<string, string[]>
             ConfigEditorTranslations =
                 CreateConfigEditorTranslations();
+
+        private static readonly Dictionary<string, string[]>
+            ConfigReferenceTranslations =
+                CreateConfigReferenceTranslations();
+
+        private static Dictionary<string, string[]>
+            CreateConfigReferenceTranslations()
+        {
+            Dictionary<string, string[]> values =
+                new Dictionary<string, string[]>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            values["en"] = new string[] { "Default", "Minimum", "Maximum" };
+            values["cs"] = new string[] { "Výchozí", "Minimum", "Maximum" };
+            values["da"] = new string[] { "Standard", "Minimum", "Maksimum" };
+            values["de"] = new string[] { "Standard", "Minimum", "Maximum" };
+            values["es"] = new string[] { "Predeterminado", "Mínimo", "Máximo" };
+            values["es-419"] = new string[] { "Predeterminado", "Mínimo", "Máximo" };
+            values["fr"] = new string[] { "Par défaut", "Minimum", "Maximum" };
+            values["hu"] = new string[] { "Alapértelmezett", "Minimum", "Maximum" };
+            values["it"] = new string[] { "Predefinito", "Minimo", "Massimo" };
+            values["ja"] = new string[] { "既定値", "最小値", "最大値" };
+            values["ko"] = new string[] { "기본값", "최솟값", "최댓값" };
+            values["nl"] = new string[] { "Standaard", "Minimum", "Maximum" };
+            values["pl"] = new string[] { "Domyślna", "Minimum", "Maksimum" };
+            values["pt-br"] = new string[] { "Padrão", "Mínimo", "Máximo" };
+            values["ru"] = new string[] { "По умолчанию", "Минимум", "Максимум" };
+            values["sv"] = new string[] { "Standard", "Minimum", "Maximum" };
+            values["tr"] = new string[] { "Varsayılan", "Minimum", "Maksimum" };
+            values["uk"] = new string[] { "За замовчуванням", "Мінімум", "Максимум" };
+            values["zh-cn"] = new string[] { "默认值", "最小值", "最大值" };
+            values["zh-tw"] = new string[] { "預設值", "最小值", "最大值" };
+
+            return values;
+        }
 
         private static Dictionary<string, string[]> CreateConfigEditorTranslations()
         {
@@ -704,6 +814,50 @@ namespace HospitalModUpdateChecker
                 return ConfigureActionTranslations["en"];
             }
 
+            if (stringId == ReinstallActionId ||
+                stringId == ReinstallConfirmActionId ||
+                stringId == ReinstallTooltipId)
+            {
+                string[] labels;
+
+                if (!ReinstallTranslations.TryGetValue(
+                        language,
+                        out labels))
+                {
+                    labels =
+                        ReinstallTranslations["en"];
+                }
+
+                return labels[
+                    stringId == ReinstallActionId
+                        ? 0
+                        : stringId == ReinstallConfirmActionId
+                            ? 1
+                            : 2];
+            }
+
+            if (stringId == ConfigResetAllId ||
+                stringId == ConfigResetAllConfirmId ||
+                stringId == ConfigResetOneTooltipId)
+            {
+                string[] labels;
+
+                if (!ConfigResetTranslations.TryGetValue(
+                        language,
+                        out labels))
+                {
+                    labels =
+                        ConfigResetTranslations["en"];
+                }
+
+                return labels[
+                    stringId == ConfigResetAllId
+                        ? 0
+                        : stringId == ConfigResetAllConfirmId
+                            ? 1
+                            : 2];
+            }
+
             if (stringId == MainMenuActionId)
             {
                 return "HMUC";
@@ -764,6 +918,28 @@ namespace HospitalModUpdateChecker
                     stringId == ConfigSchemaMigrationAlertId
                         ? 0
                         : 1];
+            }
+
+            if (stringId == ConfigDefaultValueId ||
+                stringId == ConfigMinimumValueId ||
+                stringId == ConfigMaximumValueId)
+            {
+                string[] labels;
+
+                if (!ConfigReferenceTranslations.TryGetValue(
+                        language,
+                        out labels))
+                {
+                    labels =
+                        ConfigReferenceTranslations["en"];
+                }
+
+                return labels[
+                    stringId == ConfigDefaultValueId
+                        ? 0
+                        : stringId == ConfigMinimumValueId
+                            ? 1
+                            : 2];
             }
 
             string configEditorValue;

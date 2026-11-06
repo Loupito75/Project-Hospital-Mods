@@ -21,8 +21,13 @@ namespace HospitalModUpdateChecker
         internal string Control;
         internal string Value;
         internal string OriginalValue;
+        internal string DefaultValue;
+        internal bool HasDefaultValue;
+        internal bool CanResetToDefault;
         internal decimal Min;
         internal decimal Max;
+        internal bool HasMinimum;
+        internal bool HasMaximum;
         internal decimal Step;
         internal string[] Choices;
         internal string ElementPath;
@@ -134,6 +139,8 @@ namespace HospitalModUpdateChecker
                 Collect(document.DocumentElement, "", result.Options);
                 CollectSectionDescriptions(
                     document.DocumentElement, "", result.SectionDescriptions);
+                ApplyTemplateReferenceValues(
+                    path, result.Options);
 
                 if (result.Options.Count == 0)
                 {
@@ -161,6 +168,108 @@ namespace HospitalModUpdateChecker
                 document.DocumentElement == null)
                 throw new FormatException("Unsupported XML document or DTD.");
             return document;
+        }
+
+        private static void ApplyTemplateReferenceValues(
+            string configPath,
+            List<ConfigEditOption> options)
+        {
+            if (string.IsNullOrEmpty(configPath) ||
+                options == null ||
+                options.Count == 0)
+                return;
+
+            try
+            {
+                ConfigTemplateSafety.Snapshot state;
+                if (!ConfigTemplateSafety.TryReadState(
+                        configPath, out state) ||
+                    !ConfigTemplateSafety.IsTemplateSnapshotIntact(
+                        configPath, state))
+                    return;
+
+                bool canResetToDefault =
+                    ConfigTemplateSafety.IsTrustedSnapshot(
+                        configPath,
+                        state);
+
+                XmlDocument template =
+                    LoadSafe(
+                        ConfigTemplateSafety.TemplatePath(
+                            configPath));
+
+                List<ConfigEditOption> defaults =
+                    new List<ConfigEditOption>();
+
+                Collect(
+                    template.DocumentElement,
+                    "",
+                    defaults);
+
+                Dictionary<string, ConfigEditOption> byPath =
+                    new Dictionary<string, ConfigEditOption>(
+                        StringComparer.Ordinal);
+
+                HashSet<string> ambiguous =
+                    new HashSet<string>(
+                        StringComparer.Ordinal);
+
+                for (int i = 0; i < defaults.Count; i++)
+                {
+                    ConfigEditOption item =
+                        defaults[i];
+
+                    if (item == null ||
+                        string.IsNullOrEmpty(item.Path) ||
+                        ambiguous.Contains(item.Path))
+                        continue;
+
+                    if (byPath.ContainsKey(item.Path))
+                    {
+                        byPath.Remove(item.Path);
+                        ambiguous.Add(item.Path);
+                        continue;
+                    }
+
+                    byPath.Add(
+                        item.Path,
+                        item);
+                }
+
+                for (int i = 0; i < options.Count; i++)
+                {
+                    ConfigEditOption item =
+                        options[i];
+
+                    if (item == null ||
+                        string.IsNullOrEmpty(item.Path))
+                        continue;
+
+                    ConfigEditOption reference;
+                    if (!byPath.TryGetValue(
+                            item.Path,
+                            out reference) ||
+                        reference == null)
+                        continue;
+
+                    item.DefaultValue =
+                        reference.Value ??
+                        string.Empty;
+
+                    item.HasDefaultValue =
+                        true;
+
+                    item.CanResetToDefault =
+                        canResetToDefault;
+                }
+            }
+            catch
+            {
+                // Reference values are optional UI information. A missing,
+                // unreadable or hash-mismatched template must never make the
+                // editor fail. Plugin-DLL trust remains required separately
+                // for migration and validation operations.
+            }
         }
 
         // Section metadata is read-only. No XML element, label or value is rewritten.
@@ -667,11 +776,17 @@ namespace HospitalModUpdateChecker
                     else if (key == "min" &&
                         decimal.TryParse(value, NumberStyles.Float,
                             CultureInfo.InvariantCulture, out number))
+                    {
                         option.Min = number;
+                        option.HasMinimum = true;
+                    }
                     else if (key == "max" &&
                         decimal.TryParse(value, NumberStyles.Float,
                             CultureInfo.InvariantCulture, out number))
+                    {
                         option.Max = number;
+                        option.HasMaximum = true;
+                    }
                     else if (key == "step" &&
                         decimal.TryParse(value, NumberStyles.Float,
                             CultureInfo.InvariantCulture, out number) &&

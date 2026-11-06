@@ -3771,6 +3771,55 @@ namespace HospitalModUpdateChecker.Bootstrap
                     RequireSafeSegment(
                         element,
                         "configFile");
+
+                if (!operation.InstallDirectory.StartsWith(
+                        "Loupito75.",
+                        StringComparison.Ordinal) ||
+                    !operation.Guid.StartsWith(
+                        "loupito75.",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new FormatException(
+                        "Pending update has an invalid official plugin identity.");
+                }
+
+                string expectedPluginFile =
+                    operation.InstallDirectory +
+                    ".dll";
+
+                if (!string.Equals(
+                        operation.PluginFile,
+                        expectedPluginFile,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new FormatException(
+                        "Pending pluginFile does not match the official plugin filename.");
+                }
+
+                string expectedConfigFile =
+                    operation.InstallDirectory +
+                    ".Config.xml";
+
+                bool legacyAlwaysLitConfig =
+                    string.Equals(
+                        operation.InstallDirectory,
+                        "Loupito75.HospitalAlwaysLit",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(
+                        operation.ConfigFile,
+                        "Loupito75.HospitalAlwaysLit.Rooms.xml",
+                        StringComparison.OrdinalIgnoreCase);
+
+                if (!string.Equals(
+                        operation.ConfigFile,
+                        expectedConfigFile,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !legacyAlwaysLitConfig)
+                {
+                    throw new FormatException(
+                        "Pending configFile does not match the official plugin configuration.");
+                }
+
                 string mode = element.GetAttribute("mode");
                 if (mode.Length > 0 && mode != "update" && mode != "install")
                     throw new FormatException("Unsupported pending install mode.");
@@ -3841,13 +3890,24 @@ namespace HospitalModUpdateChecker.Bootstrap
                     fileIndex < operation.RuntimeFiles.Count;
                     fileIndex++)
                 {
+                    string runtimeFile =
+                        operation.RuntimeFiles[fileIndex];
+
                     if (string.Equals(
-                            operation.RuntimeFiles[fileIndex],
+                            runtimeFile,
+                            operation.ConfigFile,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new FormatException(
+                            "Pending runtimeFiles may not overwrite the user configuration.");
+                    }
+
+                    if (string.Equals(
+                            runtimeFile,
                             operation.PluginFile,
                             StringComparison.OrdinalIgnoreCase))
                     {
                         pluginOwned = true;
-                        break;
                     }
                 }
 

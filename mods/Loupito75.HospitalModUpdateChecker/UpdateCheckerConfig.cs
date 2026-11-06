@@ -105,6 +105,19 @@ namespace HospitalModUpdateChecker
                     "Debug",
                     out debugElement);
 
+                XmlElement showTestModElement;
+                settings.TryGetValue(
+                    "ShowTestModInRecommendations",
+                    out showTestModElement);
+
+                if (showNewsElement == null ||
+                    debugElement == null ||
+                    showTestModElement == null)
+                {
+                    Plugin.Log.LogWarning(
+                        "HMUC configuration is incomplete; missing settings use their built-in defaults.");
+                }
+
                 ShowNews = showNewsElement == null
                     ? DefaultShowNews
                     : ParseBooleanSetting(
@@ -116,11 +129,6 @@ namespace HospitalModUpdateChecker
                     : ParseBooleanSetting(
                         debugElement,
                         "Debug");
-
-                XmlElement showTestModElement;
-                settings.TryGetValue(
-                    "ShowTestModInRecommendations",
-                    out showTestModElement);
 
                 ShowTestModInRecommendations = showTestModElement == null
                     ? DefaultShowTestModInRecommendations

@@ -19,7 +19,13 @@ namespace HospitalModUpdateChecker
         private static RectTransform _windowRect;
         private static GameObject _optionTooltip;
         private static Text _optionTooltipText;
+        private static GameObject _settingsBlocker;
         private static bool _closeConfirmationPending;
+        private static bool _resetAllConfirmationPending;
+        private static readonly System.Collections.Generic.Dictionary<
+            ConfigEditOption, Action> _resetActions =
+                new System.Collections.Generic.Dictionary<
+                    ConfigEditOption, Action>();
         private static ConfigEditSession _session;
         private static Text _source;
         private static Image _selectedRow;
@@ -64,6 +70,9 @@ namespace HospitalModUpdateChecker
                 _session = new ConfigEditSession();
                 _session.PluginName = plugin.Metadata.Name;
             }
+
+            _resetActions.Clear();
+            _resetAllConfirmationPending = false;
 
             _source = textTemplate;
             _overlay = new GameObject("HMUC.ConfigOverlay");
@@ -131,6 +140,10 @@ namespace HospitalModUpdateChecker
             _status.horizontalOverflow = HorizontalWrapMode.Wrap;
             _status.verticalOverflow = VerticalWrapMode.Truncate;
 
+            bool canResetAll =
+                canEdit &&
+                CanResetAllToDefaults();
+
             GameObject actionPanel = NewBox(
                 "ActionPanel", window.transform, DarkPanelColor());
             RectTransform actionRect =
@@ -139,7 +152,9 @@ namespace HospitalModUpdateChecker
                 new Vector2(1f, 0f);
             actionRect.pivot = new Vector2(1f, 0f);
             actionRect.anchoredPosition = new Vector2(-12f, 8f);
-            actionRect.sizeDelta = new Vector2(238f, 46f);
+            actionRect.sizeDelta = new Vector2(
+                canResetAll ? 374f : 238f,
+                46f);
 
             if (canEdit)
             {
@@ -162,9 +177,22 @@ namespace HospitalModUpdateChecker
                     _status.text = Loc("error") + ": " + Loc("processing_error");
                 }
             }
+
             MakeButton("Close", actionPanel.transform, Loc("close"),
                 new Vector2(105f, 30f), new Vector2(-121f, 8f),
                 delegate { RequestClose(); }, false);
+
+            if (canResetAll)
+            {
+                MakeButton(
+                    "Defaults",
+                    actionPanel.transform,
+                    Loc("reset_all"),
+                    new Vector2(128f, 30f),
+                    new Vector2(-234f, 8f),
+                    delegate { RequestResetAll(); },
+                    false);
+            }
 
             GameObject viewport = new GameObject("SettingsViewport");
             viewport.transform.SetParent(window.transform, false);
@@ -293,6 +321,36 @@ namespace HospitalModUpdateChecker
             rows.sizeDelta = new Vector2(
                 0f, Math.Max(8f, top + 8f));
 
+            _settingsBlocker =
+                new GameObject(
+                    "SettingsInputBlocker");
+
+            _settingsBlocker.transform.SetParent(
+                viewport.transform,
+                false);
+
+            RectTransform blockerRect =
+                _settingsBlocker.AddComponent<RectTransform>();
+
+            Stretch(
+                blockerRect);
+
+            Image blockerImage =
+                _settingsBlocker.AddComponent<Image>();
+
+            blockerImage.color =
+                new Color(
+                    0f,
+                    0f,
+                    0f,
+                    0f);
+
+            blockerImage.raycastTarget =
+                true;
+
+            _settingsBlocker.SetActive(
+                false);
+
             scrolling.verticalNormalizedPosition = 1f;
             UpdateSaveButton();
         }
@@ -366,6 +424,83 @@ namespace HospitalModUpdateChecker
             }
         }
 
+        private static string BuildReferenceTooltip(
+            ConfigEditOption option)
+        {
+            if (option == null)
+                return string.Empty;
+
+            string result =
+                string.Empty;
+
+            if (option.HasDefaultValue)
+            {
+                result =
+                    Loc("default_value") +
+                    ": " +
+                    FormatReferenceValue(
+                        option.DefaultValue);
+            }
+
+            bool numeric =
+                option.Control == "slider" ||
+                option.Control == "number";
+
+            if (numeric &&
+                option.HasMinimum)
+            {
+                if (result.Length > 0)
+                    result += "\n";
+
+                result +=
+                    Loc("minimum_value") +
+                    ": " +
+                    option.Min.ToString(
+                        CultureInfo.InvariantCulture);
+            }
+
+            if (numeric &&
+                option.HasMaximum)
+            {
+                if (result.Length > 0)
+                    result += "\n";
+
+                result +=
+                    Loc("maximum_value") +
+                    ": " +
+                    option.Max.ToString(
+                        CultureInfo.InvariantCulture);
+            }
+
+            return result;
+        }
+
+        private static string FormatReferenceValue(
+            string value)
+        {
+            string text =
+                (value ?? string.Empty)
+                    .Trim()
+                    .Replace("\r\n", "; ")
+                    .Replace("\r", "; ")
+                    .Replace("\n", "; ");
+
+            if (text.Length == 0)
+                return "\"\"";
+
+            const int maximumLength =
+                240;
+
+            if (text.Length <= maximumLength)
+                return text;
+
+            return text.Substring(
+                0,
+                maximumLength - 3)
+                .TrimEnd() +
+                "...";
+        }
+
         private static void AddRow(
             Transform rows, ConfigEditOption option,
             float top, float rowHeight)
@@ -383,6 +518,9 @@ namespace HospitalModUpdateChecker
             string fullLabel = option.Label ?? option.Name ?? string.Empty;
             bool multiline =
                 option.Control == "multiline-list";
+            bool canReset =
+                CanResetOption(
+                    option);
             string visibleLabel = TruncateLabel(
                 fullLabel,
                 multiline ? 26 :
@@ -409,12 +547,19 @@ namespace HospitalModUpdateChecker
                 string.IsNullOrEmpty(tooltipDescription))
                 tooltipDescription = Loc("list_help");
 
+            string referenceTooltip =
+                BuildReferenceTooltip(
+                    option);
+
             if (!string.IsNullOrEmpty(tooltipDescription) ||
+                !string.IsNullOrEmpty(referenceTooltip) ||
                 !string.Equals(fullLabel, visibleLabel, StringComparison.Ordinal))
             {
                 string tooltip = fullLabel;
                 if (!string.IsNullOrEmpty(tooltipDescription))
                     tooltip += "\n\n" + tooltipDescription.Trim();
+                if (!string.IsNullOrEmpty(referenceTooltip))
+                    tooltip += "\n\n" + referenceTooltip;
 
                 name.gameObject.AddComponent<HoverTooltipDelay>();
                 ConfigOptionTooltipHover hover =
@@ -431,7 +576,10 @@ namespace HospitalModUpdateChecker
 
             if (option.Control == "checkbox")
             {
-                GameObject button = MakeValueButton(row.transform);
+                GameObject button =
+                    MakeValueButton(
+                        row.transform,
+                        canReset);
                 AttachRowSelection(button, rowImage);
                 Text text = NewText(
                     "Check", button.transform, "",
@@ -448,12 +596,47 @@ namespace HospitalModUpdateChecker
                     text.text = enabled ? "[X]" : "[ ]";
                     UpdateSaveButton();
                 });
+
+                RegisterOptionReset(
+                    row.transform,
+                    rowImage,
+                    option,
+                    delegate
+                    {
+                        bool resetValue;
+
+                        if (!bool.TryParse(
+                                option.DefaultValue,
+                                out resetValue))
+                        {
+                            return;
+                        }
+
+                        enabled =
+                            resetValue;
+
+                        option.Value =
+                            enabled
+                                ? "true"
+                                : "false";
+
+                        text.text =
+                            enabled
+                                ? "[X]"
+                                : "[ ]";
+
+                        UpdateSaveButton();
+                    });
+
                 return;
             }
 
             if (option.Control == "select")
             {
-                GameObject button = MakeValueButton(row.transform);
+                GameObject button =
+                    MakeValueButton(
+                        row.transform,
+                        canReset);
                 AttachRowSelection(button, rowImage);
                 Text text = NewText(
                     "Selection", button.transform, option.Value + "  >",
@@ -467,6 +650,24 @@ namespace HospitalModUpdateChecker
                     text.text = option.Value + "  >";
                     UpdateSaveButton();
                 });
+
+                RegisterOptionReset(
+                    row.transform,
+                    rowImage,
+                    option,
+                    delegate
+                    {
+                        option.Value =
+                            option.DefaultValue ??
+                            string.Empty;
+
+                        text.text =
+                            option.Value +
+                            "  >";
+
+                        UpdateSaveButton();
+                    });
+
                 return;
             }
 
@@ -480,7 +681,9 @@ namespace HospitalModUpdateChecker
                 "Value", row.transform, new Color(.10f, .13f, .17f, 1f));
             RectTransform inputRect = inputRoot.GetComponent<RectTransform>();
             inputRect.anchorMin = new Vector2(.72f, .5f);
-            inputRect.anchorMax = new Vector2(.97f, .5f);
+            inputRect.anchorMax = new Vector2(
+                canReset ? .94f : .97f,
+                .5f);
             inputRect.pivot = new Vector2(.5f, .5f);
             inputRect.anchoredPosition = Vector2.zero;
             inputRect.sizeDelta = new Vector2(0f, 36f);
@@ -505,6 +708,25 @@ namespace HospitalModUpdateChecker
                 option.Value = value;
                 UpdateSaveButton();
             });
+
+            RegisterOptionReset(
+                row.transform,
+                rowImage,
+                option,
+                delegate
+                {
+                    string defaultValue =
+                        option.DefaultValue ??
+                        string.Empty;
+
+                    option.Value =
+                        defaultValue;
+
+                    input.text =
+                        defaultValue;
+
+                    UpdateSaveButton();
+                });
         }
 
         private static void AddMultilineList(
@@ -513,6 +735,10 @@ namespace HospitalModUpdateChecker
             float rowHeight,
             Image rowImage)
         {
+            bool canReset =
+                CanResetOption(
+                    option);
+
             GameObject inputRoot = NewBox(
                 "ValueList", row,
                 new Color(.10f, .13f, .17f, 1f));
@@ -521,7 +747,9 @@ namespace HospitalModUpdateChecker
             inputRect.anchorMin =
                 new Vector2(.34f, .5f);
             inputRect.anchorMax =
-                new Vector2(.97f, .5f);
+                new Vector2(
+                    canReset ? .94f : .97f,
+                    .5f);
             inputRect.pivot =
                 new Vector2(.5f, .5f);
             inputRect.anchoredPosition = Vector2.zero;
@@ -562,16 +790,43 @@ namespace HospitalModUpdateChecker
                     option.Value = value;
                     UpdateSaveButton();
                 });
+
+            RegisterOptionReset(
+                row,
+                rowImage,
+                option,
+                delegate
+                {
+                    string defaultValue =
+                        option.DefaultValue ??
+                        string.Empty;
+
+                    option.Value =
+                        defaultValue;
+
+                    input.text =
+                        defaultValue;
+
+                    UpdateSaveButton();
+                });
         }
 
         private static void AddSlider(
             Transform row, ConfigEditOption option, Image rowImage)
         {
+            bool canReset =
+                CanResetOption(
+                    option);
+
             GameObject root = NewBox(
                 "Slider", row, GaugeBackColor());
             RectTransform rect = root.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(.72f, .5f);
-            rect.anchorMax = new Vector2(.87f, .5f);
+            rect.anchorMin = new Vector2(
+                canReset ? .70f : .72f,
+                .5f);
+            rect.anchorMax = new Vector2(
+                canReset ? .84f : .87f,
+                .5f);
             rect.pivot = new Vector2(.5f, .5f);
             rect.anchoredPosition = Vector2.zero;
             rect.sizeDelta = new Vector2(0f, 12f);
@@ -602,8 +857,12 @@ namespace HospitalModUpdateChecker
             GameObject valueRoot = new GameObject("Number");
             valueRoot.transform.SetParent(row, false);
             RectTransform vr = valueRoot.AddComponent<RectTransform>();
-            vr.anchorMin = new Vector2(.88f, 0f);
-            vr.anchorMax = new Vector2(.99f, 1f);
+            vr.anchorMin = new Vector2(
+                canReset ? .83f : .88f,
+                0f);
+            vr.anchorMax = new Vector2(
+                canReset ? .94f : .99f,
+                1f);
             vr.offsetMin = vr.offsetMax = Vector2.zero;
 
             Image valueHitArea = valueRoot.AddComponent<Image>();
@@ -664,6 +923,393 @@ namespace HospitalModUpdateChecker
                 valueInput.text = option.Value;
                 UpdateSaveButton();
             });
+
+            RegisterOptionReset(
+                row,
+                rowImage,
+                option,
+                delegate
+                {
+                    decimal resetValue;
+
+                    if (!decimal.TryParse(
+                            option.DefaultValue,
+                            NumberStyles.Float,
+                            CultureInfo.InvariantCulture,
+                            out resetValue))
+                    {
+                        return;
+                    }
+
+                    decimal clamped =
+                        Math.Max(
+                            option.Min,
+                            Math.Min(
+                                option.Max,
+                                resetValue));
+
+                    decimal steps =
+                        Math.Round(
+                            (clamped - option.Min) /
+                                option.Step,
+                            0,
+                            MidpointRounding.AwayFromZero);
+
+                    decimal rounded =
+                        Math.Min(
+                            option.Max,
+                            option.Min +
+                                steps *
+                                option.Step);
+
+                    string text =
+                        rounded.ToString(
+                            CultureInfo.InvariantCulture);
+
+                    slider.value =
+                        (float)rounded;
+
+                    option.Value =
+                        text;
+
+                    valueInput.text =
+                        text;
+
+                    UpdateSaveButton();
+                });
+        }
+
+        private static bool CanResetOption(
+            ConfigEditOption option)
+        {
+            if (option == null ||
+                !option.HasDefaultValue ||
+                !option.CanResetToDefault)
+            {
+                return false;
+            }
+
+            string value =
+                option.DefaultValue ??
+                string.Empty;
+
+            if (option.Control == "checkbox")
+            {
+                bool parsed;
+                return bool.TryParse(
+                    value,
+                    out parsed);
+            }
+
+            if (option.Control == "select")
+            {
+                return option.Choices != null &&
+                    Array.IndexOf(
+                        option.Choices,
+                        value) >= 0;
+            }
+
+            if (option.Control == "slider")
+            {
+                decimal parsed;
+
+                return decimal.TryParse(
+                        value,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out parsed) &&
+                    parsed >= option.Min &&
+                    parsed <= option.Max;
+            }
+
+            if (option.Control == "number")
+            {
+                decimal parsed;
+
+                if (!decimal.TryParse(
+                        value,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out parsed))
+                {
+                    return false;
+                }
+
+                if (option.HasMinimum &&
+                    parsed < option.Min)
+                {
+                    return false;
+                }
+
+                if (option.HasMaximum &&
+                    parsed > option.Max)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            return true;
+        }
+
+        private static bool CanResetAllToDefaults()
+        {
+            if (_session == null ||
+                _session.Options.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0;
+                i < _session.Options.Count;
+                i++)
+            {
+                if (!CanResetOption(
+                        _session.Options[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static void RequestResetAll()
+        {
+            if (!CanResetAllToDefaults())
+            {
+                return;
+            }
+
+            if (!_resetAllConfirmationPending)
+            {
+                _resetAllConfirmationPending =
+                    true;
+
+                _closeConfirmationPending =
+                    false;
+
+                SetSettingsBlocked(
+                    true);
+
+                if (_saveButton != null)
+                {
+                    _saveButton.interactable =
+                        false;
+                }
+
+                if (_status != null)
+                {
+                    _status.color =
+                        new Color(
+                            1f,
+                            .72f,
+                            .28f,
+                            1f);
+
+                    _status.text =
+                        Loc(
+                            "reset_all_confirm");
+                }
+
+                return;
+            }
+
+            for (int i = 0;
+                i < _session.Options.Count;
+                i++)
+            {
+                if (!_resetActions.ContainsKey(
+                        _session.Options[i]))
+                {
+                    _resetAllConfirmationPending =
+                        false;
+
+                    SetSettingsBlocked(
+                        false);
+
+                    if (_status != null)
+                    {
+                        _status.color =
+                            new Color(
+                                1f,
+                                .48f,
+                                .48f,
+                                1f);
+
+                        _status.text =
+                            Loc("error") +
+                            ": " +
+                            Loc("processing_error");
+                    }
+
+                    UpdateSaveButton();
+                    return;
+                }
+            }
+
+            _resetAllConfirmationPending =
+                false;
+
+            SetSettingsBlocked(
+                false);
+
+            for (int i = 0;
+                i < _session.Options.Count;
+                i++)
+            {
+                _resetActions[
+                    _session.Options[i]]();
+            }
+
+            UpdateSaveButton();
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private static void SetSettingsBlocked(
+            bool blocked)
+        {
+            if (_settingsBlocker != null)
+            {
+                _settingsBlocker.SetActive(
+                    blocked);
+
+                if (blocked)
+                {
+                    _settingsBlocker.transform.SetAsLastSibling();
+                }
+            }
+
+            if (!blocked)
+                return;
+
+            EventSystem eventSystem =
+                EventSystem.current;
+
+            if (eventSystem != null)
+            {
+                eventSystem.SetSelectedGameObject(
+                    null);
+            }
+
+            HideOptionTooltip();
+        }
+
+        private static void RegisterOptionReset(
+            Transform row,
+            Image rowImage,
+            ConfigEditOption option,
+            Action reset)
+        {
+            if (row == null ||
+                rowImage == null ||
+                option == null ||
+                reset == null ||
+                !CanResetOption(
+                    option))
+            {
+                return;
+            }
+
+            _resetActions[option] =
+                reset;
+
+            GameObject root =
+                NewBox(
+                    "ResetDefault",
+                    row,
+                    Color.white);
+
+            RectTransform rect =
+                root.GetComponent<RectTransform>();
+
+            rect.anchorMin =
+                rect.anchorMax =
+                    new Vector2(
+                        1f,
+                        .5f);
+
+            rect.pivot =
+                new Vector2(
+                    1f,
+                    .5f);
+
+            rect.anchoredPosition =
+                new Vector2(
+                    -7f,
+                    0f);
+
+            rect.sizeDelta =
+                new Vector2(
+                    28f,
+                    28f);
+
+            Button button =
+                root.AddComponent<Button>();
+
+            button.targetGraphic =
+                root.GetComponent<Image>();
+
+            ApplyLightButtonColors(
+                button);
+
+            button.onClick.AddListener(
+                delegate
+                {
+                    TitleScreenUpdatePanel
+                        .PlayNativeClick();
+
+                    reset();
+                });
+
+            Text caption =
+                NewText(
+                    "Text",
+                    root.transform,
+                    "R",
+                    16,
+                    TextAnchor.MiddleCenter);
+
+            caption.color =
+                ButtonTextColor();
+
+            caption.fontStyle =
+                FontStyle.Bold;
+
+            Stretch(
+                caption.rectTransform);
+
+            AttachRowSelection(
+                root,
+                rowImage);
+
+            AttachConfigTooltip(
+                root,
+                Loc(
+                    "reset_one_tooltip"));
+        }
+
+        private static void AttachConfigTooltip(
+            GameObject target,
+            string text)
+        {
+            if (target == null ||
+                string.IsNullOrEmpty(
+                    text))
+            {
+                return;
+            }
+
+            target.AddComponent<
+                HoverTooltipDelay>();
+
+            ConfigOptionTooltipHover hover =
+                target.AddComponent<
+                    ConfigOptionTooltipHover>();
+
+            hover.Initialize(
+                text);
         }
 
         private static void Save()
@@ -720,7 +1366,10 @@ namespace HospitalModUpdateChecker
             _windowRect = null;
             _optionTooltip = null;
             _optionTooltipText = null;
+            _settingsBlocker = null;
             _closeConfirmationPending = false;
+            _resetAllConfirmationPending = false;
+            _resetActions.Clear();
         }
 
         private static string TruncateLabel(
@@ -889,7 +1538,9 @@ namespace HospitalModUpdateChecker
             if (changed && _closeConfirmationPending)
                 _closeConfirmationPending = false;
 
-            _saveButton.interactable = changed;
+            _saveButton.interactable =
+                changed &&
+                !_resetAllConfirmationPending;
 
             if (_status != null)
             {
@@ -1046,13 +1697,17 @@ namespace HospitalModUpdateChecker
             return label;
         }
 
-        private static GameObject MakeValueButton(Transform parent)
+        private static GameObject MakeValueButton(
+            Transform parent,
+            bool reserveReset)
         {
             GameObject root = NewBox(
                 "Value", parent, new Color(.10f, .13f, .17f, 1f));
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(.72f, .5f);
-            rect.anchorMax = new Vector2(.97f, .5f);
+            rect.anchorMax = new Vector2(
+                reserveReset ? .94f : .97f,
+                .5f);
             rect.pivot = new Vector2(.5f, .5f);
             rect.anchoredPosition = Vector2.zero;
             rect.sizeDelta = new Vector2(0f, 36f);
@@ -1132,6 +1787,15 @@ namespace HospitalModUpdateChecker
                 case "list_help":
                     stringId = UpdatePanelLocalization.ConfigListHelpId;
                     break;
+                case "default_value":
+                    stringId = UpdatePanelLocalization.ConfigDefaultValueId;
+                    break;
+                case "minimum_value":
+                    stringId = UpdatePanelLocalization.ConfigMinimumValueId;
+                    break;
+                case "maximum_value":
+                    stringId = UpdatePanelLocalization.ConfigMaximumValueId;
+                    break;
                 case "restart":
                     stringId = UpdatePanelLocalization.ConfigRestartId;
                     break;
@@ -1146,6 +1810,15 @@ namespace HospitalModUpdateChecker
                     break;
                 case "discard_confirm":
                     stringId = UpdatePanelLocalization.ConfigDiscardConfirmId;
+                    break;
+                case "reset_all":
+                    stringId = UpdatePanelLocalization.ConfigResetAllId;
+                    break;
+                case "reset_all_confirm":
+                    stringId = UpdatePanelLocalization.ConfigResetAllConfirmId;
+                    break;
+                case "reset_one_tooltip":
+                    stringId = UpdatePanelLocalization.ConfigResetOneTooltipId;
                     break;
                 case "error":
                     stringId = UpdatePanelLocalization.ConfigErrorId;
