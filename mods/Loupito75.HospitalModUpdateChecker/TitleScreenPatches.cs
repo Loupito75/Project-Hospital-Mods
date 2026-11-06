@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace HospitalModUpdateChecker
@@ -13,7 +14,27 @@ namespace HospitalModUpdateChecker
         private static void Postfix(
             TitleScreenController __instance)
         {
-            TitleScreenUpdatePanel.Attach(__instance);
+            if (__instance == null)
+            {
+                return;
+            }
+
+            HmucTitleScreenLifetime lifetime =
+                __instance.GetComponent<
+                    HmucTitleScreenLifetime>();
+
+            if (lifetime == null)
+            {
+                lifetime =
+                    __instance.gameObject.AddComponent<
+                        HmucTitleScreenLifetime>();
+            }
+
+            lifetime.Controller =
+                __instance;
+
+            TitleScreenUpdatePanel.Attach(
+                __instance);
         }
     }
 
@@ -176,6 +197,9 @@ namespace HospitalModUpdateChecker
                     if (TitleScreenUpdatePanel
                         .IsOpenAndFront)
                     {
+                        ReleaseHmucMenuSelection(
+                            button);
+
                         return;
                     }
 
@@ -187,6 +211,9 @@ namespace HospitalModUpdateChecker
 
                     TitleScreenUpdatePanel
                         .OpenFromMainMenu();
+
+                    ReleaseHmucMenuSelection(
+                        button);
                 });
 
             HoverTooltipDelay hover =
@@ -215,6 +242,50 @@ namespace HospitalModUpdateChecker
 
             buttonObject.SetActive(
                 true);
+        }
+
+        private static void ReleaseHmucMenuSelection(
+            Button button)
+        {
+            EventSystem eventSystem =
+                EventSystem.current;
+
+            if (eventSystem == null ||
+                button == null ||
+                button.gameObject == null)
+            {
+                return;
+            }
+
+            if (eventSystem.currentSelectedGameObject ==
+                button.gameObject)
+            {
+                eventSystem.SetSelectedGameObject(
+                    null);
+            }
+
+            PointerEventData eventData =
+                new PointerEventData(
+                    eventSystem);
+
+            // The HMUC dashboard stays beside the title menu instead of
+            // covering it like Vanilla destination screens. End the click's
+            // pointer state explicitly so an already-open dashboard does not
+            // leave the cloned row highlighted until another control is
+            // clicked.
+            button.OnPointerExit(
+                eventData);
+
+            HoverTooltipDelay hover =
+                button.GetComponent<HoverTooltipDelay>();
+
+            if (hover != null)
+            {
+                hover.OnPointerExit(
+                    eventData);
+            }
+
+            HmucTooltipPresenter.HideAll();
         }
 
         private static void ArrangeLowerMenu(
@@ -358,6 +429,11 @@ namespace HospitalModUpdateChecker
                         label;
                 }
             }
+        }
+
+        internal static void ReleaseSceneReferences()
+        {
+            _hmucMenuButton = null;
         }
 
         private static void CloseNativeScreens(
@@ -739,6 +815,11 @@ namespace HospitalModUpdateChecker
             _owner = null;
         }
 
+        internal static void ReleaseSceneReferences()
+        {
+            DestroyTooltip();
+        }
+
         private static void DestroyTooltip()
         {
             if (_tooltip != null)
@@ -751,6 +832,26 @@ namespace HospitalModUpdateChecker
             _text = null;
             _canvas = null;
             _owner = null;
+        }
+    }
+
+    internal sealed class HmucTitleScreenLifetime :
+        MonoBehaviour
+    {
+        internal TitleScreenController Controller;
+
+        private void OnDestroy()
+        {
+            TitleScreenUpdatePanel.Detach(
+                Controller);
+
+            TitleScreenMenuStartPatch
+                .ReleaseSceneReferences();
+
+            HmucTooltipPresenter
+                .ReleaseSceneReferences();
+
+            Controller = null;
         }
     }
 

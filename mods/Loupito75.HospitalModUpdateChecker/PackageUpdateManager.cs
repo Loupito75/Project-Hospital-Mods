@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Threading;
@@ -354,6 +353,138 @@ namespace HospitalModUpdateChecker
                     entry);
         }
 
+        internal static bool IsReinstallAvailable(
+            PluginInfo plugin)
+        {
+            PackageManifestEntry package;
+
+            return TryGetReinstallPackage(
+                plugin,
+                out package);
+        }
+
+        internal static bool CanStartReinstall(
+            PluginInfo plugin)
+        {
+            PackageManifestEntry package;
+
+            if (!TryGetReinstallPackage(
+                    plugin,
+                    out package) ||
+                IsAnotherOperationRunning(
+                    package.Guid))
+            {
+                return false;
+            }
+
+            PackageOperation existing =
+                GetOperation(
+                    package.Guid);
+
+            return existing == null ||
+                existing.State ==
+                    PackageOperationState.Error ||
+                existing.State ==
+                    PackageOperationState.Cancelled;
+        }
+
+        internal static bool StartReinstall(
+            PluginInfo plugin)
+        {
+            if (Plugin.Instance == null ||
+                !CanStartReinstall(
+                    plugin))
+            {
+                return false;
+            }
+
+            PackageManifestEntry package;
+
+            if (!TryGetReinstallPackage(
+                    plugin,
+                    out package))
+            {
+                return false;
+            }
+
+            Plugin.Instance.StartCoroutine(
+                DownloadAndStage(
+                    package.Guid,
+                    package,
+                    false));
+
+            return true;
+        }
+
+        private static bool TryGetReinstallPackage(
+            PluginInfo plugin,
+            out PackageManifestEntry package)
+        {
+            package = null;
+
+            if (plugin == null ||
+                plugin.Metadata == null ||
+                plugin.Metadata.Version == null ||
+                string.IsNullOrEmpty(
+                    plugin.Metadata.GUID) ||
+                !_bootstrapReady ||
+                UpdateCheckerConfig.Debug ||
+                CatalogState !=
+                    PackageCatalogState.Ready)
+            {
+                return false;
+            }
+
+            PackageManifestEntry candidate;
+
+            if (!_packages.TryGetValue(
+                    plugin.Metadata.GUID,
+                    out candidate) ||
+                candidate == null ||
+                candidate.Version == null ||
+                !IsExpectedInstalledLocation(
+                    plugin,
+                    candidate) ||
+                !IsReinstallVersionAllowed(
+                    plugin.Metadata.Version,
+                    candidate.Version))
+            {
+                return false;
+            }
+
+            package =
+                candidate;
+
+            return true;
+        }
+
+        private static bool IsReinstallVersionAllowed(
+            Version installed,
+            Version published)
+        {
+            if (installed == null ||
+                published == null)
+            {
+                return false;
+            }
+
+            if (installed.Equals(
+                    published))
+            {
+                return true;
+            }
+
+            // Internal builds use x.x.x.x while public releases use x.x.x.
+            // Permit returning to the signed public package only when the
+            // three-part public base is exactly the same. This is not a
+            // general downgrade path.
+            return published.Revision < 0 &&
+                installed.Revision >= 0 &&
+                installed.Major == published.Major &&
+                installed.Minor == published.Minor &&
+                installed.Build == published.Build;
+        }
+
         internal static List<PackageManifestEntry> GetInstallablePackages()
         {
             List<PackageManifestEntry> candidates =
@@ -479,8 +610,22 @@ namespace HospitalModUpdateChecker
 
             if (!Chainloader.PluginInfos.TryGetValue(
                     update.Guid,
-                    out installed) ||
-                installed == null ||
+                    out installed))
+            {
+                return false;
+            }
+
+            return IsExpectedInstalledLocation(
+                installed,
+                package);
+        }
+
+        private static bool IsExpectedInstalledLocation(
+            PluginInfo installed,
+            PackageManifestEntry package)
+        {
+            if (installed == null ||
+                package == null ||
                 string.IsNullOrEmpty(
                     installed.Location))
             {
@@ -981,7 +1126,7 @@ namespace HospitalModUpdateChecker
 
                         DeleteFileSafe(zipPath);
 
-                        TitleScreenUpdatePanel.Refresh();
+                        TitleScreenUpdatePanel.RefreshInstallProgress();
                         yield break;
                     }
 
@@ -1049,7 +1194,7 @@ namespace HospitalModUpdateChecker
                     PackageOperationState.Verifying;
                 operation.Progress = 0.76f;
 
-                TitleScreenUpdatePanel.Refresh();
+                TitleScreenUpdatePanel.RefreshInstallProgress();
 
                 PackagePreparationWorker worker =
                     new PackagePreparationWorker(
@@ -1134,7 +1279,7 @@ namespace HospitalModUpdateChecker
                     PackageOperationState.PendingRestart;
                 operation.Progress = 1f;
 
-                TitleScreenUpdatePanel.Refresh();
+                TitleScreenUpdatePanel.RefreshInstallProgress();
             }
             finally
             {
@@ -1150,7 +1295,7 @@ namespace HospitalModUpdateChecker
 
                 DeleteFileSafe(zipPath);
 
-                TitleScreenUpdatePanel.Refresh();
+                TitleScreenUpdatePanel.RefreshInstallProgress();
             }
         }
 
@@ -1166,7 +1311,7 @@ namespace HospitalModUpdateChecker
 
             operation.Progress = 0f;
 
-            TitleScreenUpdatePanel.Refresh();
+            TitleScreenUpdatePanel.RefreshInstallProgress();
         }
 
         private static bool IsApprovedDownloadResponseUrl(
@@ -1211,21 +1356,11 @@ namespace HospitalModUpdateChecker
 
             try
             {
-                string root =
-                    Path.GetPathRoot(
-                        Path.GetFullPath(
-                            cacheRoot));
-
-                if (string.IsNullOrEmpty(root))
-                {
-                    return true;
-                }
-
                 long availableFreeSpace;
                 string freeSpaceError;
 
-                if (!TryGetAvailableFreeSpace(
-                        root,
+                if (!DiskSpaceHelper.TryGetAvailableFreeSpace(
+                        cacheRoot,
                         out availableFreeSpace,
                         out freeSpaceError))
                 {
@@ -1271,89 +1406,6 @@ namespace HospitalModUpdateChecker
             }
 
             return true;
-        }
-
-        private static bool TryGetAvailableFreeSpace(
-            string root,
-            out long availableBytes,
-            out string error)
-        {
-            availableBytes = 0L;
-            error = null;
-
-            if (Environment.OSVersion.Platform ==
-                PlatformID.Win32NT)
-            {
-                try
-                {
-                    ulong freeBytesAvailable;
-                    ulong totalNumberOfBytes;
-                    ulong totalNumberOfFreeBytes;
-
-                    if (!NativeMethods.GetDiskFreeSpaceEx(
-                            root,
-                            out freeBytesAvailable,
-                            out totalNumberOfBytes,
-                            out totalNumberOfFreeBytes))
-                    {
-                        error =
-                            "GetDiskFreeSpaceEx failed with Win32 error " +
-                            Marshal.GetLastWin32Error().ToString(
-                                CultureInfo.InvariantCulture) +
-                            ".";
-                        return false;
-                    }
-
-                    availableBytes =
-                        freeBytesAvailable >
-                            (ulong)long.MaxValue
-                            ? long.MaxValue
-                            : (long)freeBytesAvailable;
-
-                    return true;
-                }
-                catch (Exception exception)
-                {
-                    error =
-                        exception.GetType().Name +
-                        ": " +
-                        exception.Message;
-                    return false;
-                }
-            }
-
-            try
-            {
-                DriveInfo drive =
-                    new DriveInfo(root);
-
-                availableBytes =
-                    drive.AvailableFreeSpace;
-
-                return true;
-            }
-            catch (Exception exception)
-            {
-                error =
-                    exception.GetType().Name +
-                    ": " +
-                    exception.Message;
-                return false;
-            }
-        }
-
-        private static class NativeMethods
-        {
-            [DllImport(
-                "kernel32.dll",
-                CharSet = CharSet.Unicode,
-                SetLastError = true)]
-            [return: MarshalAs(UnmanagedType.Bool)]
-            internal static extern bool GetDiskFreeSpaceEx(
-                string directoryName,
-                out ulong freeBytesAvailable,
-                out ulong totalNumberOfBytes,
-                out ulong totalNumberOfFreeBytes);
         }
 
         private static string GetCanonicalPluginRoot()

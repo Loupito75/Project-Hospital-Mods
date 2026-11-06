@@ -543,18 +543,29 @@ namespace HospitalModUpdateChecker
                 return false;
             }
 
-            string configPrefix =
-                installDirectory + ".";
+            string expectedConfigFile =
+                installDirectory +
+                ".Config.xml";
+
+            bool legacyAlwaysLitConfig =
+                string.Equals(
+                    installDirectory,
+                    "Loupito75.HospitalAlwaysLit",
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    configFile,
+                    "Loupito75.HospitalAlwaysLit.Rooms.xml",
+                    StringComparison.OrdinalIgnoreCase);
 
             if (!IsSafeFileName(configFile) ||
-                !configFile.StartsWith(
-                    configPrefix,
-                    StringComparison.OrdinalIgnoreCase) ||
-                !configFile.EndsWith(
-                    ".xml",
-                    StringComparison.OrdinalIgnoreCase))
+                (!string.Equals(
+                    configFile,
+                    expectedConfigFile,
+                    StringComparison.OrdinalIgnoreCase) &&
+                 !legacyAlwaysLitConfig))
             {
-                error = "Invalid configuration filename.";
+                error =
+                    "configFile must match the official Loupito75 configuration filename.";
                 return false;
             }
 
