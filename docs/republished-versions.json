@@ -1,0 +1,69 @@
+{
+  "formatVersion": 1,
+  "redirects": [
+    {
+      "mod": "HospitalAlwaysLit",
+      "targetTag": "HospitalAlwaysLit-v1.2.0-republished",
+      "versions": [
+        "1.0.0",
+        "1.1.0"
+      ]
+    },
+    {
+      "mod": "HospitalCareLevelTransfer",
+      "targetTag": "HospitalCareLevelTransfer-v1.1.0-republished",
+      "versions": [
+        "1.0.0",
+        "1.0.1"
+      ]
+    },
+    {
+      "mod": "HospitalEMS",
+      "targetTag": "HospitalEMS-v1.0.1-republished",
+      "versions": [
+        "1.0.0"
+      ]
+    },
+    {
+      "mod": "HospitalShiftHandover",
+      "targetTag": "HospitalShiftHandover-v1.1.1-republished",
+      "versions": [
+        "1.0.0",
+        "1.1.0"
+      ]
+    },
+    {
+      "mod": "HospitalModUpdateChecker",
+      "targetTag": "HospitalModUpdateChecker-v1.1.0-republished",
+      "versions": [
+        "1.0.0"
+      ]
+    },
+    {
+      "mod": "HospitalPatientLife",
+      "targetTag": "HospitalPatientLife-v1.0.1-republished",
+      "versions": [
+        "1.0.0"
+      ]
+    },
+    {
+      "mod": "HospitalTrafficControl",
+      "targetTag": "HospitalTrafficControl-v1.4.0-republished",
+      "versions": [
+        "1.0.0",
+        "1.1.0",
+        "1.1.1",
+        "1.2.0",
+        "1.3.0"
+      ]
+    },
+    {
+      "mod": "HospitalPorters",
+      "targetTag": "HospitalPorters-v1.0.2-republished",
+      "versions": [
+        "1.0.0",
+        "1.0.1"
+      ]
+    }
+  ]
+}

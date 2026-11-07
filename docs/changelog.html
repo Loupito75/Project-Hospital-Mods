@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1">
+
+    <title>Project Hospital Mods - Changelogs</title>
+
+    <link
+        rel="stylesheet"
+        href="changelog.css">
+
+    <script
+        src="changelog.js"
+        defer>
+    </script>
+</head>
+
+<body>
+
+<main class="page">
+
+    <header class="site-header">
+        <div>
+            <h1>Project Hospital Mods</h1>
+
+            <p class="author-line">
+                by Loupito75
+            </p>
+        </div>
+
+        <nav
+            class="site-nav"
+            aria-label="Project Hospital Mods">
+            <a href="index.html">Home</a>
+            <a
+                href="changelog.html"
+                aria-current="page">
+                Changelogs
+            </a>
+            <a href="report.html">Report a bug</a>
+        </nav>
+    </header>
+
+    <section class="card">
+        <h2>Changelogs</h2>
+
+        <p class="intro">
+            Browse release notes by mod and version.
+            Changelogs come directly from the published GitHub Releases.
+        </p>
+
+        <div class="selectors">
+            <div class="field">
+                <label for="mod-select">
+                    Mod
+                </label>
+
+                <select
+                    id="mod-select"
+                    disabled>
+                    <option value="">
+                        Loading mods…
+                    </option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="version-select">
+                    Version
+                </label>
+
+                <select
+                    id="version-select"
+                    disabled>
+                    <option value="">
+                        Select a mod first
+                    </option>
+                </select>
+            </div>
+        </div>
+
+        <p
+            id="status"
+            class="status"
+            aria-live="polite">
+            Loading changelogs…
+        </p>
+    </section>
+
+    <section
+        id="content"
+        aria-live="polite">
+    </section>
+
+    <footer class="page-footer">
+        <p>
+            Project Hospital Mods by Loupito75
+        </p>
+
+        <a
+            href="https://github.com/Loupito75/Project-Hospital-Mods"
+            target="_blank"
+            rel="noopener noreferrer">
+            View Project Hospital Mods on GitHub
+        </a>
+    </footer>
+
+</main>
+
+</body>
+</html>
