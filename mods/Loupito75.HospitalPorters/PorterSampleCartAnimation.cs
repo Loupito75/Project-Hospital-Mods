@@ -12,6 +12,9 @@ namespace HospitalPorters
 {
     internal static class PorterSampleCartAnimationRuntime
     {
+        // Published before the shared L75_HPO_ asset-name convention.
+        // Keep the existing runtime animation identifier for compatibility.
+        // Physical HPO-owned animation filenames use the L75_HPO_ namespace.
         internal const string AnimationId =
             "hpo_walk_push_sample_cart";
 
@@ -144,19 +147,19 @@ namespace HospitalPorters
                 s_femaleNe = LoadAnimation(
                     Path.Combine(
                         root,
-                        "f_ne_hpo_walk_push_sample_cart.xml"));
+                        "L75_HPO_F_NE_WALK_PUSH_SAMPLE_CART.xml"));
                 s_femaleSw = LoadAnimation(
                     Path.Combine(
                         root,
-                        "f_sw_hpo_walk_push_sample_cart.xml"));
+                        "L75_HPO_F_SW_WALK_PUSH_SAMPLE_CART.xml"));
                 s_maleNe = LoadAnimation(
                     Path.Combine(
                         root,
-                        "m_ne_hpo_walk_push_sample_cart.xml"));
+                        "L75_HPO_M_NE_WALK_PUSH_SAMPLE_CART.xml"));
                 s_maleSw = LoadAnimation(
                     Path.Combine(
                         root,
-                        "m_sw_hpo_walk_push_sample_cart.xml"));
+                        "L75_HPO_M_SW_WALK_PUSH_SAMPLE_CART.xml"));
 
                 s_ready =
                     s_femaleNe != null &&

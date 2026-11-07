@@ -1,119 +1,124 @@
 <Database>
+    <!--
+        Compatibility note: the published HPO_* database IDs predate the shared L75_HPO_
+        naming convention and are intentionally retained to preserve existing database/code
+        references. Physical HPO-owned runtime asset filenames use the L75_HPO_ namespace.
+    -->
     <GameDBAsset ID="HPO_ASSET_SAMPLE_CART">
         <Type>TEXTURE_OBJECTS</Type>
-        <File>MOD_ROOT/Textures/Objects/SampleCart/HPO_sample_cart_atlas_16x8.png</File>
+        <File>MOD_ROOT/Textures/Objects/SampleCart/L75_HPO_SAMPLE_CART_ATLAS_16X8.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_SAMPLE_CART_ICON">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/sample_cart.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_SAMPLE_CART.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_SAMPLE_ROOM_OCCUPIED_BUBBLE">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_sample_room_occupied_bubble.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_SAMPLE_ROOM_OCCUPIED_BUBBLE.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_DISABLED">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_disabled.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_DISABLED.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_LIGHT">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_light.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_LIGHT.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_WORKSPACE_EMPTY">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_workspace_empty.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_WORKSPACE_EMPTY.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_EMPLOYEES">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_employees.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_EMPLOYEES.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_EMPLOYEES_DISABLED">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_employees_disabled.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_EMPLOYEES_DISABLED.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_RIGHT_PANEL">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_right_panel.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_RIGHT_PANEL.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_LEVEL_EMPTY">
         <Type>TEXTURE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_level_empty.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_LEVEL_EMPTY.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_LEVEL_FULL">
         <Type>TEXTURE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_level_full.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_LEVEL_FULL.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_LEVEL_EMPTY_LIGHT">
         <Type>TEXTURE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_level_empty_light.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_LEVEL_EMPTY_LIGHT.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_LEVEL_FULL_LIGHT">
         <Type>TEXTURE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_level_full_light.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_LEVEL_FULL_LIGHT.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_QUALIFICATION">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_qualification.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_QUALIFICATION.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_QUALIFICATION_LIGHT">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_qualification_light.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_QUALIFICATION_LIGHT.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_ACTIVE">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_active.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_PATIENT_TRANSPORT_ACTIVE.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_DISABLED">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_disabled.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_PATIENT_TRANSPORT_DISABLED.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_ACTIVE">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_active.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_SAMPLE_TRANSPORT_ACTIVE.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_DISABLED">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_disabled.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_SAMPLE_TRANSPORT_DISABLED.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_ACTIVE">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_workspace_active.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_ACTIVE.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_ACTIVE_LIGHT">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_workspace_active_light.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_ACTIVE_LIGHT.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_DISABLED">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_patient_transport_workspace_disabled.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_PATIENT_TRANSPORT_WORKSPACE_DISABLED.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_ACTIVE">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_workspace_active.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_ACTIVE.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_ACTIVE_LIGHT">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_workspace_active_light.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_ACTIVE_LIGHT.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_DISABLED">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_role_sample_transport_workspace_disabled.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_ROLE_SAMPLE_TRANSPORT_WORKSPACE_DISABLED.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_STATION">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_station.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_STATION.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_STATION_LOCKED">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_station_locked.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_STATION_LOCKED.png</File>
     </GameDBAsset>
     <GameDBAsset ID="HPO_ASSET_PORTER_STATION_FLOOR">
         <Type>TEXTURE</Type>
-        <File>MOD_ROOT/Textures/UI/porter_station_floor.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HPO_PORTER_STATION_FLOOR.png</File>
     </GameDBAsset>
 
     <GameDBObject ID="HPO_OBJECT_SAMPLE_CART">
@@ -143,6 +148,7 @@
 
         <PlacedToEdge>false</PlacedToEdge>
         <AttachedToWall>false</AttachedToWall>
+        <AllowsObjectsOnWallsAbove>true</AllowsObjectsOnWallsAbove>
         <NonBlocking>true</NonBlocking>
         <Placement>INDOORS</Placement>
 

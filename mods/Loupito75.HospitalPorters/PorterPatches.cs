@@ -229,6 +229,8 @@ namespace HospitalPorters
             internal NurseState SelectedPorterStateBeforeAssignment;
             internal bool HasSelectedPorterStateBeforeAssignment;
             internal bool ReleasedToNative;
+            internal PorterPatientContinuationConsumeState
+                PendingContinuation;
             internal NativeFallbackDiagnosticSnapshot
                 NativeFallbackDiagnostic;
         }
@@ -276,7 +278,7 @@ namespace HospitalPorters
             BedReservation freeBed,
             ref Entity movingCharacter,
             MovementType movementType,
-            Vehicle vehicle,
+            ref Vehicle vehicle,
             ref bool __result,
             out PatientFallbackPatchState __state)
         {
@@ -303,6 +305,24 @@ namespace HospitalPorters
                     freeBed,
                     movementType,
                     vehicle);
+
+            PorterPatientContinuationConsumeState continuationState;
+            if (PorterPatientContinuationRuntime
+                    .TryPreparePendingContinuation(
+                        __instance,
+                        patient,
+                        bed,
+                        lyingState,
+                        stretcherUse,
+                        freeBed,
+                        movementType,
+                        ref movingCharacter,
+                        ref vehicle,
+                        out continuationState))
+            {
+                __state.PendingContinuation = continuationState;
+                return true;
+            }
 
             if (PorterPatientContinuationRuntime
                     .TryAcknowledgeNativeContinuationReplay(
@@ -635,6 +655,17 @@ namespace HospitalPorters
             bool __result,
             PatientFallbackPatchState __state)
         {
+            if (__state != null &&
+                __state.PendingContinuation != null)
+            {
+                PorterPatientContinuationRuntime
+                    .CompletePendingContinuation(
+                        __instance,
+                        __result,
+                        __state.PendingContinuation);
+                return;
+            }
+
             Entity patient =
                 __state == null || __state.Patient == null
                     ? GetPatient(__instance)

@@ -208,6 +208,43 @@ namespace HospitalPorters
                 ref s_loggedInvalidLightLevelAssets);
         }
 
+        internal static bool ApplyEmployeeTableLevelVisuals(
+            GaugeIconsController gauge)
+        {
+            if (gauge == null)
+            {
+                return false;
+            }
+
+            Image baseImage;
+            Image topImage;
+            if (!TryGetLevelGaugeImages(
+                    gauge,
+                    out baseImage,
+                    out topImage))
+            {
+                return false;
+            }
+
+            Sprite empty =
+                GetFullTextureSprite(LevelEmptyAsset, ref s_levelEmptySprite);
+            Sprite full =
+                GetFullTextureSprite(LevelFullAsset, ref s_levelFullSprite);
+            if (empty == null || full == null)
+            {
+                return false;
+            }
+
+            // Employees deliberately uses the dark HPO artwork. Unlike the
+            // employee card, the table resizes the gauge canvas to the
+            // Porter's three-notch aspect after applying these sprites, so
+            // sprite pixel dimensions must not be compared with Vanilla's
+            // five-notch source artwork here.
+            baseImage.sprite = empty;
+            topImage.sprite = full;
+            return true;
+        }
+
         private static bool ApplyLevelVisuals(
             GaugeIconsController gauge,
             string emptyAsset,
@@ -281,16 +318,14 @@ namespace HospitalPorters
             return CopyGaugeVisuals(gauge, source);
         }
 
-        internal static bool ApplyNativeTableLevelVisuals(GaugeIconsController gauge)
+        internal static bool TryGetLevelGaugeImages(
+            GaugeIconsController gauge,
+            out Image baseImage,
+            out Image topImage)
         {
-            StreamingAssetManager assets = StreamingAssetManager.GetInstance();
-            GameObject prefab = assets == null
-                ? null
-                : assets.m_tableItemLevelDoctor as GameObject;
-            GaugeIconsController source = prefab == null
-                ? null
-                : prefab.GetComponentInChildren<GaugeIconsController>(includeInactive: true);
-            return CopyGaugeVisuals(gauge, source);
+            baseImage = GetGaugeBaseImage(gauge);
+            topImage = GetGaugeTopImage(gauge);
+            return baseImage != null && topImage != null;
         }
 
         private static bool CopyGaugeVisuals(

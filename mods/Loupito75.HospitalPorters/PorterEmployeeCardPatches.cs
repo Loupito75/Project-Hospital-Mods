@@ -93,9 +93,9 @@ namespace HospitalPorters
             }
 
             Entity entity = GetEmployeeEntity(employeeComponent);
-            bool porter = PorterIdentity.IsPorter(entity);
-            bool nurse = entity != null && entity.GetComponent<BehaviorNurse>() != null;
-            if (!porter && !nurse)
+            // HFX owns native Nurse/Doctor/Lab/Janitor level correction.
+            // HPO only renders its own custom Porter occupation.
+            if (!PorterIdentity.IsPorter(entity))
             {
                 return;
             }
@@ -112,16 +112,10 @@ namespace HospitalPorters
 
             GaugeIconsController gauge =
                 segment.GetItemComponent<GaugeIconsController>(0);
+            // The native Nurse 3-level gauge is the correct Porter
+            // base/fallback, even when custom art cannot be loaded.
             PorterVisuals.ApplyNativeNurseLevelVisuals(gauge);
-            if (!porter)
-            {
-                return;
-            }
-
-            if (!PorterVisuals.ApplyLevelVisuals(gauge))
-            {
-                return;
-            }
+            PorterVisuals.ApplyLevelVisuals(gauge);
 
             string levelTitle = LocalizationManager.Get(
                 PorterIds.GetPorterLevelLocalizationId(

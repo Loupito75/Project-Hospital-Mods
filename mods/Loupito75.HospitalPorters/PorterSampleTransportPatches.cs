@@ -422,8 +422,8 @@ namespace HospitalPorters
                 return result;
             }
 
-            HashSet<PorterSampleBundleKey> seenBundles =
-                new HashSet<PorterSampleBundleKey>();
+            // Allocate deduplication only when a valid candidate is found.
+            HashSet<PorterSampleBundleKey> seenBundles = null;
 
             for (int i = 0; i < procedures.Count; i++)
             {
@@ -443,7 +443,7 @@ namespace HospitalPorters
                         procedure,
                         sourceRoom,
                         out bundleKey) ||
-                    seenBundles.Contains(bundleKey))
+                    (seenBundles != null && seenBundles.Contains(bundleKey)))
                 {
                     continue;
                 }
@@ -476,8 +476,9 @@ namespace HospitalPorters
                     continue;
                 }
 
+                // Reuse the source room resolved for this bundle.
                 bool blocked =
-                    IsSamplePickupRoomBlocked(procedure);
+                    IsSamplePickupRoomBlocked(procedure, sourceRoom);
                 if (blocked != blockedOnly)
                 {
                     continue;
@@ -490,6 +491,10 @@ namespace HospitalPorters
                     continue;
                 }
 
+                if (seenBundles == null)
+                {
+                    seenBundles = new HashSet<PorterSampleBundleKey>();
+                }
                 seenBundles.Add(bundleKey);
                 result.Add(procedure);
             }
@@ -928,9 +933,15 @@ namespace HospitalPorters
                 return false;
             }
 
+            // Direct identity hit matches the same-procedure rule.
+            if (RoomWaitReleasedToLab.Contains(procedure))
+            {
+                return true;
+            }
+            SampleBundleMatchContext match = new SampleBundleMatchContext();
             foreach (LabProcedure released in RoomWaitReleasedToLab)
             {
-                if (AreSameSampleBundle(released, procedure))
+                if (AreSameSampleBundleWithCachedTarget(released, procedure, ref match))
                 {
                     return true;
                 }
@@ -947,11 +958,18 @@ namespace HospitalPorters
                 return false;
             }
 
+            int ownRetry;
+            if (RoomWaitRetryCounts.TryGetValue(procedure, out ownRetry) &&
+                ownRetry > 0)
+            {
+                return true;
+            }
+            SampleBundleMatchContext match = new SampleBundleMatchContext();
             foreach (KeyValuePair<LabProcedure, int> pair in
                 RoomWaitRetryCounts)
             {
                 if (pair.Value > 0 &&
-                    AreSameSampleBundle(pair.Key, procedure))
+                    AreSameSampleBundleWithCachedTarget(pair.Key, procedure, ref match))
                 {
                     return true;
                 }
@@ -1009,12 +1027,14 @@ namespace HospitalPorters
                 return false;
             }
 
+            // Reuse the target bundle resolution across both passes only.
+            SampleBundleMatchContext match = new SampleBundleMatchContext();
             int availableMinute = 0;
             bool found = false;
             foreach (KeyValuePair<LabProcedure, int> pair in
                 RoomWaitRetryAvailableMinutes)
             {
-                if (!AreSameSampleBundle(pair.Key, procedure))
+                if (!AreSameSampleBundleWithCachedTarget(pair.Key, procedure, ref match))
                 {
                     continue;
                 }
@@ -1048,7 +1068,7 @@ namespace HospitalPorters
             foreach (KeyValuePair<LabProcedure, int> pair in
                 RoomWaitRetryAvailableMinutes)
             {
-                if (AreSameSampleBundle(pair.Key, procedure))
+                if (AreSameSampleBundleWithCachedTarget(pair.Key, procedure, ref match))
                 {
                     matching.Add(pair.Key);
                 }
@@ -1662,6 +1682,17 @@ namespace HospitalPorters
                  nurse.m_state.m_nurseState != NurseState.GoingToWorkplace &&
                  nurse.m_state.m_nurseState != NurseState.FinishedProcedure) ||
                 nurse.m_state.m_currentPatient != null)
+            {
+                return;
+            }
+
+            // Empty native lab lists cannot yield an assignment.
+            // A non-empty list is always rescanned live, even if previously
+            // no eligible Sample was found; never cache negative results.
+            LabProcedureManager labManager = LabProcedureManager.Instance;
+            if (labManager == null ||
+                labManager.m_labProcedures == null ||
+                labManager.m_labProcedures.Count == 0)
             {
                 return;
             }
@@ -2961,6 +2992,14 @@ namespace HospitalPorters
         private static void ClearFallbackTrackingIfOwnedByProcedure(
             LabProcedure procedure)
         {
+            // Empty tracking maps cannot own this procedure's fallback state.
+            // Avoid resolving its source room on unrelated LabProcedure.Update.
+            if (FallbackWaits.Count == 0 &&
+                ReleasedFallbacks.Count == 0)
+            {
+                return;
+            }
+
             PorterSampleBundleKey key;
             if (!TryGetSampleBundleKey(procedure, out key))
             {
@@ -3123,7 +3162,8 @@ namespace HospitalPorters
                         out ignoredDistance,
                         out validatedForeign,
                         sourceDepartment,
-                        skipRouteDistance: true))
+                        skipRouteDistance: true,
+                        sampleWaitingAlreadyValidated: true))
                 {
                     continue;
                 }
@@ -3452,6 +3492,74 @@ namespace HospitalPorters
                 firstRoom == secondRoom;
         }
 
+
+        // The target patient/room are shared only during one synchronous claim
+        // query; no result is cached between updates or save/load transitions.
+        private struct SampleBundleMatchContext
+        {
+            internal bool PatientResolved;
+            internal Entity Patient;
+            internal bool RoomResolved;
+            internal Room Room;
+        }
+
+        private static bool AreSameSampleBundleWithCachedTarget(
+            LabProcedure candidate,
+            LabProcedure target,
+            ref SampleBundleMatchContext context)
+        {
+            if (candidate == null ||
+                target == null ||
+                candidate.m_state == null ||
+                target.m_state == null)
+            {
+                return false;
+            }
+
+            // A procedure always matches itself, even when its source is gone.
+            if (candidate == target)
+            {
+                return true;
+            }
+
+            Entity candidatePatient =
+                candidate.m_state.m_patient == null
+                    ? null
+                    : candidate.m_state.m_patient.GetEntity();
+            if (candidatePatient == null)
+            {
+                return false;
+            }
+
+            if (!context.PatientResolved)
+            {
+                context.Patient =
+                    target.m_state.m_patient == null
+                        ? null
+                        : target.m_state.m_patient.GetEntity();
+                context.PatientResolved = true;
+            }
+            if (context.Patient == null ||
+                candidatePatient != context.Patient)
+            {
+                return false;
+            }
+
+            Room candidateRoom = GetSampleSourceRoom(candidate);
+            if (candidateRoom == null)
+            {
+                return false;
+            }
+
+            if (!context.RoomResolved)
+            {
+                context.Room = GetSampleSourceRoom(target);
+                context.RoomResolved = true;
+            }
+            return context.Room != null &&
+                candidateRoom == context.Room;
+        }
+
         private static bool IsProcedureClaimedByOtherJob(
             LabProcedure procedure,
             PorterSampleTransportJob currentJob)
@@ -3461,6 +3569,7 @@ namespace HospitalPorters
                 return false;
             }
 
+            SampleBundleMatchContext match = new SampleBundleMatchContext();
             foreach (KeyValuePair<Entity, PorterSampleTransportJob> pair in Jobs)
             {
                 PorterSampleTransportJob job =
@@ -3471,9 +3580,10 @@ namespace HospitalPorters
                     continue;
                 }
 
-                if (AreSameSampleBundle(
+                if (AreSameSampleBundleWithCachedTarget(
                         job.Procedure,
-                        procedure))
+                        procedure,
+                        ref match))
                 {
                     return true;
                 }
@@ -3482,9 +3592,10 @@ namespace HospitalPorters
                     i < job.CollectedProcedures.Count;
                     i++)
                 {
-                    if (AreSameSampleBundle(
-                            job.CollectedProcedures[i],
-                            procedure))
+                    if (AreSameSampleBundleWithCachedTarget(
+                        job.CollectedProcedures[i],
+                        procedure,
+                        ref match))
                     {
                         return true;
                     }
@@ -3940,17 +4051,19 @@ namespace HospitalPorters
         private static bool IsSampleBundleHandledByLabSpecialist(
             LabProcedure procedure)
         {
-            if (procedure == null)
+            if (procedure == null || NativeLabSampleBundles.Count == 0)
             {
                 return false;
             }
 
+            SampleBundleMatchContext match = new SampleBundleMatchContext();
             foreach (KeyValuePair<BehaviorLabSpecialist, LabProcedure> pair in
                 NativeLabSampleBundles)
             {
-                if (AreSameSampleBundle(
+                if (AreSameSampleBundleWithCachedTarget(
                         pair.Value,
-                        procedure))
+                        procedure,
+                        ref match))
                 {
                     return true;
                 }
@@ -7112,14 +7225,16 @@ namespace HospitalPorters
             out float distance,
             out bool foreign,
             Department knownProcedureDepartment,
-            bool skipRouteDistance)
+            bool skipRouteDistance,
+            bool sampleWaitingAlreadyValidated = false)
         {
             distance = float.MaxValue;
             foreign = false;
             // Reject cheap failures before bundle comparisons and routing.
             if ((!porterAvailabilityAlreadyValidated &&
                  !IsAvailablePorter(porter, procedure)) ||
-                !IsHospitalizedSampleWaiting(procedure) ||
+                (!sampleWaitingAlreadyValidated &&
+                 !IsHospitalizedSampleWaiting(procedure)) ||
                 IsRoomWaitReleasedToLab(procedure) ||
                 IsRoomWaitRetryCoolingDown(procedure) ||
                 IsProcedureClaimed(procedure) ||
@@ -9909,11 +10024,12 @@ namespace HospitalPorters
 
         private static bool IsProcedureClaimed(LabProcedure procedure)
         {
-            if (procedure == null)
+            if (procedure == null || Jobs.Count == 0)
             {
                 return false;
             }
 
+            SampleBundleMatchContext match = new SampleBundleMatchContext();
             foreach (KeyValuePair<Entity, PorterSampleTransportJob> pair in Jobs)
             {
                 PorterSampleTransportJob job =
@@ -9923,9 +10039,10 @@ namespace HospitalPorters
                     continue;
                 }
 
-                if (AreSameSampleBundle(
+                if (AreSameSampleBundleWithCachedTarget(
                         job.Procedure,
-                        procedure))
+                        procedure,
+                        ref match))
                 {
                     return true;
                 }
@@ -9934,9 +10051,10 @@ namespace HospitalPorters
                     i < job.CollectedProcedures.Count;
                     i++)
                 {
-                    if (AreSameSampleBundle(
-                            job.CollectedProcedures[i],
-                            procedure))
+                    if (AreSameSampleBundleWithCachedTarget(
+                        job.CollectedProcedures[i],
+                        procedure,
+                        ref match))
                     {
                         return true;
                     }

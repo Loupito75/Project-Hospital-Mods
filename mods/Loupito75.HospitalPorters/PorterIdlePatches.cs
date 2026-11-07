@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using GLib;
 using HarmonyLib;
 using Lopital;
@@ -9,17 +8,11 @@ namespace HospitalPorters
 {
     internal static class PorterIdleResting
     {
-        private static readonly FieldInfo NurseEntityField =
-            AccessTools.Field(typeof(BehaviorNurse), "m_entity");
-
+        // GLib.Component.m_entity is public in the decompiled game.
+        // Read it directly instead of using FieldInfo.GetValue on every Nurse update.
         internal static Entity GetEntity(BehaviorNurse nurse)
         {
-            if (nurse == null || object.ReferenceEquals(NurseEntityField, null))
-            {
-                return null;
-            }
-
-            return NurseEntityField.GetValue(nurse) as Entity;
+            return nurse == null ? null : nurse.m_entity;
         }
 
         internal static bool TryGetPorterStation(

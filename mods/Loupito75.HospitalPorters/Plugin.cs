@@ -10,9 +10,9 @@ namespace HospitalPorters
     {
         public const string PluginGuid = "loupito75.HospitalPorters";
         public const string PluginName = "Hospital Porters";
-        public const string PluginVersion = "1.3.1";
+        public const string PluginVersion = "1.3.2";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginWhatsNew = "Reliable Porter recognition and hiring, corrected hospitalization UI layout, correct chained-patient pickup, matched male Sample Cart animation";
+        public const string PluginWhatsNew = "Safer chained Patient continuations, corrected Porter employee filters and level visuals, improved Employees filter alignment, wall-object placement above Sample Carts";
         public const string HarmonyId = "Loupito75:HospitalPorters";
 
         internal static ManualLogSource Log { get; private set; }
@@ -61,6 +61,7 @@ namespace HospitalPorters
         {
             _harmony?.UnpatchSelf();
             DeferredHiringPatches.Reset();
+            PorterEmployeeTableLevelIconPatch.Reset();
             s_harmony = null;
 
             if (_formattedLog != null)
