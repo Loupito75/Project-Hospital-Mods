@@ -1,13 +1,13 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 731466,
-  "updatedUtc": "2026-11-06T20:46:24Z",
+  "manifestRevision": 731467,
+  "updatedUtc": "2026-11-07T16:57:25Z",
   "mods": [
     {
       "guid": "loupito75.HospitalModUpdateChecker",
       "name": "Hospital Mod Update Checker",
       "author": "Loupito75",
-      "version": "1.6.0"
+      "version": "1.6.1"
     }
   ]
 }

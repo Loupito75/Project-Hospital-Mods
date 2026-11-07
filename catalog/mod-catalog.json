@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 482739,
-  "updatedUtc": "2026-11-07T11:17:44Z",
-  "expiresUtc": "2027-02-05T11:17:44Z",
+  "manifestRevision": 482740,
+  "updatedUtc": "2026-11-07T16:57:25Z",
+  "expiresUtc": "2027-02-05T16:57:25Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -183,14 +183,14 @@
       "guid": "loupito75.HospitalModUpdateChecker",
       "name": "Hospital Mod Update Checker",
       "author": "Loupito75",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "description": "Checks installed Project Hospital BepInEx mods for newer public versions and displays available updates directly on the title screen.",
-      "whatsNew": "Reinstall support, config defaults and resets, smoother updates, fixed macOS/Linux mounted-drive disk-space detection, title-menu fixes",
+      "whatsNew": "Safer config migration during updates and reinstalls, automatic backup and fallback to signed defaults for incompatible configs, clearer configuration reset warnings",
       "package": {
-        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalModUpdateChecker-v1.6.0/Loupito75.HospitalModUpdateChecker-v1.6.0.zip",
-        "sha256": "74f6404938ec4b3ce69d8de696f40f866f62a6a8e7600fefdb3dc09cd965fd9a",
-        "packageBytes": 496562,
-        "maximumUnpackedBytes": 753985,
+        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalModUpdateChecker-v1.6.1/Loupito75.HospitalModUpdateChecker-v1.6.1.zip",
+        "sha256": "b342250ea2927b2d227f3afefcfc4dd13901f741d9bc1daedbaf2de9bc7ae40b",
+        "packageBytes": 497863,
+        "maximumUnpackedBytes": 760129,
         "installDirectory": "Loupito75.HospitalModUpdateChecker",
         "archiveRoot": "Loupito75.HospitalModUpdateChecker",
         "pluginFile": "Loupito75.HospitalModUpdateChecker.dll",
