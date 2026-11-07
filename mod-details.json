@@ -1,14 +1,14 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 15,
-  "updatedUtc": "2026-11-06T20:46:24Z",
-  "expiresUtc": "2027-02-04T20:46:24Z",
+  "manifestRevision": 16,
+  "updatedUtc": "2026-11-07T16:57:25Z",
+  "expiresUtc": "2027-02-05T16:57:25Z",
   "mods": [
     {
       "guid": "loupito75.HospitalModUpdateChecker",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "description": "Checks installed Project Hospital BepInEx mods for newer public versions and displays available updates directly on the title screen.",
-      "whatsNew": "Reinstall support, config defaults and resets, smoother updates, fixed macOS/Linux mounted-drive disk-space detection, title-menu fixes"
+      "whatsNew": "Safer config migration during updates and reinstalls, automatic backup and fallback to signed defaults for incompatible configs, clearer configuration reset warnings"
     }
   ]
 }
