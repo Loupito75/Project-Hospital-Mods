@@ -10,15 +10,17 @@
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0</AssemblyVersion>
-    <FileVersion>1.0.0</FileVersion>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1</AssemblyVersion>
+    <FileVersion>1.0.1</FileVersion>
+    <InformationalVersion>1.0.1</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Radio</Product>
-    <Description>Global hospital radio with music playlists and announcements for Project Hospital.</Description>
+    <ModAcronym>HRA</ModAcronym>
+    <Description>Replaces Project Hospital's normal gameplay music with a continuous hospital radio featuring music playlists, voice announcements and personal music support.</Description>
 
-    <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_GAME_DIR)' != ''">$(PROJECT_HOSPITAL_GAME_DIR)</GameDir>
+    <GameDir Condition="'$(GameDir)' == '' and '$(PROJECT_HOSPITAL_DIR)' != ''">$(PROJECT_HOSPITAL_DIR)</GameDir>
     <ManagedDir Condition="'$(GameDir)' != ''">$(GameDir)\ProjectHospital_Data\Managed</ManagedDir>
     <BepInExDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\core</BepInExDir>
     <PluginDir Condition="'$(GameDir)' != ''">$(GameDir)\BepInEx\plugins\Loupito75.HospitalRadio</PluginDir>
@@ -31,10 +33,10 @@
     <Compile Include="AnnouncementCatalog.cs" />
     <Compile Include="HospitalRadioController.cs" />
     <RadioMusicAudio Include="$(MSBuildProjectDirectory)\Audio\Music\**\*.ogg;$(MSBuildProjectDirectory)\Audio\Music\**\*.wav" />
+    <RadioMusicRuntimeFiles Include="$(MSBuildProjectDirectory)\Audio\Music\**\*" />
     <RadioMyMusicAudio Include="$(MSBuildProjectDirectory)\Audio\MyMusic\**\*.ogg;$(MSBuildProjectDirectory)\Audio\MyMusic\**\*.wav" />
-    <RadioVoiceAudio Include="$(MSBuildProjectDirectory)\Audio\Voice\HR_V*.ogg" />
-    <RadioMusicCredits Include="$(MSBuildProjectDirectory)\Audio\Music\CREDITS.txt" />
-    <RadioVoiceCredits Include="$(MSBuildProjectDirectory)\Audio\Voice\CREDITS.txt" />
+    <RadioVoiceAudio Include="$(MSBuildProjectDirectory)\Audio\Voice\L75_HRA_V*.ogg" />
+    <RadioVoiceRuntimeFiles Include="$(MSBuildProjectDirectory)\Audio\Voice\**\*" />
     <None Include="Loupito75.HospitalRadio.Config.xml" />
   </ItemGroup>
 
@@ -87,7 +89,7 @@
 
   <Target Name="ValidateProjectHospitalReferences" BeforeTargets="ResolveReferences">
     <Error Condition="'$(GameDir)' == ''"
-           Text="GameDir is required. Use build.ps1, set PROJECT_HOSPITAL_GAME_DIR locally, or pass /p:GameDir=&lt;PROJECT_HOSPITAL_DIR&gt;." />
+           Text="GameDir is required. Use build.ps1, set PROJECT_HOSPITAL_DIR locally, or pass /p:GameDir=&lt;PROJECT_HOSPITAL_DIR&gt;." />
     <Error Condition="!Exists('$(ManagedDir)\Assembly-CSharp.dll')"
            Text="Assembly-CSharp.dll was not found under the configured GameDir." />
     <Error Condition="!Exists('$(BepInExDir)\BepInEx.dll')"
@@ -108,7 +110,8 @@
           DestinationFolder="$(PluginDir)"
           Condition="!Exists('$(PluginDir)\Loupito75.HospitalRadio.Config.xml')" />
     <ItemGroup>
-      <MisplacedRadioAudio Include="$(PluginDir)\Audio\HR_M*.ogg;$(PluginDir)\Audio\HR_M*.wav;$(PluginDir)\Audio\HR_M*.mp3;$(PluginDir)\Audio\HR_V*.ogg;$(PluginDir)\Audio\HR_V*.wav;$(PluginDir)\Audio\HR_V*.mp3" />
+      <!-- Retain cleanup for confirmed pre-canonical internal HRA_* files misplaced directly under Audio. -->
+      <MisplacedRadioAudio Include="$(PluginDir)\Audio\HRA_M*.ogg;$(PluginDir)\Audio\HRA_M*.wav;$(PluginDir)\Audio\HRA_M*.mp3;$(PluginDir)\Audio\HRA_V*.ogg;$(PluginDir)\Audio\HRA_V*.wav;$(PluginDir)\Audio\HRA_V*.mp3" />
       <MisplacedCurrentRadioAudio Include="@(RadioMusicAudio->'$(PluginDir)\Audio\%(RecursiveDir)%(Filename)%(Extension)')" />
       <MisplacedCurrentRadioAudio Include="@(RadioMyMusicAudio->'$(PluginDir)\Audio\%(RecursiveDir)%(Filename)%(Extension)')" />
       <MisplacedCurrentRadioAudio Include="@(RadioVoiceAudio->'$(PluginDir)\Audio\%(RecursiveDir)%(Filename)%(Extension)')" />
@@ -117,25 +120,17 @@
             Condition="'@(MisplacedRadioAudio)' != ''" />
     <Delete Files="@(MisplacedCurrentRadioAudio)"
             Condition="'@(MisplacedCurrentRadioAudio)' != ''" />
-    <Copy SourceFiles="@(RadioMusicAudio)"
-          DestinationFiles="@(RadioMusicAudio->'$(PluginDir)\Audio\Music\%(RecursiveDir)%(Filename)%(Extension)')"
+    <Copy SourceFiles="@(RadioMusicRuntimeFiles)"
+          DestinationFiles="@(RadioMusicRuntimeFiles->'$(PluginDir)\Audio\Music\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true"
-          Condition="'@(RadioMusicAudio)' != ''" />
+          Condition="'@(RadioMusicRuntimeFiles)' != ''" />
     <Copy SourceFiles="@(RadioMyMusicAudio)"
           DestinationFiles="@(RadioMyMusicAudio->'$(PluginDir)\Audio\MyMusic\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true"
           Condition="'@(RadioMyMusicAudio)' != ''" />
-    <Copy SourceFiles="@(RadioVoiceAudio)"
-          DestinationFiles="@(RadioVoiceAudio->'$(PluginDir)\Audio\Voice\%(RecursiveDir)%(Filename)%(Extension)')"
+    <Copy SourceFiles="@(RadioVoiceRuntimeFiles)"
+          DestinationFiles="@(RadioVoiceRuntimeFiles->'$(PluginDir)\Audio\Voice\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true"
-          Condition="'@(RadioVoiceAudio)' != ''" />
-    <Copy SourceFiles="@(RadioMusicCredits)"
-          DestinationFolder="$(PluginDir)\Audio\Music"
-          SkipUnchangedFiles="true"
-          Condition="'@(RadioMusicCredits)' != ''" />
-    <Copy SourceFiles="@(RadioVoiceCredits)"
-          DestinationFolder="$(PluginDir)\Audio\Voice"
-          SkipUnchangedFiles="true"
-          Condition="'@(RadioVoiceCredits)' != ''" />
+          Condition="'@(RadioVoiceRuntimeFiles)' != ''" />
   </Target>
 </Project>

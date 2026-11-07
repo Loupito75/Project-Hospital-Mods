@@ -10,7 +10,8 @@ namespace HospitalRadio
     {
         public const string PluginGuid = "loupito75.HospitalRadio";
         public const string PluginName = "Hospital Radio";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.0.1";
+        public const string PluginWhatsNew = "Safer audio transitions, reliable F9 skipping, improved startup music priority, improved HMUC configuration editing";
         public const string PluginAuthor = "Loupito75";
         public const string HarmonyId = "Loupito75:HospitalRadio";
 

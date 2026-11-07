@@ -35,6 +35,8 @@ namespace HospitalRadio
         private const float TrackFadeDuration = 0.75f;
         private const float RadioFadeInDuration = 5f;
         private const float RadioFadeOutDuration = 4f;
+        // Elapsed wall-clock time in the running Unity process, not hospital time.
+        private const float VanillaMusicGraceSeconds = 30f * 60f;
 
         private static readonly string[] VanillaGameplayMusicEventIds =
         {
@@ -44,14 +46,14 @@ namespace HospitalRadio
 
         private static readonly string[] DiagnosticMusicIds =
         {
-            "HR_M045",
-            "HR_M040",
-            "HR_M039",
-            "HR_M007",
-            "HR_M003",
-            "HR_M031",
-            "HR_M025",
-            "HR_M027"
+            "L75_HRA_M045",
+            "L75_HRA_M040",
+            "L75_HRA_M039",
+            "L75_HRA_M007",
+            "L75_HRA_M003",
+            "L75_HRA_M031",
+            "L75_HRA_M025",
+            "L75_HRA_M027"
         };
 
         private static string s_pluginDirectory;
@@ -91,6 +93,8 @@ namespace HospitalRadio
         private float _initializationRetryDelay;
         private bool _nativeEventConditionActive;
         private bool _nativeEventSkipped;
+        private bool _vanillaMusicGraceActive;
+        private float _radioStartRealtime;
         private bool _nextTrackRequested;
         private bool _announcementLoading;
         private bool _announcementPending;
@@ -141,6 +145,20 @@ namespace HospitalRadio
                 return;
             }
 
+            if (_vanillaMusicGraceActive
+                && Time.realtimeSinceStartup - _radioStartRealtime >= VanillaMusicGraceSeconds)
+            {
+                _vanillaMusicGraceActive = false;
+                LogDiagnostic("Vanilla music startup grace period ended.");
+            }
+
+            // Keep the exact native event/collapse condition for state
+            // transitions. The requested MUS_EVENTS multiplier is a fade
+            // envelope, not an authoritative boolean gameplay state.
+            bool nativeEventConditionActive = IsNativeEventConditionActive();
+            float nativeEventMusicMix = _vanillaMusicGraceActive
+                ? 0f
+                : GetNativeEventMusicMix();
             MuteNativeMusic();
 
             if (_voicePlayback != null
@@ -150,8 +168,9 @@ namespace HospitalRadio
                 CleanupCurrentVoiceClip();
             }
 
-            float nativeEventMusicMix = GetNativeEventMusicMix();
-            UpdateNativeEventState(IsNativeEventConditionActive(), nativeEventMusicMix);
+            // MUS_EVENTS is part of the vanilla in-game music layer too, so it
+            // remains silent during the same startup grace period.
+            UpdateNativeEventState(nativeEventConditionActive, nativeEventMusicMix);
 
             _musicFade = Mathf.MoveTowards(
                 _musicFade,
@@ -289,6 +308,10 @@ namespace HospitalRadio
 
             _musicDuck = 1f;
             _musicFade = 0f;
+            _radioStartRealtime = Time.realtimeSinceStartup;
+            _vanillaMusicGraceActive = HasLocalMusicTracks();
+            _nativeEventConditionActive = false;
+            _nativeEventSkipped = false;
             _active = true;
             _initializing = false;
 
@@ -301,9 +324,8 @@ namespace HospitalRadio
                 yield break;
             }
 
-            Plugin.Log.LogInfo(
-                "Hospital Radio playlist started with " + _musicTracks.Count + " available track(s).");
-
+            LogDiagnostic(
+                "Playlist started with " + _musicTracks.Count + " available track(s).");
             LogDiagnostic("F9 skips music; F11 plays a period-aware announcement.");
         }
 
@@ -316,7 +338,7 @@ namespace HospitalRadio
 
             if (HospitalRadioConfig.DiagnosticsEnabled)
             {
-                AddDiagnosticMusicTracks(GetAudioFiles(ourMusicDirectory));
+                AddDiagnosticMusicTracks(GetBundledMusicFiles(ourMusicDirectory));
                 LogDiagnostic(
                     "Short-track pool active: " + _musicTracks.Count + "/" +
                     DiagnosticMusicIds.Length + " track(s).");
@@ -325,7 +347,7 @@ namespace HospitalRadio
 
             if (HospitalRadioConfig.OurMusicEnabled)
             {
-                AddLocalMusicTracks(GetAudioFiles(ourMusicDirectory), "Hospital Radio");
+                AddLocalMusicTracks(GetBundledMusicFiles(ourMusicDirectory), "Hospital Radio");
             }
 
             if (HospitalRadioConfig.MyMusicEnabled)
@@ -347,9 +369,9 @@ namespace HospitalRadio
 
                 foreach (string file in files)
                 {
-                    string fileName = Path.GetFileName(file);
-                    if (fileName.StartsWith(
-                        diagnosticId + "_",
+                    if (string.Equals(
+                        GetMusicId(file),
+                        diagnosticId,
                         StringComparison.OrdinalIgnoreCase))
                     {
                         matchedFile = file;
@@ -392,10 +414,10 @@ namespace HospitalRadio
         {
             string fileName = Path.GetFileNameWithoutExtension(file);
             if (fileName != null
-                && fileName.StartsWith("HR_M", StringComparison.OrdinalIgnoreCase)
-                && fileName.Length >= 7)
+                && fileName.StartsWith("L75_HRA_M", StringComparison.OrdinalIgnoreCase)
+                && fileName.Length >= 12)
             {
-                return fileName.Substring(0, 7).ToUpperInvariant();
+                return fileName.Substring(0, 12).ToUpperInvariant();
             }
 
             return "LOCAL";
@@ -427,6 +449,35 @@ namespace HospitalRadio
             }
         }
 
+        private bool HasLocalMusicTracks()
+        {
+            foreach (MusicTrack track in _musicTracks)
+            {
+                if (track != null && track.IsLocalFile)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool HasVanillaMusicTracks()
+        {
+            foreach (MusicTrack track in _musicTracks)
+            {
+                if (track != null
+                    && !track.IsLocalFile
+                    && !string.IsNullOrEmpty(track.VanillaEventId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+
         private IEnumerator StartNextTrack()
         {
             if (_trackTransitionInProgress || _musicTracks.Count == 0)
@@ -436,101 +487,129 @@ namespace HospitalRadio
 
             _trackTransitionInProgress = true;
 
-            if (_musicSource != null)
-            {
-                _musicSource.Stop();
-            }
-
+            StopAndDetachAudioSource(_musicSource, "music transition");
             CleanupCurrentMusicClip();
 
+            bool vanillaFallbackAttempted = false;
             int attemptsRemaining = _musicTracks.Count;
-            while (attemptsRemaining-- > 0)
+
+            while (true)
             {
-                int trackIndex = TakeNextTrackIndex();
-                MusicTrack track = _musicTracks[trackIndex];
-                if (!IsTrackEligibleForCurrentShift(track))
+                while (attemptsRemaining-- > 0)
                 {
-                    continue;
-                }
-
-                AudioClip localClip = null;
-                string localClipKey = null;
-                GameDBSoundEvent soundEvent = null;
-
-                if (track.IsLocalFile)
-                {
-                    if (_preparedTrackIndex == trackIndex)
+                    int trackIndex = TakeNextTrackIndex();
+                    MusicTrack track = _musicTracks[trackIndex];
+                    if (!IsTrackEligibleForCurrentShift(track))
                     {
-                        while (_preparingNextTrack)
-                        {
-                            yield return null;
-                        }
-
-                        localClip = _preparedMusicClip;
-                        _preparedMusicClip = null;
-                        _preparedTrackIndex = -1;
-                    }
-
-                    if (localClip == null)
-                    {
-                        yield return StartCoroutine(
-                            LoadAudioFile(track.FilePath, "music", true, delegate(AudioClip clip) { localClip = clip; }));
-                    }
-
-                    if (!_active || _stopping)
-                    {
-                        ReleaseUnregisteredClip(localClip);
-                        _trackTransitionInProgress = false;
-                        yield break;
-                    }
-
-                    if (localClip == null)
-                    {
-                        Plugin.Log.LogWarning(
-                            "Skipping unreadable Hospital Radio track " + Path.GetFileName(track.FilePath) + ".");
                         continue;
                     }
 
-                    localClipKey = RegisterClip("Music", track.FilePath, localClip);
-                    soundEvent = AudioEventFactory.Create(
-                        "LOUPITO75_HR_MUSIC_" + _audioKeySequence,
-                        localClipKey,
-                        track.LocalVolumeDb);
-                }
-                else
-                {
-                    soundEvent = track.VanillaEvent;
+                    AudioClip localClip = null;
+                    string localClipKey = null;
+                    GameDBSoundEvent soundEvent = null;
+
+                    if (track.IsLocalFile)
+                    {
+                        if (_preparedTrackIndex == trackIndex)
+                        {
+                            while (_preparingNextTrack)
+                            {
+                                yield return null;
+                            }
+
+                            localClip = _preparedMusicClip;
+                            _preparedMusicClip = null;
+                            _preparedTrackIndex = -1;
+                        }
+
+                        if (localClip == null)
+                        {
+                            yield return StartCoroutine(
+                                LoadAudioFile(
+                                    track.FilePath,
+                                    "music",
+                                    true,
+                                    delegate(AudioClip clip) { localClip = clip; }));
+                        }
+
+                        if (!_active || _stopping)
+                        {
+                            ReleaseUnregisteredClip(localClip);
+                            _trackTransitionInProgress = false;
+                            yield break;
+                        }
+
+                        if (localClip == null)
+                        {
+                            Plugin.Log.LogWarning(
+                                "Skipping unreadable Hospital Radio track " +
+                                Path.GetFileName(track.FilePath) + ".");
+                            continue;
+                        }
+
+                        localClipKey = RegisterClip("MUSIC", track.FilePath, localClip);
+                        soundEvent = AudioEventFactory.Create(
+                            "L75_HRA_SOUND_MUSIC_" + _audioKeySequence,
+                            localClipKey,
+                            track.LocalVolumeDb);
+                    }
+                    else
+                    {
+                        soundEvent = track.VanillaEvent;
+                    }
+
+                    _musicPlayback = _musicSource.PlaySoundEvent(
+                        soundEvent,
+                        SoundEventCategory.MUSIC,
+                        1f,
+                        0f,
+                        false,
+                        false);
+
+                    if (_musicPlayback == null)
+                    {
+                        Plugin.Log.LogWarning(
+                            "Could not start track " + track.DisplayName + ".");
+                        ReleaseLocalMusicClip(localClipKey, localClip);
+                        continue;
+                    }
+
+                    _currentTrackIndex = trackIndex;
+                    _currentMusicClip = localClip;
+                    _currentMusicClipKey = localClipKey;
+                    ApplyMusicVolumeImmediate();
+
+                    LogCurrentTrack(track);
+
+                    _trackTransitionInProgress = false;
+                    PrepareFollowingTrack();
+                    yield break;
                 }
 
-                _musicPlayback = _musicSource.PlaySoundEvent(
-                    soundEvent,
-                    SoundEventCategory.MUSIC,
-                    1f,
-                    0f,
-                    false,
-                    false);
-
-                if (_musicPlayback == null)
+                if (!vanillaFallbackAttempted
+                    && _vanillaMusicGraceActive
+                    && HasVanillaMusicTracks())
                 {
-                    Plugin.Log.LogWarning("Could not start track " + track.DisplayName + ".");
-                    ReleaseLocalMusicClip(localClipKey, localClip);
+                    vanillaFallbackAttempted = true;
+                    _vanillaMusicGraceActive = false;
+                    _nextTrackIndex = -1;
+                    _musicQueue.Clear();
+                    _preloadGeneration++;
+                    ReleasePreparedMusicClip();
+
+                    LogDiagnostic(
+                        "Vanilla music startup grace ended early because no local track could be started.");
+
+                    attemptsRemaining = _musicTracks.Count;
                     continue;
                 }
 
-                _currentTrackIndex = trackIndex;
-                _currentMusicClip = localClip;
-                _currentMusicClipKey = localClipKey;
-                ApplyMusicVolumeImmediate();
-
-                LogCurrentTrack(track);
-
-                _trackTransitionInProgress = false;
-                PrepareFollowingTrack();
-                yield break;
+                break;
             }
 
             _trackTransitionInProgress = false;
-            Plugin.Log.LogError("No Hospital Radio playlist track could be started. Restoring vanilla music.");
+            Plugin.Log.LogError(
+                "No Hospital Radio playlist track could be started. Restoring vanilla music.");
             _initializationRetryDelay = 30f;
             StopRadio();
         }
@@ -541,6 +620,8 @@ namespace HospitalRadio
             {
                 return;
             }
+
+            _nextTrackRequested = false;
 
             float nativeEventMusicMix = GetNativeEventMusicMix();
             if (IsNativeEventMusicLeading(nativeEventMusicMix))
@@ -600,6 +681,32 @@ namespace HospitalRadio
                 indexes[1] = value;
             }
 
+            // Only the first draw of a game session prefers HRA/MyMusic. Keep the
+            // already-shuffled local/vanilla order and all entries in this cycle.
+            // Vanilla remains the fallback if no local track can be played.
+            if (_currentTrackIndex < 0)
+            {
+                List<int> firstSessionIndexes = new List<int>(indexes.Count);
+                foreach (int index in indexes)
+                {
+                    if (_musicTracks[index].IsLocalFile)
+                    {
+                        firstSessionIndexes.Add(index);
+                    }
+                }
+                if (firstSessionIndexes.Count > 0 && firstSessionIndexes.Count < indexes.Count)
+                {
+                    foreach (int index in indexes)
+                    {
+                        if (!_musicTracks[index].IsLocalFile)
+                        {
+                            firstSessionIndexes.Add(index);
+                        }
+                    }
+                    indexes = firstSessionIndexes;
+                }
+            }
+
             foreach (int index in indexes)
             {
                 _musicQueue.Enqueue(index);
@@ -653,6 +760,22 @@ namespace HospitalRadio
 
             _preparedMusicClip = clip;
             _preparingNextTrack = false;
+        }
+
+        private static string[] GetBundledMusicFiles(string directory)
+        {
+            string[] files = GetAudioFiles(directory);
+            List<string> bundledFiles = new List<string>();
+
+            foreach (string file in files)
+            {
+                if (!string.Equals(GetMusicId(file), "LOCAL", StringComparison.Ordinal))
+                {
+                    bundledFiles.Add(file);
+                }
+            }
+
+            return bundledFiles.ToArray();
         }
 
         private static string[] GetAudioFiles(string directory)
@@ -817,7 +940,7 @@ namespace HospitalRadio
                 yield break;
             }
 
-            clip.name = "HospitalRadio-" + Path.GetFileNameWithoutExtension(filePath);
+            clip.name = "L75_HRA_AUDIO_" + Path.GetFileNameWithoutExtension(filePath);
             _loadedClips.Add(clip);
             completed(clip);
         }
@@ -826,7 +949,7 @@ namespace HospitalRadio
         {
             _audioKeySequence++;
             string key =
-                "Loupito75/HospitalRadio/" + group + "/" +
+                "L75_HRA_AUDIO_" + group + "_" +
                 _audioKeySequence + "_" + Path.GetFileName(filePath);
 
             StreamingAssetManager manager = StreamingAssetManager.GetInstance();
@@ -962,9 +1085,9 @@ namespace HospitalRadio
                 yield break;
             }
 
-            string voiceKey = RegisterClip("Voice", entry.FilePath, voiceClip);
+            string voiceKey = RegisterClip("VOICE", entry.FilePath, voiceClip);
             GameDBSoundEvent voiceEvent = AudioEventFactory.Create(
-                "LOUPITO75_HR_ANNOUNCEMENT_" + entry.Id + "_" + _audioKeySequence,
+                "L75_HRA_SOUND_ANNOUNCEMENT_" + entry.Id + "_" + _audioKeySequence,
                 voiceKey,
                 HospitalRadioConfig.AnnouncementVolumeDb);
 
@@ -1112,7 +1235,9 @@ namespace HospitalRadio
             }
 
             manager.m_musicSoundSourceEvents.m_scriptedVolumeMultiplier =
-                eventMusicLeading ? _nativeEventsMultiplier * _musicDuck : 0f;
+                eventMusicLeading && !_vanillaMusicGraceActive
+                    ? _nativeEventsMultiplier * _musicDuck
+                    : 0f;
 
             manager.m_musicSoundSourceEvents.InterpolateState(true);
         }
@@ -1148,7 +1273,7 @@ namespace HospitalRadio
 
         private static void LogDiagnostic(string message)
         {
-            if (HospitalRadioConfig.DiagnosticsEnabled)
+            if (HospitalRadioConfig.DiagnosticsEnabled && Plugin.Log != null)
             {
                 Plugin.Log.LogInfo("[Diag] " + message);
             }
@@ -1156,7 +1281,7 @@ namespace HospitalRadio
 
         private static void LogCurrentTrack(MusicTrack track)
         {
-            if (!HospitalRadioConfig.DiagnosticsEnabled || track == null)
+            if (!HospitalRadioConfig.DiagnosticsEnabled || Plugin.Log == null || track == null)
             {
                 return;
             }
@@ -1176,11 +1301,16 @@ namespace HospitalRadio
                 "[Diag] Music " + track.Id + " | " + title + ".");
         }
 
-        private static bool IsTrackEligibleForCurrentShift(MusicTrack track)
+        private bool IsTrackEligibleForCurrentShift(MusicTrack track)
         {
             if (track == null || track.IsLocalFile || string.IsNullOrEmpty(track.VanillaEventId))
             {
                 return true;
+            }
+
+            if (_vanillaMusicGraceActive)
+            {
+                return false;
             }
 
             DayTime dayTime = DayTime.Instance;
@@ -1234,25 +1364,31 @@ namespace HospitalRadio
             }
         }
 
-        private static bool IsNativeEventConditionActive()
+        private bool IsNativeEventConditionActive()
         {
             UISoundManager manager = UISoundManager.sm_instance;
-            if (manager == null
+            if (_vanillaMusicGraceActive
+                || manager == null
                 || manager.m_titleScreenMusicState != UISoundManager.MenuMusicState.INGAME_MUSIC_PLAYING)
             {
                 return false;
             }
 
             GlobalScriptManager scriptManager = GlobalScriptManager.GetInstance();
-            Hospital hospital = Hospital.Instance;
+            if (scriptManager != null && scriptManager.GetEventCount() > 0)
+            {
+                return true;
+            }
 
-            return (scriptManager != null && scriptManager.GetEventCount() > 0)
-                || (hospital != null && hospital.GetCollapsedPatientCount() > 0);
+            Hospital hospital = Hospital.Instance;
+            return hospital != null
+                && hospital.GetCollapsedPatientCount() > 0;
         }
 
         private bool IsNativeEventMusicLeading(float nativeEventMusicMix)
         {
-            return !_nativeEventSkipped
+            return !_vanillaMusicGraceActive
+                && !_nativeEventSkipped
                 && (_nativeEventConditionActive || nativeEventMusicMix > 0.01f);
         }
 
@@ -1291,7 +1427,10 @@ namespace HospitalRadio
                 _nativeMusicCaptured = true;
             }
 
-            SetNativeMusicMultipliers(0f, _nativeEventsMultiplier, 0f);
+            SetNativeMusicMultipliers(
+                0f,
+                _vanillaMusicGraceActive ? 0f : _nativeEventsMultiplier,
+                0f);
         }
 
         private void RestoreNativeMusic()
@@ -1356,10 +1495,7 @@ namespace HospitalRadio
 
         private void CleanupCurrentVoiceClip()
         {
-            if (_voiceSource != null)
-            {
-                _voiceSource.Stop();
-            }
+            StopAndDetachAudioSource(_voiceSource, "voice cleanup");
 
             ReleaseLocalMusicClip(_currentVoiceClipKey, _currentVoiceClip);
             _currentVoiceClipKey = null;
@@ -1385,6 +1521,26 @@ namespace HospitalRadio
 
             _preparedTrackIndex = -1;
             _preparingNextTrack = false;
+        }
+
+        private void StopAndDetachAudioSource(SoundSourceComponent source, string context)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            source.Stop();
+
+            AudioSource audioSource = source.m_audioSourceForOneshotSounds;
+            if (audioSource == null)
+            {
+                return;
+            }
+
+            audioSource.Stop();
+            audioSource.clip = null;
+            LogDiagnostic("Audio source detached before clip release (" + context + ").");
         }
 
         private void ReleaseLocalMusicClip(string clipKey, AudioClip clip)
@@ -1424,6 +1580,8 @@ namespace HospitalRadio
             _stopFadeTimeRemaining = 0f;
             _nativeEventConditionActive = false;
             _nativeEventSkipped = false;
+            _vanillaMusicGraceActive = false;
+            _radioStartRealtime = 0f;
             _nextTrackRequested = false;
             _announcementLoading = false;
             _announcementPending = false;
@@ -1432,10 +1590,7 @@ namespace HospitalRadio
             _musicQueue.Clear();
             _recentAnnouncementIds.Clear();
 
-            if (_musicSource != null)
-            {
-                _musicSource.Stop();
-            }
+            StopAndDetachAudioSource(_musicSource, "radio stop");
 
             CleanupCurrentMusicClip();
             ReleasePreparedMusicClip();

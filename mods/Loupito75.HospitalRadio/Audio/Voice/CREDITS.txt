@@ -76,10 +76,10 @@ Final packaged announcements
 ----------------------------
 Final announcement assets use the naming convention:
 
-HR_V001.ogg
-HR_V002.ogg
+L75_HRA_V001.ogg
+L75_HRA_V002.ogg
 ...
-HR_V100.ogg
+L75_HRA_V100.ogg
 
 The source TTS takes, Piper models and training datasets are not included in the
 distributed mod.
