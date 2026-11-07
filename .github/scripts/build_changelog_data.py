@@ -401,7 +401,39 @@ def add_heading_ids(rendered):
     )
 
 
+def normalize_github_anchor_ids(rendered):
+    rendered = re.sub(
+        r'\b(id|name)=(["\'])user-content-([^"\']+)\2',
+        lambda match: (
+            match.group(1)
+            + "="
+            + match.group(2)
+            + match.group(3)
+            + match.group(2)
+        ),
+        rendered,
+        flags=re.IGNORECASE,
+    )
+
+    rendered = re.sub(
+        r'href=(["\'])#user-content-([^"\']+)\1',
+        lambda match: (
+            "href="
+            + match.group(1)
+            + "#"
+            + match.group(2)
+            + match.group(1)
+        ),
+        rendered,
+        flags=re.IGNORECASE,
+    )
+
+    return rendered
+
+
 def rewrite_readme_links(rendered):
+    rendered = normalize_github_anchor_ids(rendered)
+
     def replace_named_anchor(match):
         attributes = match.group(1)
         name_match = re.search(
@@ -498,7 +530,8 @@ def rewrite_readme_links(rendered):
         flags=re.IGNORECASE,
     )
 
-    return add_heading_ids(rendered)
+    rendered = add_heading_ids(rendered)
+    return normalize_github_anchor_ids(rendered)
 
 
 def build_readme_html():
