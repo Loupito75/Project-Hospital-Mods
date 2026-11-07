@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1">
+
+    <meta
+        name="description"
+        content="Public development roadmap for Project Hospital Mods by Loupito75.">
+
+    <title>Project Hospital Mods - Roadmap</title>
+
+    <link
+        rel="stylesheet"
+        href="changelog.css">
+
+    <script
+        src="roadmap.js"
+        defer>
+    </script>
+</head>
+
+<body>
+
+<main class="page roadmap-page">
+
+    <header class="site-header">
+        <div>
+            <h1>Project Hospital Mods</h1>
+
+            <p class="author-line">
+                by Loupito75
+            </p>
+        </div>
+
+        <nav
+            class="site-nav"
+            aria-label="Project Hospital Mods">
+            <a href="index.html">Home</a>
+            <a
+                href="roadmap.html"
+                aria-current="page">
+                Roadmap
+            </a>
+            <a href="changelog.html">Changelogs</a>
+            <a href="report.html">Report a bug</a>
+        </nav>
+    </header>
+
+
+    <section class="roadmap-hero">
+
+        <div>
+            <p class="hero-eyebrow">
+                Public development roadmap
+            </p>
+
+            <h2>
+                What's planned next
+            </h2>
+
+            <p class="hero-copy">
+                Browse features, improvements and ideas across the
+                Project Hospital mod collection. Plans may change as
+                implementation, compatibility checks and in-game testing progress.
+            </p>
+        </div>
+
+        <a
+            class="button secondary"
+            href="https://github.com/Loupito75/Project-Hospital-Mods/blob/main/ROADMAP.md"
+            target="_blank"
+            rel="noopener noreferrer">
+            View ROADMAP.md
+        </a>
+
+    </section>
+
+
+    <section
+        id="roadmap-summary"
+        class="roadmap-summary"
+        aria-label="Roadmap summary">
+    </section>
+
+
+    <section class="card roadmap-filters">
+
+        <div class="section-heading">
+            <div>
+                <p class="section-eyebrow">
+                    Filters
+                </p>
+
+                <h2>
+                    Explore the roadmap
+                </h2>
+            </div>
+
+            <button
+                id="clear-filters"
+                class="filter-reset"
+                type="button">
+                Clear filters
+            </button>
+        </div>
+
+        <div class="roadmap-filter-grid">
+
+            <div class="field">
+                <label for="roadmap-mod">
+                    Mod
+                </label>
+
+                <select
+                    id="roadmap-mod"
+                    disabled>
+                    <option value="">
+                        Loading mods…
+                    </option>
+                </select>
+            </div>
+
+
+            <div class="field">
+                <label for="roadmap-status">
+                    Status
+                </label>
+
+                <select
+                    id="roadmap-status"
+                    disabled>
+                    <option value="">
+                        All statuses
+                    </option>
+                </select>
+            </div>
+
+
+            <div class="field">
+                <label for="roadmap-type">
+                    Type
+                </label>
+
+                <select
+                    id="roadmap-type"
+                    disabled>
+                    <option value="">
+                        All types
+                    </option>
+                </select>
+            </div>
+
+
+            <div class="field roadmap-search-field">
+                <label for="roadmap-search">
+                    Search
+                </label>
+
+                <input
+                    id="roadmap-search"
+                    type="search"
+                    placeholder="Feature or description…"
+                    autocomplete="off"
+                    disabled>
+            </div>
+
+        </div>
+
+        <p
+            id="roadmap-status-text"
+            class="status"
+            aria-live="polite">
+            Loading roadmap…
+        </p>
+
+    </section>
+
+
+    <section
+        id="roadmap-content"
+        aria-live="polite">
+    </section>
+
+
+    <footer class="page-footer">
+
+        <p>
+            Project Hospital Mods by Loupito75
+        </p>
+
+        <a
+            href="https://github.com/Loupito75/Project-Hospital-Mods"
+            target="_blank"
+            rel="noopener noreferrer">
+            View Project Hospital Mods on GitHub
+        </a>
+
+    </footer>
+
+</main>
+
+</body>
+</html>
