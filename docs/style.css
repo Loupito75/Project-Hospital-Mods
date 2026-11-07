@@ -66,6 +66,41 @@ h3 {
 
 /* Header ------------------------------------------------------------ */
 
+.site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+
+    margin-bottom: 20px;
+}
+
+.site-header h1 {
+    margin: 0 0 2px;
+}
+
+.site-header .author-line {
+    margin: 0;
+}
+
+.site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+
+    padding-top: 8px;
+}
+
+.site-nav a {
+    color: #0969da;
+    text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
+    text-decoration: underline;
+}
+
 .author-line {
     margin: 0 0 18px;
 
@@ -490,6 +525,14 @@ button:not(:disabled):hover,
     .page {
         width: min(100% - 20px, 780px);
         margin: 20px auto;
+    }
+
+    .site-header {
+        flex-direction: column;
+    }
+
+    .site-nav {
+        padding-top: 0;
     }
 
     .card {
