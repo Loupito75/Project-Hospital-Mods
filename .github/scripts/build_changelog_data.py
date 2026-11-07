@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import datetime
+import html
 import json
 import os
 import re
@@ -28,6 +29,20 @@ TAG_RE = re.compile(
     r"^(?P<mod>[A-Za-z0-9][A-Za-z0-9._-]*)"
     r"-v(?P<version>[0-9]+(?:\.[0-9]+){2,3})"
     r"(?P<republished>-republished)?$"
+)
+
+EXCLUDED_MOD_IDS = {
+    "HospitalModUpdateTest",
+}
+
+PUBLIC_REPO_URL = (
+    "https://github.com/"
+    + REPOSITORY
+)
+PUBLIC_RAW_URL = (
+    "https://raw.githubusercontent.com/"
+    + REPOSITORY
+    + "/main/"
 )
 
 
@@ -208,6 +223,10 @@ def normalized_release(release, names):
         return None
 
     technical = match.group("mod")
+
+    if technical in EXCLUDED_MOD_IDS:
+        return None
+
     version = match.group("version")
     published = (
         release.get("published_at")
@@ -330,6 +349,158 @@ def apply_redirects(mod_map, release_by_tag, names):
             version_map[version] = item
 
 
+def github_heading_slug(value):
+    text = re.sub(r"<[^>]+>", "", value)
+    text = html.unescape(text).strip().lower()
+    text = re.sub(r"[^\w\- ]+", "", text, flags=re.UNICODE)
+    text = re.sub(r"\s+", "-", text)
+    text = re.sub(r"-+", "-", text)
+    return text.strip("-")
+
+
+def add_heading_ids(rendered):
+    seen = {}
+
+    def replace_heading(match):
+        level = match.group(1)
+        attributes = match.group(2) or ""
+        body = match.group(3)
+
+        if re.search(r"\bid\s*=", attributes, flags=re.IGNORECASE):
+            return match.group(0)
+
+        slug = github_heading_slug(body)
+
+        if not slug:
+            return match.group(0)
+
+        count = seen.get(slug, 0)
+        seen[slug] = count + 1
+
+        if count:
+            slug = slug + "-" + str(count)
+
+        return (
+            "<h"
+            + level
+            + attributes
+            + ' id="'
+            + slug
+            + '">'
+            + body
+            + "</h"
+            + level
+            + ">"
+        )
+
+    return re.sub(
+        r"<h([1-6])(\s[^>]*)?>(.*?)</h\1>",
+        replace_heading,
+        rendered,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
+def rewrite_readme_links(rendered):
+    def replace_named_anchor(match):
+        attributes = match.group(1)
+        name_match = re.search(
+            r'\bname=["\']([^"\']+)["\']',
+            attributes,
+            flags=re.IGNORECASE,
+        )
+
+        if not name_match:
+            return match.group(0)
+
+        if re.search(r"\bid\s*=", attributes, flags=re.IGNORECASE):
+            return match.group(0)
+
+        value = name_match.group(1)
+
+        return (
+            "<a"
+            + attributes
+            + ' id="'
+            + value
+            + '">'
+        )
+
+    rendered = re.sub(
+        r"<a(\s[^>]*)>",
+        replace_named_anchor,
+        rendered,
+        flags=re.IGNORECASE,
+    )
+
+    def replace_href(match):
+        quote = match.group(1)
+        value = match.group(2).strip()
+
+        if (
+            not value
+            or value.startswith("#")
+            or value.startswith("/")
+            or re.match(
+                r"^[a-z][a-z0-9+.-]*:",
+                value,
+                flags=re.IGNORECASE,
+            )
+        ):
+            return match.group(0)
+
+        path = value.lstrip("./")
+
+        if path.endswith("/"):
+            target = (
+                PUBLIC_REPO_URL
+                + "/tree/main/"
+                + path.rstrip("/")
+            )
+        else:
+            target = (
+                PUBLIC_REPO_URL
+                + "/blob/main/"
+                + path
+            )
+
+        return "href=" + quote + target + quote
+
+    rendered = re.sub(
+        r'href=(["\'])([^"\']+)\1',
+        replace_href,
+        rendered,
+        flags=re.IGNORECASE,
+    )
+
+    def replace_src(match):
+        quote = match.group(1)
+        value = match.group(2).strip()
+
+        if (
+            not value
+            or value.startswith("/")
+            or re.match(
+                r"^[a-z][a-z0-9+.-]*:",
+                value,
+                flags=re.IGNORECASE,
+            )
+        ):
+            return match.group(0)
+
+        target = PUBLIC_RAW_URL + value.lstrip("./")
+        return "src=" + quote + target + quote
+
+    rendered = re.sub(
+        r'src=(["\'])([^"\']+)\1',
+        replace_src,
+        rendered,
+        flags=re.IGNORECASE,
+    )
+
+    return add_heading_ids(rendered)
+
+
 def build_readme_html():
     if not README_PATH.exists():
         raise RuntimeError(
@@ -338,6 +509,7 @@ def build_readme_html():
 
     markdown = README_PATH.read_text(encoding="utf-8")
     rendered = render_markdown(markdown)
+    rendered = rewrite_readme_links(rendered)
 
     README_OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     README_OUTPUT_PATH.write_text(
