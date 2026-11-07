@@ -1559,7 +1559,15 @@ namespace HospitalModUpdateChecker
                     }
                 }
 
-                if (!string.IsNullOrEmpty(
+                if (result.ConfigReset)
+                {
+                    builder.Append("\n   <i>");
+                    builder.Append(
+                        UpdatePanelLocalization.Get(
+                            UpdatePanelLocalization.ConfigResetResultId));
+                    builder.Append("</i>");
+                }
+                else if (!string.IsNullOrEmpty(
                         result.ConfigWarning))
                 {
                     builder.Append("\n   <i>");
