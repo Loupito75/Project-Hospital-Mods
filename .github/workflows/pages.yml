@@ -12,6 +12,9 @@ on:
       - main
     paths:
       - "docs/**"
+      - "README.md"
+      - "ROADMAP.md"
+      - "catalog/mod-catalog.json"
       - ".github/scripts/build_changelog_data.py"
       - ".github/workflows/pages.yml"
 

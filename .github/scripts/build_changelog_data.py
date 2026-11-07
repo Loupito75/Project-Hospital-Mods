@@ -21,9 +21,11 @@ TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = ROOT / "catalog" / "mod-catalog.json"
 README_PATH = ROOT / "README.md"
+ROADMAP_PATH = ROOT / "ROADMAP.md"
 REDIRECTS_PATH = ROOT / "docs" / "republished-versions.json"
 OUTPUT_PATH = ROOT / "docs" / "changelog-data.json"
 README_OUTPUT_PATH = ROOT / "docs" / "readme.html"
+ROADMAP_OUTPUT_PATH = ROOT / "docs" / "roadmap-data.json"
 
 TAG_RE = re.compile(
     r"^(?P<mod>[A-Za-z0-9][A-Za-z0-9._-]*)"
@@ -401,7 +403,39 @@ def add_heading_ids(rendered):
     )
 
 
+def normalize_github_anchor_ids(rendered):
+    rendered = re.sub(
+        r'\b(id|name)=(["\'])user-content-([^"\']+)\2',
+        lambda match: (
+            match.group(1)
+            + "="
+            + match.group(2)
+            + match.group(3)
+            + match.group(2)
+        ),
+        rendered,
+        flags=re.IGNORECASE,
+    )
+
+    rendered = re.sub(
+        r'href=(["\'])#user-content-([^"\']+)\1',
+        lambda match: (
+            "href="
+            + match.group(1)
+            + "#"
+            + match.group(2)
+            + match.group(1)
+        ),
+        rendered,
+        flags=re.IGNORECASE,
+    )
+
+    return rendered
+
+
 def rewrite_readme_links(rendered):
+    rendered = normalize_github_anchor_ids(rendered)
+
     def replace_named_anchor(match):
         attributes = match.group(1)
         name_match = re.search(
@@ -451,6 +485,9 @@ def rewrite_readme_links(rendered):
 
         path = value.lstrip("./")
 
+        if path.casefold() == "roadmap.md":
+            return "href=" + quote + "roadmap.html" + quote
+
         if path.endswith("/"):
             target = (
                 PUBLIC_REPO_URL
@@ -498,7 +535,186 @@ def rewrite_readme_links(rendered):
         flags=re.IGNORECASE,
     )
 
-    return add_heading_ids(rendered)
+    rendered = add_heading_ids(rendered)
+    return normalize_github_anchor_ids(rendered)
+
+
+def roadmap_slug(value):
+    text = str(value or "").strip().lower()
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    return text.strip("-")
+
+
+def parse_markdown_table_row(line):
+    value = line.strip()
+
+    if not value.startswith("|") or not value.endswith("|"):
+        return None
+
+    cells = [
+        cell.strip()
+        for cell in value[1:-1].split("|")
+    ]
+
+    return cells
+
+
+def build_roadmap_data(names):
+    if not ROADMAP_PATH.exists():
+        raise RuntimeError(
+            "Missing ROADMAP.md."
+        )
+
+    text = ROADMAP_PATH.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    updated_match = re.search(
+        r"\*\*Last updated:\*\*\s*([0-9]{4}-[0-9]{2}-[0-9]{2})",
+        text,
+    )
+    last_updated = (
+        updated_match.group(1)
+        if updated_match
+        else None
+    )
+
+    name_to_technical = {
+        name.casefold(): technical
+        for technical, name in names.items()
+    }
+
+    mods = []
+    current_mod = None
+    index = 0
+
+    while index < len(lines):
+        line = lines[index].strip()
+
+        heading_match = re.match(
+            r"^##\s+(.+?)\s+\(([A-Za-z0-9]+)\)\s*$",
+            line,
+        )
+
+        if heading_match:
+            mod_name = heading_match.group(1).strip()
+            acronym = heading_match.group(2).strip()
+            technical = name_to_technical.get(
+                mod_name.casefold()
+            )
+
+            current_mod = {
+                "id": technical or roadmap_slug(mod_name),
+                "technicalId": technical,
+                "name": mod_name,
+                "acronym": acronym,
+                "items": [],
+            }
+            mods.append(current_mod)
+            index += 1
+            continue
+
+        if (
+            current_mod is not None
+            and line
+            == "| Status | Type | Feature | Description |"
+        ):
+            index += 2
+
+            while index < len(lines):
+                row_line = lines[index].strip()
+
+                if not row_line.startswith("|"):
+                    break
+
+                cells = parse_markdown_table_row(row_line)
+
+                if cells is None or len(cells) != 4:
+                    break
+
+                status, item_type, feature, description = cells
+
+                status_text = re.sub(
+                    r"^[^A-Za-z]+",
+                    "",
+                    status,
+                ).strip()
+
+                current_mod["items"].append({
+                    "status": status,
+                    "statusId": roadmap_slug(status_text),
+                    "statusLabel": status_text,
+                    "type": item_type,
+                    "typeId": roadmap_slug(item_type),
+                    "feature": feature,
+                    "description": description,
+                })
+
+                index += 1
+
+            continue
+
+        index += 1
+
+    mods = [
+        mod
+        for mod in mods
+        if mod["items"]
+    ]
+
+    statuses = {}
+    types = {}
+    total_items = 0
+
+    for mod in mods:
+        for item in mod["items"]:
+            total_items += 1
+
+            statuses.setdefault(
+                item["statusId"],
+                {
+                    "id": item["statusId"],
+                    "label": item["statusLabel"],
+                    "display": item["status"],
+                    "count": 0,
+                },
+            )
+            statuses[item["statusId"]]["count"] += 1
+
+            types.setdefault(
+                item["typeId"],
+                {
+                    "id": item["typeId"],
+                    "label": item["type"],
+                    "count": 0,
+                },
+            )
+            types[item["typeId"]]["count"] += 1
+
+    payload = {
+        "formatVersion": 1,
+        "lastUpdated": last_updated,
+        "totalItems": total_items,
+        "statuses": list(statuses.values()),
+        "types": sorted(
+            types.values(),
+            key=lambda item: item["label"].casefold(),
+        ),
+        "mods": mods,
+    }
+
+    ROADMAP_OUTPUT_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    ROADMAP_OUTPUT_PATH.write_text(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def build_readme_html():
@@ -527,6 +743,7 @@ def main():
     build_readme_html()
 
     names = catalog_names()
+    build_roadmap_data(names)
     raw_releases = fetch_all_releases()
 
     release_by_tag = {}
@@ -607,6 +824,7 @@ def main():
     )
 
     print("Generated " + str(README_OUTPUT_PATH) + ".")
+    print("Generated " + str(ROADMAP_OUTPUT_PATH) + ".")
 
     print(
         "Generated "
