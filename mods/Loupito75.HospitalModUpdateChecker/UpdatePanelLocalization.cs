@@ -63,6 +63,7 @@ namespace HospitalModUpdateChecker
         internal const string NewInstallFailedId = "L75_HMUC_NEW_INSTALL_FAILED";
         internal const string ConfigAddedId = "L75_HMUC_CONFIG_ADDED";
         internal const string ConfigWarningId = "L75_HMUC_CONFIG_WARNING";
+        internal const string ConfigResetResultId = "L75_HMUC_CONFIG_RESET_RESULT";
         internal const string ConfigHoverHelpId = "L75_HMUC_CONFIG_HOVER_HELP";
         internal const string ConfigListHelpId = "L75_HMUC_CONFIG_LIST_HELP";
         internal const string ConfigDefaultValueId = "L75_HMUC_CONFIG_DEFAULT_VALUE";
@@ -232,6 +233,40 @@ namespace HospitalModUpdateChecker
 
         private static readonly Dictionary<string, string[]> ConfigResetTranslations =
             CreateConfigResetTranslations();
+
+        private static readonly Dictionary<string, string> ConfigResetResultTranslations =
+            CreateConfigResetResultTranslations();
+
+        private static Dictionary<string, string> CreateConfigResetResultTranslations()
+        {
+            Dictionary<string, string> values =
+                new Dictionary<string, string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            values["en"] = "The existing configuration could not be migrated safely. HMUC backed it up and reset it to the signed template defaults.";
+            values["cs"] = "Stávající konfiguraci se nepodařilo bezpečně migrovat. HMUC ji zazálohoval a obnovil výchozí hodnoty z podepsané šablony.";
+            values["da"] = "Den eksisterende konfiguration kunne ikke migreres sikkert. HMUC sikkerhedskopierede den og nulstillede den til standardværdierne i den signerede skabelon.";
+            values["de"] = "Die vorhandene Konfiguration konnte nicht sicher migriert werden. HMUC hat sie gesichert und auf die Standardwerte der signierten Vorlage zurückgesetzt.";
+            values["es"] = "La configuración existente no se pudo migrar de forma segura. HMUC creó una copia de seguridad y la restableció con los valores predeterminados de la plantilla firmada.";
+            values["es-419"] = values["es"];
+            values["fr"] = "La configuration existante n'a pas pu être migrée en toute sécurité. HMUC l'a sauvegardée puis l'a réinitialisée avec les valeurs par défaut du modèle signé.";
+            values["hu"] = "A meglévő konfigurációt nem lehetett biztonságosan migrálni. A HMUC biztonsági másolatot készített róla, majd visszaállította az aláírt sablon alapértékeire.";
+            values["it"] = "Non è stato possibile migrare in modo sicuro la configurazione esistente. HMUC ne ha creato un backup e l'ha ripristinata ai valori predefiniti del modello firmato.";
+            values["ja"] = "既存の設定を安全に移行できませんでした。HMUC はバックアップを作成し、署名済みテンプレートの既定値にリセットしました。";
+            values["ko"] = "기존 구성을 안전하게 마이그레이션할 수 없습니다. HMUC가 백업한 뒤 서명된 템플릿의 기본값으로 재설정했습니다.";
+            values["nl"] = "De bestaande configuratie kon niet veilig worden gemigreerd. HMUC heeft een back-up gemaakt en de configuratie teruggezet naar de standaardwaarden van de ondertekende sjabloon.";
+            values["pl"] = "Nie udało się bezpiecznie zmigrować istniejącej konfiguracji. HMUC utworzył kopię zapasową i przywrócił wartości domyślne z podpisanego szablonu.";
+            values["pt-br"] = "A configuração existente não pôde ser migrada com segurança. O HMUC criou um backup e a redefiniu para os valores padrão do modelo assinado.";
+            values["ru"] = "Не удалось безопасно перенести существующую конфигурацию. HMUC сохранил резервную копию и сбросил её к значениям подписанного шаблона.";
+            values["sv"] = "Den befintliga konfigurationen kunde inte migreras på ett säkert sätt. HMUC säkerhetskopierade den och återställde standardvärdena från den signerade mallen.";
+            values["tr"] = "Mevcut yapılandırma güvenli şekilde taşınamadı. HMUC bir yedek oluşturdu ve yapılandırmayı imzalı şablonun varsayılan değerlerine sıfırladı.";
+            values["uk"] = "Не вдалося безпечно перенести наявну конфігурацію. HMUC створив резервну копію та скинув її до стандартних значень підписаного шаблону.";
+            values["zh-cn"] = "无法安全迁移现有配置。HMUC 已创建备份，并将配置重置为已签名模板的默认值。";
+            values["zh-tw"] = "無法安全移轉現有設定。HMUC 已建立備份，並將設定重設為已簽署範本的預設值。";
+
+            return values;
+        }
+
 
         private static Dictionary<string, string[]> CreateConfigResetTranslations()
         {
@@ -834,6 +869,20 @@ namespace HospitalModUpdateChecker
                         : stringId == ReinstallConfirmActionId
                             ? 1
                             : 2];
+            }
+
+            if (stringId == ConfigResetResultId)
+            {
+                string value;
+
+                if (ConfigResetResultTranslations.TryGetValue(
+                        language,
+                        out value))
+                {
+                    return value;
+                }
+
+                return ConfigResetResultTranslations["en"];
             }
 
             if (stringId == ConfigResetAllId ||

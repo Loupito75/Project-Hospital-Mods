@@ -231,6 +231,12 @@ namespace HospitalModUpdateChecker.Bootstrap
                 {
                     if (Directory.Exists(target))
                     {
+                        LogConfigReset(
+                            record.Name,
+                            record.InstallDirectory,
+                            record.ConfigResetBackupFileName,
+                            record.ConfigResetReason);
+
                         InstallResultWriter.Append(
                             cacheRoot,
                             InstallResult.Success(
@@ -240,7 +246,9 @@ namespace HospitalModUpdateChecker.Bootstrap
                                 record.FreshInstall,
                                 record.PreviousVersion,
                                 record.AddedSettings,
-                                record.ConfigWarning));
+                                record.ConfigWarning,
+                                !string.IsNullOrEmpty(
+                                    record.ConfigResetBackupFileName)));
 
                         try
                         {
@@ -594,6 +602,8 @@ namespace HospitalModUpdateChecker.Bootstrap
                 new List<string>();
 
             string configWarning = string.Empty;
+            string configResetReason = string.Empty;
+            string configResetBackupFileName = string.Empty;
             bool targetMoved = false;
             bool candidateMovedToTarget = false;
 
@@ -718,7 +728,9 @@ namespace HospitalModUpdateChecker.Bootstrap
                     operation,
                     candidate,
                     addedSettings,
-                    out configWarning);
+                    out configWarning,
+                    out configResetReason,
+                    out configResetBackupFileName);
 
                 VerifyCandidate(
                     operation,
@@ -736,7 +748,9 @@ namespace HospitalModUpdateChecker.Bootstrap
                         backup,
                         "candidate-ready",
                         addedSettings,
-                        configWarning);
+                        configWarning,
+                        configResetReason,
+                        configResetBackupFileName);
 
                 record.Save(
                     recoveryPath,
@@ -778,6 +792,12 @@ namespace HospitalModUpdateChecker.Bootstrap
                     recoveryPath,
                     cacheRoot);
 
+                LogConfigReset(
+                    operation.Name,
+                    operation.InstallDirectory,
+                    configResetBackupFileName,
+                    configResetReason);
+
                 InstallResultWriter.Append(
                     cacheRoot,
                     InstallResult.Success(
@@ -787,7 +807,9 @@ namespace HospitalModUpdateChecker.Bootstrap
                         operation.FreshInstall,
                         operation.PreviousVersion,
                         addedSettings,
-                        configWarning));
+                        configWarning,
+                        !string.IsNullOrEmpty(
+                            configResetBackupFileName)));
 
                 try
                 {
@@ -904,87 +926,226 @@ namespace HospitalModUpdateChecker.Bootstrap
             InstallOperation operation,
             string candidate,
             List<string> addedSettings,
-            out string warning)
+            out string warning,
+            out string resetReason,
+            out string resetBackupFileName)
         {
             warning = string.Empty;
+            resetReason = string.Empty;
+            resetBackupFileName = string.Empty;
+
             string template = GetSafeChildPath(
                 operation.StagingDirectory, operation.ConfigFile);
             string destination = GetSafeChildPath(
                 candidate, operation.ConfigFile);
+
             if (destination == null)
                 throw new FormatException("Unsafe configuration destination.");
+
             if (template == null || !File.Exists(template))
             {
-                // An old snapshot may have been copied from the previous
-                // installation into this disposable candidate. Never use
-                // it with a new mod DLL whose template was not supplied.
                 ConfigTemplateSafety.DropCandidateSnapshot(destination);
-                warning = "The signed update has no XML template; HMUC cannot validate this schema.";
-                return;
+                throw new IOException(
+                    "The signed package configuration template is missing.");
             }
 
-            string alreadyValidReason;
-            bool schemaWasAlreadyValid =
-                File.Exists(destination) &&
-                ConfigTemplateSafety.MatchesDocuments(
-                    destination, template, out alreadyValidReason);
+            bool hadExistingConfig =
+                File.Exists(destination);
 
-            MigrateConfigCore(template, destination, addedSettings,
-                out warning, true);
-
-            // The generic additive metadata merger has stricter rules for
-            // repeated ID+Enabled/list entries than structural validation.
-            // If their schema already matches, failure to refresh optional
-            // HMUC comments must not falsely report a broken configuration.
-            if (schemaWasAlreadyValid &&
-                warning.IndexOf("(FormatException)",
-                    StringComparison.Ordinal) >= 0)
-            {
-                addedSettings.Clear();
-                warning = string.Empty;
-            }
+            string original =
+                destination + ".hmuc-reset-source";
 
             try
             {
-                ConfigTemplateSafety.Snapshot snapshot =
-                    ConfigTemplateSafety.Capture(
-                        template, destination, operation.PluginFile,
-                        operation.Version);
-                string reason;
-                if (ConfigTemplateSafety.MatchesTemplate(
-                        destination, out reason))
+                if (File.Exists(original))
                 {
-                    ConfigTemplateSafety.Stamp(
-                        destination, snapshot, "valid");
+                    File.Delete(original);
+                }
+
+                if (hadExistingConfig)
+                {
+                    // Preserve the exact pre-migration XML in the disposable
+                    // candidate. It becomes the dated user backup only if the
+                    // generic migration cannot produce the signed target schema.
+                    File.Copy(
+                        destination,
+                        original,
+                        false);
+                }
+
+                MigrateConfigCore(
+                    template,
+                    destination,
+                    addedSettings,
+                    out warning);
+
+                string structureReason;
+
+                if (!ConfigTemplateSafety.MatchesDocuments(
+                        destination,
+                        template,
+                        out structureReason))
+                {
+                    if (!hadExistingConfig)
+                    {
+                        throw new FormatException(
+                            "A fresh signed configuration did not match its own target schema: " +
+                            structureReason);
+                    }
+
+                    resetReason =
+                        !string.IsNullOrEmpty(warning)
+                            ? warning
+                            : structureReason;
+
+                    // A reset is allowed only after the exact old XML has been
+                    // preserved. The candidate is not live yet, so any failure
+                    // below aborts the whole package transaction safely.
+                    string xmlBackup =
+                        CreateDatedConfigBackup(
+                            original,
+                            destination);
+
+                    File.Copy(
+                        template,
+                        destination,
+                        true);
+
+                    LoadSafeXml(destination);
+
+                    string resetValidationReason;
+
+                    if (!ConfigTemplateSafety.MatchesDocuments(
+                            destination,
+                            template,
+                            out resetValidationReason))
+                    {
+                        throw new FormatException(
+                            "The signed configuration reset did not produce the target schema: " +
+                            resetValidationReason);
+                    }
+
+                    resetBackupFileName =
+                        Path.GetFileName(xmlBackup);
+
+                    addedSettings.Clear();
+
+                    // The reset result is persisted separately from the
+                    // legacy configWarning field so old result/recovery files
+                    // keep their historical "left unchanged" meaning.
+                    warning = string.Empty;
                 }
                 else
                 {
-                    ConfigTemplateSafety.Stamp(
-                        destination, snapshot, "warning");
-                    if (string.IsNullOrEmpty(warning))
-                        warning = "The new XML format could not be migrated safely; check the mod configuration.";
+                    // Internal merger warnings are irrelevant when the final
+                    // structure already matches the signed target schema.
+                    warning = string.Empty;
                 }
+
+                if (hadExistingConfig &&
+                    string.IsNullOrEmpty(resetBackupFileName) &&
+                    !string.Equals(
+                        ConfigTemplateSafety.HashFile(original),
+                        ConfigTemplateSafety.HashFile(destination),
+                        StringComparison.Ordinal))
+                {
+                    CreateDatedConfigBackup(
+                        original,
+                        destination);
+                }
+
+                ConfigTemplateSafety.Snapshot snapshot =
+                    ConfigTemplateSafety.Capture(
+                        template,
+                        destination,
+                        operation.PluginFile,
+                        operation.Version);
+
+                string reason;
+
+                if (!ConfigTemplateSafety.MatchesTemplate(
+                        destination,
+                        out reason))
+                {
+                    throw new FormatException(
+                        "The installed configuration does not match the captured signed template: " +
+                        reason);
+                }
+
+                ConfigTemplateSafety.Stamp(
+                    destination,
+                    snapshot,
+                    "valid");
             }
-            catch (Exception exception)
+            finally
             {
                 try
                 {
-                    ConfigTemplateSafety.DropCandidateSnapshot(destination);
+                    if (File.Exists(original))
+                    {
+                        File.Delete(original);
+                    }
                 }
-                catch { }
-                if (string.IsNullOrEmpty(warning))
-                    warning = "Unable to keep or verify the signed XML template (" +
-                        exception.GetType().Name + ").";
-                _log.LogWarning(operation.Name + ": " + warning);
+                catch
+                {
+                }
             }
+        }
+
+        private static string CreateDatedConfigBackup(
+            string source,
+            string destination)
+        {
+            string backup =
+                destination + "." +
+                DateTime.UtcNow.ToString(
+                    "yyyyMMddTHHmmssfffffffZ",
+                    CultureInfo.InvariantCulture) +
+                ".backup";
+
+            File.Copy(
+                source,
+                backup,
+                false);
+
+            return backup;
+        }
+
+        private static void LogConfigReset(
+            string modName,
+            string installDirectory,
+            string backupFileName,
+            string reason)
+        {
+            if (string.IsNullOrEmpty(backupFileName))
+            {
+                return;
+            }
+
+            string backupPath =
+                Path.Combine(
+                    Path.Combine(
+                        GetCanonicalPluginRoot(),
+                        installDirectory),
+                    backupFileName);
+
+            _log.LogWarning(
+                "HMUC reset the configuration for " +
+                modName +
+                " because the existing XML could not be migrated to the signed target schema. Reason: " +
+                (string.IsNullOrEmpty(reason)
+                    ? "target schema validation failed"
+                    : reason) +
+                " Backup: " +
+                backupPath +
+                ". The active configuration now uses the complete signed template defaults.");
         }
 
         // Also used by the periodic verifier, but ONLY on a private
         // disposable XML candidate, never directly on the live config.
         private static void MigrateConfigCore(
             string template, string destination,
-            List<string> addedSettings, out string warning,
-            bool keepCandidateBackup)
+            List<string> addedSettings, out string warning)
         {
             warning = string.Empty;
             if (!File.Exists(destination))
@@ -1025,21 +1186,16 @@ namespace HospitalModUpdateChecker.Bootstrap
                         StringComparison.Ordinal))
                 {
                     warning =
-                        "The existing configuration root does not match the new template; it was left unchanged.";
+                        "The existing configuration root does not match the signed target template.";
                     return;
                 }
-
-                // Convert only an audited legacy collection shape, before
-                // the scalar and section merger sees its repeated entries.
-                bool listMigrated = MigrateKnownEnabledIdLists(
-                    current.DocumentElement, defaults.DocumentElement);
 
                 // The signed new template owns collection representation.
                 // If a surviving collection branch now uses the canonical
                 // <Value> tag, normalize older simple-list tags to <Value>.
                 // Unsupported legacy shapes fall back to the new template's
                 // collection defaults instead of preserving an obsolete schema.
-                listMigrated |= NormalizeCollectionsToTemplate(
+                bool listMigrated = NormalizeCollectionsToTemplate(
                     current.DocumentElement,
                     defaults.DocumentElement);
 
@@ -1099,16 +1255,6 @@ namespace HospitalModUpdateChecker.Bootstrap
                     temporary);
                 LoadSafeXml(temporary);
 
-                // Keep a recoverable copy inside the transactional candidate.
-                // The installer also retains the original directory until
-                // the complete update has been verified.
-                string xmlBackup = destination + "." +
-                    DateTime.UtcNow.ToString(
-                        "yyyyMMddTHHmmssfffffffZ",
-                        CultureInfo.InvariantCulture) + ".backup";
-                if (keepCandidateBackup)
-                    File.Copy(destination, xmlBackup, false);
-
                 string old =
                     destination + ".hmuc-old";
 
@@ -1145,17 +1291,11 @@ namespace HospitalModUpdateChecker.Bootstrap
             catch (Exception exception)
             {
                 warning =
-                    "Configuration migration was skipped because the existing XML could not be merged safely (" +
+                    "The existing configuration could not be merged safely into the signed target schema (" +
                     exception.GetType().Name +
                     ").";
 
                 addedSettings.Clear();
-
-                _log.LogWarning(
-                    Path.GetFileName(destination) +
-                    ": " +
-                    warning +
-                    " Existing values were not changed.");
             }
         }
 
@@ -1291,7 +1431,7 @@ namespace HospitalModUpdateChecker.Bootstrap
                 List<string> added = new List<string>();
                 string migrationWarning;
                 MigrateConfigCore(
-                    template, candidate, added, out migrationWarning, false);
+                    template, candidate, added, out migrationWarning);
                 if (!string.IsNullOrEmpty(migrationWarning))
                 {
                     reason = migrationWarning;
@@ -1690,157 +1830,6 @@ namespace HospitalModUpdateChecker.Bootstrap
                 element.AppendChild(element.OwnerDocument.CreateTextNode(value));
             else
                 text.Value = value;
-        }
-
-        // Only audited old Room ID+Enabled lists may use this conversion.
-        // HTC has already adopted Value IDs. HAL's published reader still
-        // requires Room elements: convert HAL only when a future signed
-        // template explicitly switches HospitalAlwaysLit/Rooms to Value.
-        // Both published old readers apply the last valid Enabled per ID.
-        private static bool MigrateKnownEnabledIdLists(
-            XmlElement current, XmlElement defaults)
-        {
-            XmlElement oldList = null;
-            XmlElement newList = null;
-            if (current.Name == "HospitalTrafficControl" &&
-                defaults.Name == "HospitalTrafficControl")
-            {
-                XmlElement currentTransit = current["RoomTransit"];
-                XmlElement newTransit = defaults["RoomTransit"];
-                if (currentTransit != null && newTransit != null)
-                {
-                    oldList = currentTransit["Exceptions"];
-                    newList = newTransit["Exceptions"];
-                }
-            }
-            else if (current.Name == "HospitalAlwaysLit" &&
-                     defaults.Name == "HospitalAlwaysLit")
-            {
-                oldList = current["Rooms"];
-                newList = defaults["Rooms"];
-            }
-            else
-            {
-                return false;
-            }
-
-            // An old HAL template containing Room rows NEVER triggers this:
-            // conversion is permitted only when the signed new template
-            // contains simple Value entries.
-            if (oldList == null || newList == null ||
-                !IsTargetValueCollection(newList) ||
-                IsSimpleValueList(oldList) ||
-                IsEmptyCollection(oldList))
-                return false;
-
-            List<XmlElement> rows = new List<XmlElement>();
-            Dictionary<string, bool> effective =
-                new Dictionary<string, bool>(StringComparer.Ordinal);
-            List<string> order = new List<string>();
-            foreach (XmlNode node in oldList.ChildNodes)
-            {
-                XmlElement row = node as XmlElement;
-                if (row == null)
-                {
-                    if (node.NodeType != XmlNodeType.Comment &&
-                        node.NodeType != XmlNodeType.Whitespace &&
-                        node.NodeType != XmlNodeType.SignificantWhitespace &&
-                        (node.NodeType != XmlNodeType.Text ||
-                         node.InnerText.Trim().Length != 0))
-                        return false;
-                    continue;
-                }
-                if (row.Name != "Room" || row.Attributes.Count != 2 ||
-                    !row.HasAttribute("ID") || !row.HasAttribute("Enabled") ||
-                    HasElementChildren(row))
-                    return false;
-
-                foreach (XmlNode child in row.ChildNodes)
-                    if (child.NodeType != XmlNodeType.Comment &&
-                        child.NodeType != XmlNodeType.Whitespace &&
-                        child.NodeType != XmlNodeType.SignificantWhitespace &&
-                        (child.NodeType != XmlNodeType.Text ||
-                         child.InnerText.Trim().Length != 0))
-                        return false;
-
-                string id = row.GetAttribute("ID").Trim();
-                bool enabled;
-                if (id.Length == 0 ||
-                    !bool.TryParse(row.GetAttribute("Enabled").Trim(),
-                        out enabled))
-                    return false;
-                // Preserve old reader semantics: the last duplicate wins.
-                if (effective.ContainsKey(id))
-                    order.Remove(id);
-                effective[id] = enabled;
-                order.Add(id);
-                rows.Add(row);
-            }
-            if (rows.Count == 0)
-                return false;
-
-            // No mutation until every source entry is validated.
-            XmlElement templateValue =
-                FirstElementChild(
-                    newList);
-
-            if (templateValue == null &&
-                !HasHmucMultilineListMetadata(
-                    newList))
-            {
-                return false;
-            }
-
-            XmlNode sourceIndentation =
-                rows[0].PreviousSibling;
-
-            for (int i = 0; i < rows.Count; i++)
-            {
-                // Remove obsolete indentation attached to each old row,
-                // leaving comments and the container's closing whitespace.
-                XmlNode before = rows[i].PreviousSibling;
-                if (IsWhitespaceNode(before))
-                    oldList.RemoveChild(before);
-                oldList.RemoveChild(rows[i]);
-            }
-
-            // Preserve user comments; append retained IDs in the source
-            // format's stable last-occurrence order, not template defaults.
-            XmlNode closing = oldList.LastChild;
-            if (!IsWhitespaceNode(closing))
-                closing = null;
-            XmlNode indentation =
-                templateValue == null
-                    ? sourceIndentation
-                    : templateValue.PreviousSibling;
-
-            if (!IsWhitespaceNode(indentation))
-                indentation = null;
-            for (int i = 0; i < order.Count; i++)
-            {
-                if (!effective[order[i]])
-                    continue;
-                if (indentation != null)
-                    oldList.InsertBefore(
-                        current.OwnerDocument.ImportNode(indentation, true),
-                        closing);
-                string prefix =
-                    templateValue == null
-                        ? newList.Prefix
-                        : templateValue.Prefix;
-
-                string namespaceUri =
-                    templateValue == null
-                        ? newList.NamespaceURI
-                        : templateValue.NamespaceURI;
-
-                XmlElement value = current.OwnerDocument.CreateElement(
-                    prefix, "Value",
-                    namespaceUri);
-                value.InnerText = order[i];
-                oldList.InsertBefore(value, closing);
-            }
-            return true;
         }
 
         private static bool NormalizeCollectionsToTemplate(
@@ -4144,6 +4133,8 @@ namespace HospitalModUpdateChecker.Bootstrap
         internal string Phase;
         internal List<string> AddedSettings;
         internal string ConfigWarning;
+        internal string ConfigResetReason;
+        internal string ConfigResetBackupFileName;
 
         internal RecoveryRecord(
             string guid,
@@ -4156,7 +4147,9 @@ namespace HospitalModUpdateChecker.Bootstrap
             string backupDirectory,
             string phase,
             List<string> addedSettings,
-            string configWarning)
+            string configWarning,
+            string configResetReason,
+            string configResetBackupFileName)
         {
             Guid = guid;
             Name = name;
@@ -4172,6 +4165,10 @@ namespace HospitalModUpdateChecker.Bootstrap
                     addedSettings ?? new List<string>());
             ConfigWarning =
                 configWarning ?? string.Empty;
+            ConfigResetReason =
+                configResetReason ?? string.Empty;
+            ConfigResetBackupFileName =
+                configResetBackupFileName ?? string.Empty;
         }
 
         internal void Save(
@@ -4236,6 +4233,20 @@ namespace HospitalModUpdateChecker.Bootstrap
             root.SetAttribute(
                 "configWarning",
                 ConfigWarning ?? string.Empty);
+
+            if (!string.IsNullOrEmpty(ConfigResetReason))
+            {
+                root.SetAttribute(
+                    "configResetReason",
+                    ConfigResetReason);
+            }
+
+            if (!string.IsNullOrEmpty(ConfigResetBackupFileName))
+            {
+                root.SetAttribute(
+                    "configResetBackupFile",
+                    ConfigResetBackupFileName);
+            }
 
             for (int i = 0;
                 i < AddedSettings.Count;
@@ -4370,6 +4381,32 @@ namespace HospitalModUpdateChecker.Bootstrap
                 }
             }
 
+            string configResetBackupFileName =
+                root.GetAttribute(
+                    "configResetBackupFile");
+
+            if (configResetBackupFileName.Length > 0 &&
+                (configResetBackupFileName == "." ||
+                 configResetBackupFileName == ".." ||
+                 configResetBackupFileName.IndexOf('/') >= 0 ||
+                 configResetBackupFileName.IndexOf('\\') >= 0 ||
+                 configResetBackupFileName.IndexOf(':') >= 0 ||
+                 configResetBackupFileName.IndexOf('\0') >= 0))
+            {
+                throw new FormatException(
+                    "Unsafe recovery configuration backup filename.");
+            }
+
+            string configResetReason =
+                root.GetAttribute(
+                    "configResetReason");
+
+            if (configResetReason.Length > 2048)
+            {
+                throw new FormatException(
+                    "Recovery configuration reset reason is too long.");
+            }
+
             return new RecoveryRecord(
                 root.GetAttribute("guid"),
                 root.GetAttribute("name"),
@@ -4381,7 +4418,9 @@ namespace HospitalModUpdateChecker.Bootstrap
                 backup,
                 phase,
                 settings,
-                root.GetAttribute("configWarning"));
+                root.GetAttribute("configWarning"),
+                configResetReason,
+                configResetBackupFileName);
         }
 
         private static string MakeRelative(
@@ -4528,6 +4567,7 @@ namespace HospitalModUpdateChecker.Bootstrap
         internal readonly List<string> AddedSettings =
             new List<string>();
         internal string ConfigWarning;
+        internal bool ConfigReset;
 
         internal static InstallResult Success(
             string guid,
@@ -4536,7 +4576,8 @@ namespace HospitalModUpdateChecker.Bootstrap
             bool freshInstall,
             string previousVersion,
             IList<string> addedSettings,
-            string configWarning)
+            string configWarning,
+            bool configReset)
         {
             InstallResult result =
                 new InstallResult();
@@ -4548,7 +4589,8 @@ namespace HospitalModUpdateChecker.Bootstrap
             result.PreviousVersion =
                 freshInstall ? string.Empty : previousVersion ?? string.Empty;
             result.Status =
-                string.IsNullOrEmpty(configWarning)
+                string.IsNullOrEmpty(configWarning) &&
+                !configReset
                     ? "success"
                     : "warning";
 
@@ -4565,6 +4607,8 @@ namespace HospitalModUpdateChecker.Bootstrap
 
             result.ConfigWarning =
                 configWarning ?? string.Empty;
+            result.ConfigReset =
+                configReset;
 
             return result;
         }
@@ -4587,6 +4631,7 @@ namespace HospitalModUpdateChecker.Bootstrap
                 freshInstall ? string.Empty : previousVersion ?? string.Empty;
             result.Status = "failure";
             result.ConfigWarning = string.Empty;
+            result.ConfigReset = false;
 
             return result;
         }
@@ -4679,6 +4724,13 @@ namespace HospitalModUpdateChecker.Bootstrap
                 node.SetAttribute(
                     "configWarning",
                     result.ConfigWarning ?? string.Empty);
+
+                if (result.ConfigReset)
+                {
+                    node.SetAttribute(
+                        "configReset",
+                        "true");
+                }
 
                 for (int i = 0;
                     i < result.AddedSettings.Count;

@@ -56,6 +56,7 @@ namespace HospitalModUpdateChecker
         internal string PreviousVersion;
         internal string Status;
         internal string ConfigWarning;
+        internal bool ConfigReset;
         internal readonly List<string> AddedSettings =
             new List<string>();
     }
@@ -1684,6 +1685,13 @@ namespace HospitalModUpdateChecker
                     result.ConfigWarning =
                         node.GetAttribute(
                             "configWarning");
+
+                    result.ConfigReset =
+                        string.Equals(
+                            node.GetAttribute(
+                                "configReset"),
+                            "true",
+                            StringComparison.OrdinalIgnoreCase);
 
                     for (int j = 0;
                         j < node.ChildNodes.Count;
