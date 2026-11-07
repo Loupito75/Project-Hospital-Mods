@@ -3,6 +3,8 @@
 This roadmap shows public plans for the Project Hospital mods maintained here.
 Plans may change as implementation, compatibility checks and in-game testing progress.
 
+**Last updated:** 2026-10-20
+
 ## Status
 
 | Status | Items |
