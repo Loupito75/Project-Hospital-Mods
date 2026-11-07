@@ -13,9 +13,7 @@ namespace HospitalPorters
     {
         internal DepartmentPersistentData Data;
         internal List<EntityIDPointer<Entity>> OriginalNurses;
-        internal List<EntityIDPointer<Entity>> OriginalLabSpecialists;
         internal bool NursesChanged;
-        internal bool LabSpecialistsChanged;
     }
 
     internal sealed class PorterEmployeeFilterState
@@ -115,6 +113,8 @@ namespace HospitalPorters
             RectTransform janitorRect = sourceButton.GetComponent<RectTransform>();
             RectTransform allRect = table.m_buttonAllEmployees.GetComponent<RectTransform>();
             RectTransform porterRect = button.GetComponent<RectTransform>();
+            RectTransform trailingSeparatorRect =
+                FindTrailingSeparator(allRect);
             float step = DefaultButtonStep;
             Vector2 originalAllPosition = allRect == null ? Vector2.zero : allRect.anchoredPosition;
 
@@ -127,7 +127,18 @@ namespace HospitalPorters
                 }
 
                 porterRect.anchoredPosition = originalAllPosition;
-                allRect.anchoredPosition = originalAllPosition + new Vector2(step, 0f);
+                allRect.anchoredPosition =
+                    originalAllPosition + new Vector2(step, 0f);
+
+                // The native Separator immediately after "All" is a separate
+                // sibling, not part of the button. Move it by the same delta
+                // so adding the Porter filter preserves the native trailing
+                // divider in both standalone Employees and selector tables.
+                if (trailingSeparatorRect != null)
+                {
+                    trailingSeparatorRect.anchoredPosition +=
+                        new Vector2(step, 0f);
+                }
             }
             else if (porterRect != null && janitorRect != null)
             {
@@ -170,6 +181,57 @@ namespace HospitalPorters
 
             PorterDiagnostics.Log(
                 "Porter Employees filter created next to Janitors with dedicated Porter artwork.");
+        }
+
+        private static RectTransform FindTrailingSeparator(
+            RectTransform allRect)
+        {
+            if (allRect == null || allRect.parent == null)
+            {
+                return null;
+            }
+
+            RectTransform best = null;
+            float bestDistance = float.MaxValue;
+            Transform parent = allRect.parent;
+
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                GameObject candidate = parent.GetChild(i).gameObject;
+                if (candidate == null ||
+                    !string.Equals(
+                        candidate.name,
+                        "Separator",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                RectTransform rect =
+                    candidate.GetComponent<RectTransform>();
+                if (rect == null ||
+                    Math.Abs(
+                        rect.anchoredPosition.y -
+                        allRect.anchoredPosition.y) >= 1f ||
+                    Math.Abs(rect.anchorMin.x - allRect.anchorMin.x) >= 0.01f ||
+                    Math.Abs(rect.anchorMin.y - allRect.anchorMin.y) >= 0.01f ||
+                    Math.Abs(rect.anchorMax.x - allRect.anchorMax.x) >= 0.01f ||
+                    Math.Abs(rect.anchorMax.y - allRect.anchorMax.y) >= 0.01f)
+                {
+                    continue;
+                }
+
+                float distance =
+                    rect.anchoredPosition.x -
+                    allRect.anchoredPosition.x;
+                if (distance > 0f && distance < bestDistance)
+                {
+                    best = rect;
+                    bestDistance = distance;
+                }
+            }
+
+            return best;
         }
 
         internal static void RefreshPorterFilterIcon(EmployeesTable table)
@@ -265,11 +327,39 @@ namespace HospitalPorters
                 state.Background.SetActive(true);
             }
 
-            Text heading = table.gameObject.GetComponentInChildren<Text>();
-            if (heading != null)
+            UpdatePorterEmployeesHeading(table);
+        }
+
+        // The native workspace selector owns TABLE_EMPLOYEES_SELECT. HPO
+        // substitutes only the standalone Employees table's Porter heading.
+        internal static void UpdatePorterEmployeesHeading(EmployeesTable table)
+        {
+            if (!IsPorterFilterActive(table))
             {
-                heading.text = LocalizationManager.Get(PorterIds.EmployeesHeading);
+                return;
             }
+
+            Text heading = table.gameObject.GetComponentInChildren<Text>();
+            if (heading == null)
+            {
+                return;
+            }
+
+            TableController controller = table.GetComponent<TableController>();
+            SelectCharacterFloatingController selector = controller == null
+                ? null
+                : controller.GetTableSelectionListener() as SelectCharacterFloatingController;
+            if (PorterSelectionUi.IsPorterSelector(selector))
+            {
+                StringTable strings = StringTable.GetInstance();
+                if (strings != null)
+                {
+                    heading.text = strings.GetLocalizedText("TABLE_EMPLOYEES_SELECT");
+                }
+                return;
+            }
+
+            heading.text = LocalizationManager.Get(PorterIds.EmployeesHeading);
         }
 
         internal static void OnNativeFilterSelected(EmployeesTable table)
@@ -310,40 +400,55 @@ namespace HospitalPorters
                 : tableController.GetTableSelectionListener() as SelectCharacterFloatingController;
             bool porterSelector = PorterSelectionUi.IsPorterSelector(selector);
 
-            if (!porterFilter && !hidePortersFromNativeNurseView && !porterSelector)
+            // The Porter selector itself uses LAB_SPECIALIST only as a
+            // native routing/callback detail. The Employees table must keep
+            // each native category backed by its real Department collection.
+            // HPO only narrows the Nurse collection for its Porter filter or
+            // removes Porters from native Nurse-based filters.
+            if (!porterFilter && !hidePortersFromNativeNurseView)
             {
                 return null;
             }
 
             DepartmentPersistentData data = department.m_departmentPersistentData;
-            List<EntityIDPointer<Entity>> porterPointers = new List<EntityIDPointer<Entity>>();
+            List<EntityIDPointer<Entity>> porterPointers =
+                porterFilter ? new List<EntityIDPointer<Entity>>() : null;
             List<EntityIDPointer<Entity>> selectablePorterPointers =
-                new List<EntityIDPointer<Entity>>();
-            List<EntityIDPointer<Entity>> nursesWithoutPorters = new List<EntityIDPointer<Entity>>();
+                porterFilter && porterSelector
+                    ? new List<EntityIDPointer<Entity>>()
+                    : null;
+            List<EntityIDPointer<Entity>> nursesWithoutPorters =
+                hidePortersFromNativeNurseView
+                    ? new List<EntityIDPointer<Entity>>()
+                    : null;
 
             foreach (EntityIDPointer<Entity> pointer in data.m_nurses)
             {
                 Entity entity = pointer == null ? null : pointer.GetEntity();
                 if (PorterIdentity.IsPorter(entity))
                 {
-                    porterPointers.Add(pointer);
-                    if (PorterSelectionUi.IsSelectablePorter(entity))
+                    if (porterFilter)
                     {
-                        selectablePorterPointers.Add(pointer);
+                        porterPointers.Add(pointer);
+                        if (selectablePorterPointers != null &&
+                            PorterSelectionUi.IsSelectablePorter(entity))
+                        {
+                            selectablePorterPointers.Add(pointer);
+                        }
                     }
                 }
-                else
+                else if (nursesWithoutPorters != null)
                 {
                     nursesWithoutPorters.Add(pointer);
                 }
             }
 
-            PorterEmployeeTableViewState state = new PorterEmployeeTableViewState
-            {
-                Data = data,
-                OriginalNurses = data.m_nurses,
-                OriginalLabSpecialists = data.m_labSpecialists
-            };
+            PorterEmployeeTableViewState state =
+                new PorterEmployeeTableViewState
+                {
+                    Data = data,
+                    OriginalNurses = data.m_nurses
+                };
 
             if (porterFilter)
             {
@@ -351,13 +456,6 @@ namespace HospitalPorters
                     ? selectablePorterPointers
                     : porterPointers;
                 state.NursesChanged = true;
-            }
-            else if (porterSelector)
-            {
-                // The Porter locker selector opens its native table through the LAB_SPECIALIST route.
-                // Limit this scoped type swap to that selector; the normal Technologist filter stays unchanged.
-                data.m_labSpecialists = selectablePorterPointers;
-                state.LabSpecialistsChanged = true;
             }
             else if (hidePortersFromNativeNurseView)
             {
@@ -380,10 +478,6 @@ namespace HospitalPorters
                 state.Data.m_nurses = state.OriginalNurses;
             }
 
-            if (state.LabSpecialistsChanged)
-            {
-                state.Data.m_labSpecialists = state.OriginalLabSpecialists;
-            }
         }
     }
 
@@ -429,11 +523,7 @@ namespace HospitalPorters
                 return;
             }
 
-            Text heading = __instance.gameObject.GetComponentInChildren<Text>();
-            if (heading != null)
-            {
-                heading.text = LocalizationManager.Get(PorterIds.EmployeesHeading);
-            }
+            PorterNativeEmployeeUi.UpdatePorterEmployeesHeading(__instance);
         }
 
         [HarmonyFinalizer]

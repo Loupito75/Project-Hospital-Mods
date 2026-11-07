@@ -13,6 +13,40 @@ namespace HospitalPorters
         internal bool ContinuationDeclined;
     }
 
+    internal sealed class PorterPatientPendingContinuationSnapshot
+    {
+        internal Entity Porter;
+        internal Entity Patient;
+        internal HospitalizationState HospitalizationState;
+        internal StretcherUse StretcherUse;
+        internal BedReservation BedReservation;
+        internal MovementType MovementType;
+        internal Vehicle RequestedVehicle;
+        internal bool Waited;
+    }
+
+    internal sealed class PorterPatientContinuationConsumeState
+    {
+        internal Entity Porter;
+        internal Entity Patient;
+        internal bool ReusingVehicle;
+        internal TileObject PatientSide;
+        internal TileObject MovingSide;
+        internal Vector2f OriginalPosition;
+        internal Direction OriginalOrientation;
+        internal int OriginalFloor;
+        internal Vector2i ReservedTile;
+        internal int ReservedFloor;
+        internal bool ReservedDestination;
+        internal TileObject Destination;
+        internal LyingState LyingState;
+        internal StretcherUse StretcherUse;
+        internal BedReservation BedReservation;
+        internal MovementType MovementType;
+        internal Vehicle RequestedVehicle;
+        internal Vehicle ActualVehicle;
+    }
+
     internal sealed class PorterPatientVehicleContinuationSnapshot
     {
         internal Entity Porter;
@@ -56,6 +90,18 @@ namespace HospitalPorters
             internal bool HasStationTarget;
         }
 
+        private sealed class PendingPatientContinuation
+        {
+            internal Entity Porter;
+            internal Entity Patient;
+            internal HospitalizationState HospitalizationState;
+            internal StretcherUse StretcherUse;
+            internal BedReservation BedReservation;
+            internal MovementType MovementType;
+            internal Vehicle RequestedVehicle;
+            internal bool Waited;
+        }
+
         private sealed class ActiveVehicleContinuation
         {
             internal Entity Porter;
@@ -80,6 +126,14 @@ namespace HospitalPorters
         private static readonly Dictionary<Entity, ReturnJob> Jobs =
             new Dictionary<Entity, ReturnJob>();
 
+        private static readonly Dictionary<Entity, PendingPatientContinuation>
+            PendingContinuationsByPatient =
+                new Dictionary<Entity, PendingPatientContinuation>();
+
+        private static readonly Dictionary<Entity, PendingPatientContinuation>
+            PendingContinuationsByPorter =
+                new Dictionary<Entity, PendingPatientContinuation>();
+
         private static readonly Dictionary<Entity, ActiveVehicleContinuation>
             ActiveVehicleContinuations =
                 new Dictionary<Entity, ActiveVehicleContinuation>();
@@ -87,18 +141,23 @@ namespace HospitalPorters
         internal static void Clear()
         {
             Jobs.Clear();
+            PendingContinuationsByPatient.Clear();
+            PendingContinuationsByPorter.Clear();
             ActiveVehicleContinuations.Clear();
         }
 
         internal static bool IsBusy(Entity porter)
         {
-            return porter != null && Jobs.ContainsKey(porter);
+            return porter != null &&
+                (Jobs.ContainsKey(porter) ||
+                 PendingContinuationsByPorter.ContainsKey(porter));
         }
 
         internal static bool IsWindowOpen(Entity porter)
         {
             ReturnJob job;
             return porter != null &&
+                !PendingContinuationsByPorter.ContainsKey(porter) &&
                 Jobs.TryGetValue(porter, out job) &&
                 !job.ContinuationDeclined &&
                 IsReturnJobUsable(job);
@@ -163,7 +222,9 @@ namespace HospitalPorters
             }
 
             ReturnJob job = Jobs[porter];
-            if (!CanContinue(job, patient))
+            if (!CanContinue(job, patient) ||
+                PendingContinuationsByPorter.ContainsKey(porter) ||
+                PendingContinuationsByPatient.ContainsKey(patient))
             {
                 return false;
             }
@@ -183,27 +244,37 @@ namespace HospitalPorters
                 return false;
             }
 
-            bool started = job.Phase == ReturnPhase.ReturningEquipment
-                ? TryReuseVehicle(
-                    job, patient, destination, lyingState, use,
-                    reservation, movement, requestedVehicle)
-                : TryStartWithNativeVehicle(
-                    job, patient, destination, lyingState, use,
-                    reservation, movement, requestedVehicle);
+            PendingPatientContinuation pending =
+                new PendingPatientContinuation();
+            pending.Porter = porter;
+            pending.Patient = patient;
+            pending.HospitalizationState =
+                GetHospitalizationState(patient);
+            pending.StretcherUse = use;
+            pending.BedReservation = reservation;
+            pending.MovementType = movement;
+            pending.RequestedVehicle = requestedVehicle;
+            pending.Waited = waited;
 
-            if (started)
-            {
-                Jobs.Remove(porter);
-                StretcherDestinationPatch.ClearPatientContinuationFallback(
-                    patient);
-                PorterDiagnostics.Log(
-                    "patient continuation started during return: porter=" +
-                    (porter.Name ?? string.Empty).Trim() +
-                    "; patient=" +
-                    (patient.Name ?? string.Empty).Trim() +
-                    ".");
-            }
-            return started;
+            PendingContinuationsByPatient[patient] = pending;
+            PendingContinuationsByPorter[porter] = pending;
+
+            // Close the current API window but keep the normal equipment /
+            // station return alive until the waiting hospitalization caller
+            // issues its next SetDestination. That native call is the only
+            // transport-start authority.
+            job.ContinuationDeclined = true;
+
+            PorterDiagnostics.Log(
+                "patient continuation armed during return: porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; patient=" +
+                (patient.Name ?? string.Empty).Trim() +
+                "; phase=" + job.Phase +
+                "; requestedVehicle=" + requestedVehicle +
+                ".");
+
+            return true;
         }
 
         internal static bool FinishWindow(Entity porter)
@@ -339,6 +410,8 @@ namespace HospitalPorters
                         walk.m_state != null &&
                         patientSide != null &&
                         movingSide != null;
+                    job.ContinuationDeclined =
+                        PendingContinuationsByPorter.ContainsKey(porter);
                     Jobs[porter] = job;
                 }
                 return false;
@@ -360,7 +433,9 @@ namespace HospitalPorters
                     return Jobs.ContainsKey(porter);
                 }
 
-                Jobs.Remove(porter); // Interrupted by another native state.
+                EndReturnJob(
+                    porter,
+                    "equipment-return-interrupted");
                 return false;
             }
 
@@ -387,7 +462,9 @@ namespace HospitalPorters
             else if (nurse.m_state.m_nurseState !=
                      NurseState.OverridenReturningStretcher)
             {
-                Jobs.Remove(porter);
+                EndReturnJob(
+                    porter,
+                    "equipment-return-state-changed");
             }
         }
 
@@ -488,6 +565,7 @@ namespace HospitalPorters
             if (porter == null ||
                 sourcePatient == null ||
                 Jobs.ContainsKey(porter) ||
+                PendingContinuationsByPorter.ContainsKey(porter) ||
                 !IsPorterOperational(porter))
             {
                 return false;
@@ -674,10 +752,36 @@ namespace HospitalPorters
             if (!StretcherDestinationPatch.TryGetPatientContinuationRequest(
                     patient, out destination, out lyingState, out use,
                     out bedReservation, out movement,
-                    out requestedVehicle, out waited) ||
+                    out requestedVehicle, out waited))
+            {
+                return false;
+            }
+
+            return CanContinueRequest(
+                job,
+                patient,
+                destination,
+                requestedVehicle,
+                waited,
+                preflight);
+        }
+
+        private static bool CanContinueRequest(
+            ReturnJob job,
+            Entity patient,
+            TileObject destination,
+            Vehicle requestedVehicle,
+            bool waited,
+            bool preflight)
+        {
+            if (job == null ||
+                patient == null ||
+                patient == job.SourcePatient ||
                 destination == null ||
                 destination.m_state == null ||
-                !destination.HasTag("transport_point"))
+                !destination.HasTag("transport_point") ||
+                MapScriptInterface.Instance == null ||
+                GridMap.GetInstance() == null)
             {
                 return false;
             }
@@ -697,6 +801,11 @@ namespace HospitalPorters
 
             if (job.Phase == ReturnPhase.ReturningEquipment)
             {
+                if (job.PatientSide == null)
+                {
+                    return false;
+                }
+
                 bool wheelchair =
                     job.PatientSide.HasTag("wheelchair_patient");
                 if ((wheelchair &&
@@ -761,12 +870,10 @@ namespace HospitalPorters
             bool pendingLocalSampleWork = false;
             if (!preflight)
             {
-                // Preserve Patient API v1 behavior exactly. During the real
+                // Preserve Patient API behavior exactly. During the real
                 // return window the Porter is already registered in this
                 // Patient ReturnJob, so the Sample availability check
-                // short-circuits before scanning. Running that scan here,
-                // before ReleaseMovingCharacter, would produce a different
-                // answer and can update Sample fallback housekeeping.
+                // short-circuits before scanning.
                 pendingLocalSampleWork =
                     PorterSampleTransportRuntime.HasPendingLocalSampleWork(
                         job.Porter);
@@ -819,58 +926,565 @@ namespace HospitalPorters
             return floor >= 0;
         }
 
-        private static void RegisterActiveVehicleContinuation(
-            ReturnJob job,
+        private static HospitalizationState GetHospitalizationState(
+            Entity patient)
+        {
+            HospitalizationComponent hospitalization =
+                patient == null
+                    ? null
+                    : patient.GetComponent<HospitalizationComponent>();
+            return hospitalization == null ||
+                hospitalization.m_state == null
+                    ? HospitalizationState.NoHospitalization
+                    : hospitalization.m_state.m_hospitalizationState;
+        }
+
+        private static bool IsSamePendingRequest(
+            PendingPatientContinuation pending,
+            Entity patient,
+            StretcherUse use,
+            BedReservation reservation,
+            MovementType movement,
+            Vehicle requestedVehicle)
+        {
+            return pending != null &&
+                patient == pending.Patient &&
+                GetHospitalizationState(patient) ==
+                    pending.HospitalizationState &&
+                use == pending.StretcherUse &&
+                reservation == pending.BedReservation &&
+                movement == pending.MovementType &&
+                requestedVehicle == pending.RequestedVehicle;
+        }
+
+        private static void RemovePendingContinuation(
+            PendingPatientContinuation pending)
+        {
+            if (pending == null)
+            {
+                return;
+            }
+
+            if (pending.Patient != null)
+            {
+                PendingContinuationsByPatient.Remove(pending.Patient);
+            }
+            if (pending.Porter != null)
+            {
+                PendingContinuationsByPorter.Remove(pending.Porter);
+            }
+        }
+
+        private static void EndReturnJob(
+            Entity porter,
+            string reason)
+        {
+            if (porter == null)
+            {
+                return;
+            }
+
+            Jobs.Remove(porter);
+
+            PendingPatientContinuation pending;
+            if (!PendingContinuationsByPorter.TryGetValue(
+                    porter, out pending) ||
+                pending == null)
+            {
+                return;
+            }
+
+            Entity patient = pending.Patient;
+            RemovePendingContinuation(pending);
+
+            PorterDiagnostics.Log(
+                "patient continuation cancelled with return end: porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; patient=" +
+                (patient == null
+                    ? "UNKNOWN"
+                    : (patient.Name ?? string.Empty).Trim()) +
+                "; reason=" + reason +
+                ".");
+        }
+
+        private static bool TryGetPendingContinuationJob(
+            PendingPatientContinuation pending,
+            out ReturnJob job)
+        {
+            job = null;
+            if (pending == null ||
+                pending.Porter == null ||
+                !IsPorterOperational(pending.Porter))
+            {
+                return false;
+            }
+
+            BehaviorNurse nurse =
+                pending.Porter.GetComponent<BehaviorNurse>();
+            if (nurse == null || nurse.m_state == null)
+            {
+                return false;
+            }
+
+            if (Jobs.TryGetValue(pending.Porter, out job) &&
+                job != null)
+            {
+                if (job.Phase == ReturnPhase.ReturningEquipment &&
+                    nurse.m_state.m_nurseState == NurseState.Idle)
+                {
+                    // Native restitution finished between API acceptance
+                    // and the patient's next SetDestination. The pending
+                    // continuation remains valid, but it must now obtain
+                    // fresh equipment through vanilla.
+                    job.Phase = ReturnPhase.ReturningToStation;
+                    job.CanReuseVehicle = false;
+                    job.PatientSide = null;
+                    job.MovingSide = null;
+                    job.HasStationTarget = false;
+                }
+
+                job.ContinuationDeclined = true;
+                return IsReturnJobUsable(job);
+            }
+
+            if (nurse.m_state.m_nurseState ==
+                    NurseState.OverridenReturningStretcher)
+            {
+                WalkComponent walk =
+                    pending.Porter.GetComponent<WalkComponent>();
+                TileObject patientSide =
+                    nurse.m_state.m_stretcherPatientSide == null
+                        ? null
+                        : nurse.m_state.m_stretcherPatientSide.GetEntity();
+                TileObject movingSide =
+                    nurse.m_state.m_stretcherNurseSide == null
+                        ? null
+                        : nurse.m_state.m_stretcherNurseSide.GetEntity();
+                if (walk == null ||
+                    walk.m_state == null ||
+                    patientSide == null ||
+                    movingSide == null)
+                {
+                    return false;
+                }
+
+                job = new ReturnJob();
+                job.Porter = pending.Porter;
+                job.Phase = ReturnPhase.ReturningEquipment;
+                job.PatientSide = patientSide;
+                job.MovingSide = movingSide;
+                job.OriginalPosition = walk.m_state.m_destination;
+                job.OriginalFloor = walk.m_state.m_destinationFloor;
+                job.OriginalOrientation =
+                    nurse.m_state.m_stretcherOrientation;
+                job.CanReuseVehicle = true;
+                job.ContinuationDeclined = true;
+                Jobs[pending.Porter] = job;
+                return IsReturnJobUsable(job);
+            }
+
+            if (nurse.m_state.m_nurseState == NurseState.Idle &&
+                nurse.m_state.m_currentPatient == null)
+            {
+                job = new ReturnJob();
+                job.Porter = pending.Porter;
+                job.Phase = ReturnPhase.ReturningToStation;
+                job.ContinuationDeclined = true;
+                Jobs[pending.Porter] = job;
+                return IsReturnJobUsable(job);
+            }
+
+            return false;
+        }
+
+        internal static bool TryPreparePendingContinuation(
+            StretcherComponent target,
             Entity patient,
             TileObject destination,
             LyingState lyingState,
             StretcherUse use,
             BedReservation reservation,
             MovementType movement,
-            Vehicle requestedVehicle,
-            StretcherComponent target)
+            ref Entity movingCharacter,
+            ref Vehicle requestedVehicle,
+            out PorterPatientContinuationConsumeState state)
         {
-            if (job == null ||
-                job.Porter == null ||
-                patient == null ||
+            state = null;
+
+            PendingPatientContinuation pending;
+            if (patient == null ||
                 target == null ||
                 target.m_state == null ||
-                job.PatientSide == null ||
-                job.MovingSide == null)
+                !PendingContinuationsByPatient.TryGetValue(
+                    patient, out pending) ||
+                pending == null)
+            {
+                return false;
+            }
+
+            if ((movingCharacter != null &&
+                 movingCharacter != pending.Porter) ||
+                !IsSamePendingRequest(
+                    pending,
+                    patient,
+                    use,
+                    reservation,
+                    movement,
+                    requestedVehicle))
+            {
+                RemovePendingContinuation(pending);
+                return false;
+            }
+
+            ReturnJob job;
+            if (!TryGetPendingContinuationJob(pending, out job) ||
+                !CanContinueRequest(
+                    job,
+                    patient,
+                    destination,
+                    requestedVehicle,
+                    pending.Waited,
+                    false))
+            {
+                RemovePendingContinuation(pending);
+                return false;
+            }
+
+            PorterPatientContinuationConsumeState prepared =
+                new PorterPatientContinuationConsumeState();
+            prepared.Porter = pending.Porter;
+            prepared.Patient = patient;
+            prepared.Destination = destination;
+            prepared.LyingState = lyingState;
+            prepared.StretcherUse = use;
+            prepared.BedReservation = reservation;
+            prepared.MovementType = movement;
+            prepared.RequestedVehicle = requestedVehicle;
+            prepared.ActualVehicle = requestedVehicle;
+
+            if (job.Phase == ReturnPhase.ReturningEquipment)
+            {
+                BehaviorNurse nurse =
+                    pending.Porter.GetComponent<BehaviorNurse>();
+                WalkComponent porterWalk =
+                    pending.Porter.GetComponent<WalkComponent>();
+                Vector2i pickup;
+                int pickupFloor;
+                if (nurse == null ||
+                    nurse.m_state == null ||
+                    porterWalk == null ||
+                    !TryGetPickup(patient, out pickup, out pickupFloor))
+                {
+                    RemovePendingContinuation(pending);
+                    return false;
+                }
+
+                prepared.ReusingVehicle = true;
+                prepared.PatientSide = job.PatientSide;
+                prepared.MovingSide = job.MovingSide;
+                prepared.OriginalPosition = job.OriginalPosition;
+                prepared.OriginalOrientation = job.OriginalOrientation;
+                prepared.OriginalFloor = job.OriginalFloor;
+                prepared.ReservedTile =
+                    destination.GetDefaultStretcherTile();
+                prepared.ReservedFloor =
+                    destination.GetFloorIndex();
+
+                MapScriptInterface.Instance.ReserveTile(
+                    prepared.ReservedTile,
+                    patient,
+                    prepared.ReservedFloor);
+                prepared.ReservedDestination = true;
+
+                target.m_state.m_movingCharacter = pending.Porter;
+                target.m_state.m_stretcherPatientSide =
+                    job.PatientSide;
+
+                // ReturnStretcher owns the Porter until this exact native
+                // SetDestination takes over. Put the behavior into the
+                // neutral state expected by vanilla before it sends
+                // OVERRIDE_BY_GOING_TO_STRETCHER.
+                nurse.SwitchState(NurseState.Idle);
+
+                // An already attached vehicle skips vanilla's
+                // MovingCharacterWalkingToStretcher phase, so the route to
+                // the new patient's real pickup tile must be installed now.
+                porterWalk.SetDestination(
+                    pickup,
+                    pickupFloor,
+                    movement);
+
+                prepared.ActualVehicle =
+                    job.PatientSide.HasTag("wheelchair_patient")
+                        ? Vehicle.WHEELCHAIR
+                        : Vehicle.STRETCHER;
+                requestedVehicle = prepared.ActualVehicle;
+            }
+
+            movingCharacter = pending.Porter;
+            state = prepared;
+            return true;
+        }
+
+        internal static void CompletePendingContinuation(
+            StretcherComponent target,
+            bool result,
+            PorterPatientContinuationConsumeState state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            PendingPatientContinuation pending;
+            if (state.Patient != null &&
+                PendingContinuationsByPatient.TryGetValue(
+                    state.Patient, out pending))
+            {
+                RemovePendingContinuation(pending);
+            }
+            else if (state.Porter != null &&
+                PendingContinuationsByPorter.TryGetValue(
+                    state.Porter, out pending))
+            {
+                RemovePendingContinuation(pending);
+            }
+
+            if (!result)
+            {
+                if (state.ReusingVehicle)
+                {
+                    RollBackPendingVehicleReuse(target, state);
+                }
+                return;
+            }
+
+            Jobs.Remove(state.Porter);
+            StretcherDestinationPatch.ClearPatientContinuationFallback(
+                state.Patient);
+
+            if (state.ReusingVehicle)
+            {
+                target.m_state.m_originalStretcherPosition =
+                    state.OriginalPosition;
+                target.m_state.m_originalStretcherOrientation =
+                    state.OriginalOrientation;
+                target.m_state.m_originalStretcherFloor =
+                    state.OriginalFloor;
+
+                RegisterActiveVehicleContinuation(state, target);
+
+                BehaviorNurse nurse =
+                    state.Porter.GetComponent<BehaviorNurse>();
+                if (nurse != null && nurse.m_state != null)
+                {
+                    // The new StretcherComponent now owns the reused
+                    // equipment. Do not leave the old ReturnStretcher
+                    // pointers armed on the Porter.
+                    nurse.m_state.m_stretcherNurseSide = null;
+                    nurse.m_state.m_stretcherPatientSide = null;
+                }
+
+                state.Porter.GetComponent<Behavior>().ReceiveMessage(
+                    new Message(Messages.OVERRIDE_BY_MOVING_STRETCHER));
+            }
+
+            PorterDiagnostics.Log(
+                "patient continuation started by native request: porter=" +
+                (state.Porter.Name ?? string.Empty).Trim() +
+                "; patient=" +
+                (state.Patient.Name ?? string.Empty).Trim() +
+                "; vehicleReused=" + state.ReusingVehicle +
+                "; requestedVehicle=" + state.RequestedVehicle +
+                "; effectiveVehicle=" + state.ActualVehicle +
+                ".");
+        }
+
+        private static void RollBackPendingVehicleReuse(
+            StretcherComponent target,
+            PorterPatientContinuationConsumeState state)
+        {
+            if (target != null && target.m_state != null)
+            {
+                target.m_state.m_movingCharacter = null;
+                target.m_state.m_stretcherPatientSide = null;
+                target.m_state.m_stretcherMovingCharacterSide = null;
+            }
+
+            if (state.ReservedDestination &&
+                MapScriptInterface.Instance != null &&
+                MapScriptInterface.Instance.GetTileReservedBy(
+                    state.ReservedTile,
+                    state.ReservedFloor) == state.Patient)
+            {
+                MapScriptInterface.Instance.FreeTile(
+                    state.ReservedTile,
+                    state.ReservedFloor);
+            }
+
+            if (state.PatientSide != null)
+            {
+                state.PatientSide.Owner = null;
+            }
+            if (state.MovingSide != null)
+            {
+                state.MovingSide.Owner = null;
+            }
+
+            BehaviorNurse nurse =
+                state.Porter == null
+                    ? null
+                    : state.Porter.GetComponent<BehaviorNurse>();
+            if (nurse != null &&
+                state.PatientSide != null &&
+                state.MovingSide != null)
+            {
+                nurse.ReturnStretcher(
+                    state.OriginalPosition,
+                    state.OriginalOrientation,
+                    state.OriginalFloor,
+                    state.PatientSide,
+                    state.MovingSide);
+            }
+        }
+
+        internal static List<PorterPatientPendingContinuationSnapshot>
+            GetPendingContinuationSnapshot()
+        {
+            List<PorterPatientPendingContinuationSnapshot> result =
+                new List<PorterPatientPendingContinuationSnapshot>();
+
+            foreach (KeyValuePair<Entity, PendingPatientContinuation> pair in
+                PendingContinuationsByPatient)
+            {
+                PendingPatientContinuation pending = pair.Value;
+                if (pending == null ||
+                    pending.Porter == null ||
+                    pending.Patient == null)
+                {
+                    continue;
+                }
+
+                PorterPatientPendingContinuationSnapshot snapshot =
+                    new PorterPatientPendingContinuationSnapshot();
+                snapshot.Porter = pending.Porter;
+                snapshot.Patient = pending.Patient;
+                snapshot.HospitalizationState =
+                    pending.HospitalizationState;
+                snapshot.StretcherUse = pending.StretcherUse;
+                snapshot.BedReservation = pending.BedReservation;
+                snapshot.MovementType = pending.MovementType;
+                snapshot.RequestedVehicle = pending.RequestedVehicle;
+                snapshot.Waited = pending.Waited;
+                result.Add(snapshot);
+            }
+
+            return result;
+        }
+
+        internal static bool RestorePendingContinuation(
+            Entity porter,
+            Entity patient,
+            HospitalizationState hospitalizationState,
+            StretcherUse stretcherUse,
+            BedReservation bedReservation,
+            MovementType movementType,
+            Vehicle requestedVehicle,
+            bool waited)
+        {
+            if (!PorterIdentity.IsPorter(porter) ||
+                patient == null ||
+                PendingContinuationsByPorter.ContainsKey(porter) ||
+                PendingContinuationsByPatient.ContainsKey(patient))
+            {
+                return false;
+            }
+
+            StretcherComponent target =
+                patient.GetComponent<StretcherComponent>();
+            if (target == null ||
+                target.m_state == null ||
+                target.m_state.m_stretcherState !=
+                    StretcherComponentState.Idle ||
+                target.m_state.m_movingCharacter != null ||
+                target.m_state.m_stretcherPatientSide != null ||
+                target.m_state.m_stretcherMovingCharacterSide != null)
+            {
+                return false;
+            }
+
+            PendingPatientContinuation pending =
+                new PendingPatientContinuation();
+            pending.Porter = porter;
+            pending.Patient = patient;
+            pending.HospitalizationState = hospitalizationState;
+            pending.StretcherUse = stretcherUse;
+            pending.BedReservation = bedReservation;
+            pending.MovementType = movementType;
+            pending.RequestedVehicle = requestedVehicle;
+            pending.Waited = waited;
+
+            PendingContinuationsByPatient[patient] = pending;
+            PendingContinuationsByPorter[porter] = pending;
+
+            ReturnJob job;
+            if (Jobs.TryGetValue(porter, out job) && job != null)
+            {
+                job.ContinuationDeclined = true;
+            }
+
+            return true;
+        }
+
+        private static void RegisterActiveVehicleContinuation(
+            PorterPatientContinuationConsumeState state,
+            StretcherComponent target)
+        {
+            if (state == null ||
+                state.Porter == null ||
+                state.Patient == null ||
+                target == null ||
+                target.m_state == null ||
+                state.PatientSide == null ||
+                state.MovingSide == null)
             {
                 return;
             }
 
             ActiveVehicleContinuation continuation =
                 new ActiveVehicleContinuation();
-            continuation.Porter = job.Porter;
-            continuation.Patient = patient;
-            continuation.PatientSide = job.PatientSide;
-            continuation.MovingSide = job.MovingSide;
-            continuation.OriginalPosition = job.OriginalPosition;
-            continuation.OriginalOrientation = job.OriginalOrientation;
-            continuation.OriginalFloor = job.OriginalFloor;
-            continuation.Destination = destination;
-            continuation.LyingState = lyingState;
-            continuation.StretcherUse = use;
-            continuation.BedReservation = reservation;
-            continuation.MovementType = movement;
-            continuation.RequestedVehicle = requestedVehicle;
-            continuation.AwaitingNativeReplay = true;
-            ActiveVehicleContinuations[job.Porter] = continuation;
+            continuation.Porter = state.Porter;
+            continuation.Patient = state.Patient;
+            continuation.PatientSide = state.PatientSide;
+            continuation.MovingSide = state.MovingSide;
+            continuation.OriginalPosition = state.OriginalPosition;
+            continuation.OriginalOrientation =
+                state.OriginalOrientation;
+            continuation.OriginalFloor = state.OriginalFloor;
+            continuation.Destination = state.Destination;
+            continuation.LyingState = state.LyingState;
+            continuation.StretcherUse = state.StretcherUse;
+            continuation.BedReservation = state.BedReservation;
+            continuation.MovementType = state.MovementType;
+            continuation.RequestedVehicle = state.RequestedVehicle;
+            continuation.AwaitingNativeReplay = false;
+            ActiveVehicleContinuations[state.Porter] = continuation;
 
             PorterDiagnostics.Log(
                 "patient continuation vehicle origin armed: porter=" +
-                (job.Porter.Name ?? string.Empty).Trim() +
+                (state.Porter.Name ?? string.Empty).Trim() +
                 "; patient=" +
-                (patient.Name ?? string.Empty).Trim() +
+                (state.Patient.Name ?? string.Empty).Trim() +
                 "; origin=" +
                 DescribeOrigin(
                     continuation.OriginalPosition,
                     continuation.OriginalFloor,
                     continuation.OriginalOrientation) +
                 "; vehicle={" +
-                DescribeVehicleState(job.MovingSide, job.Porter) +
+                DescribeVehicleState(
+                    state.MovingSide,
+                    state.Porter) +
                 "}.");
         }
 
@@ -909,32 +1523,96 @@ namespace HospitalPorters
                 return false;
             }
 
-            continuation.AwaitingNativeReplay = false;
-            bool sameRequest =
-                SameTileObject(destination, continuation.Destination) &&
-                lyingState == continuation.LyingState &&
+            // Compatibility only for a save created by the pre-1.3.1.12
+            // implementation after it had already started a continuation.
+            // New continuations are armed before transport and never enter
+            // this replay state.
+            bool sameLogicalRequest =
                 use == continuation.StretcherUse &&
                 reservation == continuation.BedReservation &&
                 movement == continuation.MovementType &&
                 requestedVehicle == continuation.RequestedVehicle;
+            if (!sameLogicalRequest)
+            {
+                continuation.AwaitingNativeReplay = false;
+                return false;
+            }
+
+            continuation.AwaitingNativeReplay = false;
+
+            // LyingState and destination are deliberately not part of HPO's
+            // fallback request identity. If a legacy save retargets the same
+            // request, move the patient-owned tile reservation only when the
+            // new destination is still safe.
+            if (destination != null &&
+                destination.m_state != null &&
+                destination.HasTag("transport_point") &&
+                !SameTileObject(destination, continuation.Destination))
+            {
+                Vector2i newTile =
+                    destination.GetDefaultStretcherTile();
+                int newFloor = destination.GetFloorIndex();
+                Entity reservedBy =
+                    MapScriptInterface.Instance == null
+                        ? null
+                        : MapScriptInterface.Instance.GetTileReservedBy(
+                            newTile,
+                            newFloor);
+                bool freeForPatient =
+                    MapScriptInterface.Instance != null &&
+                    MapScriptInterface.Instance.GetCenterObjectAt(
+                        newTile,
+                        newFloor) == null &&
+                    (reservedBy == null ||
+                     reservedBy == continuation.Patient);
+                if (freeForPatient)
+                {
+                    if (reservedBy == null)
+                    {
+                        MapScriptInterface.Instance.ReserveTile(
+                            newTile,
+                            continuation.Patient,
+                            newFloor);
+                    }
+
+                    if (continuation.Destination != null)
+                    {
+                        Vector2i oldTile =
+                            continuation.Destination
+                                .GetDefaultStretcherTile();
+                        int oldFloor =
+                            continuation.Destination.GetFloorIndex();
+                        if ((oldTile != newTile ||
+                             oldFloor != newFloor) &&
+                            MapScriptInterface.Instance.GetTileReservedBy(
+                                oldTile,
+                                oldFloor) == continuation.Patient)
+                        {
+                            MapScriptInterface.Instance.FreeTile(
+                                oldTile,
+                                oldFloor);
+                        }
+                    }
+
+                    continuation.Destination = destination;
+                    target.m_state.m_destinationBed = destination;
+                    target.m_state.m_destination =
+                        new Vector2f(newTile);
+                }
+            }
+
+            continuation.LyingState = lyingState;
+            target.m_state.m_destinationlyingState = lyingState;
 
             PorterDiagnostics.Log(
-                sameRequest
-                    ? "patient continuation native SetDestination replay " +
-                      "acknowledged without replaying vanilla: porter=" +
-                      (porter.Name ?? string.Empty).Trim() +
-                      "; patient=" +
-                      (continuation.Patient.Name ?? string.Empty).Trim() +
-                      "."
-                    : "patient continuation native request changed before " +
-                      "replay; vanilla retarget remains allowed while HPO " +
-                      "keeps the vehicle origin: porter=" +
-                      (porter.Name ?? string.Empty).Trim() +
-                      "; patient=" +
-                      (continuation.Patient.Name ?? string.Empty).Trim() +
-                      ".");
+                "patient continuation legacy native replay acknowledged: " +
+                "porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; patient=" +
+                (continuation.Patient.Name ?? string.Empty).Trim() +
+                ".");
 
-            return sameRequest;
+            return true;
         }
 
         internal static void RestoreActiveVehicleContinuationOrigin(
@@ -1249,163 +1927,6 @@ namespace HospitalPorters
                 (walk == null ? -1 : walk.GetFloorIndex());
         }
 
-        private static bool TryReuseVehicle(
-            ReturnJob job,
-            Entity patient,
-            TileObject destination,
-            LyingState lyingState,
-            StretcherUse use,
-            BedReservation reservation,
-            MovementType movement,
-            Vehicle requestedVehicle)
-        {
-            if (!IsReturnJobUsable(job))
-            {
-                return false;
-            }
-
-            StretcherComponent target =
-                patient.GetComponent<StretcherComponent>();
-            BehaviorNurse nurse =
-                job.Porter.GetComponent<BehaviorNurse>();
-            if (target == null ||
-                nurse == null ||
-                nurse.m_state == null)
-            {
-                return false;
-            }
-
-            Vector2i pickup;
-            int pickupFloor;
-            WalkComponent porterWalk =
-                job.Porter.GetComponent<WalkComponent>();
-            if (porterWalk == null ||
-                !TryGetPickup(
-                    patient,
-                    out pickup,
-                    out pickupFloor))
-            {
-                return false;
-            }
-
-            Vector2i tile =
-                destination.GetDefaultStretcherTile();
-            int floor = destination.GetFloorIndex();
-            bool started = false;
-            try
-            {
-                // The vehicle is already attached to the Porter. Reuse
-                // the vanilla StretcherComponent transport lifecycle.
-                MapScriptInterface.Instance.ReserveTile(
-                    tile, patient, floor);
-                target.m_state.m_movingCharacter = job.Porter;
-                target.m_state.m_stretcherPatientSide =
-                    job.PatientSide;
-                nurse.SwitchState(NurseState.Idle);
-
-                // Vanilla normally assigns the route from the newly attached
-                // vehicle to the waiting patient in
-                // UpdateStateMovingCharacterWalkingToStretcher(). Reuse
-                // skips that state because HPO keeps the vehicle attached,
-                // so replace the active ReturnStretcher route explicitly.
-                porterWalk.SetDestination(
-                    pickup,
-                    pickupFloor,
-                    movement);
-
-                Vehicle actualVehicle =
-                    job.PatientSide.HasTag("wheelchair_patient")
-                        ? Vehicle.WHEELCHAIR
-                        : Vehicle.STRETCHER;
-                started = target.SetDestination(
-                    destination, lyingState, use, reservation,
-                    job.Porter, movement, actualVehicle);
-                if (started)
-                {
-                    target.m_state.m_originalStretcherPosition =
-                        job.OriginalPosition;
-                    target.m_state.m_originalStretcherOrientation =
-                        job.OriginalOrientation;
-                    target.m_state.m_originalStretcherFloor =
-                        job.OriginalFloor;
-                    RegisterActiveVehicleContinuation(
-                        job,
-                        patient,
-                        destination,
-                        lyingState,
-                        use,
-                        reservation,
-                        movement,
-                        requestedVehicle,
-                        target);
-                    // The native return is cancelled only after native
-                    // SetDestination has accepted the new transport.
-                    nurse.m_state.m_stretcherNurseSide = null;
-                    nurse.m_state.m_stretcherPatientSide = null;
-                    job.Porter.GetComponent<Behavior>().ReceiveMessage(
-                        new Message(Messages.OVERRIDE_BY_MOVING_STRETCHER));
-                }
-            }
-            catch (Exception exception)
-            {
-                Plugin.Log?.LogWarning(
-                    "Patient continuation vehicle reuse failed: " +
-                    exception.Message);
-            }
-            finally
-            {
-                if (!started)
-                {
-                    target.m_state.m_movingCharacter = null;
-                    target.m_state.m_stretcherPatientSide = null;
-                    target.m_state.m_stretcherMovingCharacterSide = null;
-                    if (MapScriptInterface.Instance != null &&
-                        MapScriptInterface.Instance.GetTileReservedBy(
-                            tile, floor) == patient)
-                    {
-                        MapScriptInterface.Instance.FreeTile(
-                            tile, floor);
-                    }
-                    // Native FreeStretcher released ownership before
-                    // this continuation attempt. Restore that free state.
-                    job.PatientSide.Owner = null;
-                    job.MovingSide.Owner = null;
-                    nurse.ReturnStretcher(
-                        job.OriginalPosition,
-                        job.OriginalOrientation,
-                        job.OriginalFloor,
-                        job.PatientSide,
-                        job.MovingSide);
-                }
-            }
-
-            return started;
-        }
-
-        private static bool TryStartWithNativeVehicle(
-            ReturnJob job,
-            Entity patient,
-            TileObject destination,
-            LyingState lyingState,
-            StretcherUse use,
-            BedReservation reservation,
-            MovementType movement,
-            Vehicle requestedVehicle)
-        {
-            StretcherComponent target =
-                patient.GetComponent<StretcherComponent>();
-            if (target == null)
-            {
-                return false;
-            }
-
-            // The previous vehicle has already been physically restored.
-            // Native selection safely obtains equipment for the new job.
-            return target.SetDestination(
-                destination, lyingState, use, reservation,
-                job.Porter, movement, requestedVehicle);
-        }
-
         private static void BeginStationReturn(
             Entity porter,
             BehaviorNurse nurse,
@@ -1415,7 +1936,9 @@ namespace HospitalPorters
                 !IsPorterOperational(porter) ||
                 !HasValidStation(porter))
             {
-                Jobs.Remove(porter);
+                EndReturnJob(
+                    porter,
+                    "station-return-unavailable");
                 return;
             }
 
@@ -1490,7 +2013,9 @@ namespace HospitalPorters
                 nurse.m_state.m_currentPatient != null ||
                 !IsPorterOperational(porter))
             {
-                Jobs.Remove(porter);
+                EndReturnJob(
+                    porter,
+                    "station-return-interrupted");
                 return false;
             }
 
@@ -1501,7 +2026,9 @@ namespace HospitalPorters
                 station == null ||
                 MapScriptInterface.Instance == null)
             {
-                Jobs.Remove(porter);
+                EndReturnJob(
+                    porter,
+                    "station-return-station-unavailable");
                 return false;
             }
 
@@ -1514,7 +2041,9 @@ namespace HospitalPorters
                 MapScriptInterface.Instance.GetRoomAt(walk);
             if (current == station)
             {
-                Jobs.Remove(porter);
+                EndReturnJob(
+                    porter,
+                    "station-return-completed");
                 PorterDiagnostics.Log(
                     "patient station return completed: porter=" +
                     (porter.Name ?? string.Empty).Trim() +
