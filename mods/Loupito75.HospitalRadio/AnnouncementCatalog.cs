@@ -76,8 +76,8 @@ namespace HospitalRadio
             for (int number = first; number <= last; number++)
             {
                 string suffix = number.ToString("000");
-                string id = "HR_" + suffix;
-                string fileName = "HR_V" + suffix + ".ogg";
+                string id = "HRA_" + suffix;
+                string fileName = "L75_HRA_V" + suffix + ".ogg";
                 string filePath = Path.Combine(voiceDirectory, fileName);
 
                 if (!File.Exists(filePath))

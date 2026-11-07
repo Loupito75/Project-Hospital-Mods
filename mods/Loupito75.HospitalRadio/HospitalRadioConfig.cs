@@ -57,55 +57,112 @@ namespace HospitalRadio
         {
             UseDefaults();
 
+            string configPath = Path.Combine(pluginDirectory ?? string.Empty, FileName);
+            if (!File.Exists(configPath))
+            {
+                Plugin.Log.LogWarning(FileName + " was not found. Using built-in defaults.");
+                LogInactiveAnnouncementNotice();
+                return;
+            }
+
             try
             {
-                string configPath = Path.Combine(pluginDirectory ?? string.Empty, FileName);
-                if (!File.Exists(configPath))
-                {
-                    Plugin.Log.LogWarning(FileName + " was not found. Using built-in defaults.");
-                    LogEffectiveSettings();
-                    return;
-                }
-
-                XmlDocument document = new XmlDocument();
-                document.Load(configPath);
-
+                XmlDocument document = LoadDocument(configPath);
                 XmlElement root = document.DocumentElement;
                 if (root == null || !string.Equals(root.Name, "HospitalRadio", StringComparison.Ordinal))
                 {
                     throw new FormatException("The XML root element must be <HospitalRadio>.");
                 }
 
-                OurMusicEnabled = ReadEnabled(root, "OurMusic", OurMusicEnabled);
-                MyMusicEnabled = ReadEnabled(root, "MyMusic", MyMusicEnabled);
-                VanillaMusicEnabled = ReadEnabled(root, "VanillaMusic", VanillaMusicEnabled);
-                AnnouncementsEnabled = ReadEnabled(root, "Announcements", AnnouncementsEnabled);
-                DiagnosticsEnabled = ReadEnabled(root, "Diagnostics", DiagnosticsEnabled);
+                RequireAttributes(root, new string[0]);
+                RequireOnlyChildElements(
+                    root,
+                    new string[] { "OurMusic", "MyMusic", "VanillaMusic", "Announcements", "Diagnostics" });
 
-                OurMusicVolumeDb = ReadFloatAttribute(
-                    root.SelectSingleNode("OurMusic") as XmlElement,
-                    "VolumeDb",
-                    OurMusicVolumeDb,
-                    MinimumMusicVolumeDb,
-                    MaximumMusicVolumeDb);
+                XmlElement ourMusic = RequireSection(
+                    root, "OurMusic", new string[] { "Enabled", "VolumeDb" });
+                XmlElement myMusic = RequireSection(
+                    root, "MyMusic", new string[] { "Enabled", "VolumeDb" });
+                XmlElement vanillaMusic = RequireSection(
+                    root, "VanillaMusic", new string[] { "Enabled" });
+                XmlElement announcements = RequireSection(
+                    root,
+                    "Announcements",
+                    new string[]
+                    {
+                        "Enabled",
+                        "VolumeDb",
+                        "MinSongsBetween",
+                        "MaxSongsBetween",
+                        "RecentHistory",
+                        "Periods"
+                    });
+                XmlElement periods = RequireSection(
+                    announcements,
+                    "Periods",
+                    new string[] { "MorningStart", "AfternoonStart", "EveningStart", "NightStart" });
+                XmlElement diagnostics = RequireSection(
+                    root, "Diagnostics", new string[] { "Enabled" });
 
-                MyMusicVolumeDb = ReadFloatAttribute(
-                    root.SelectSingleNode("MyMusic") as XmlElement,
-                    "VolumeDb",
-                    MyMusicVolumeDb,
-                    MinimumMusicVolumeDb,
-                    MaximumMusicVolumeDb);
+                bool ourMusicEnabled = ReadBoolElement(ourMusic, "Enabled");
+                bool myMusicEnabled = ReadBoolElement(myMusic, "Enabled");
+                bool vanillaMusicEnabled = ReadBoolElement(vanillaMusic, "Enabled");
+                bool announcementsEnabled = ReadBoolElement(announcements, "Enabled");
+                bool diagnosticsEnabled = ReadBoolElement(diagnostics, "Enabled");
 
-                AnnouncementVolumeDb = ReadFloatAttribute(
-                    root.SelectSingleNode("Announcements") as XmlElement,
-                    "VolumeDb",
-                    AnnouncementVolumeDb,
-                    MinimumAnnouncementVolumeDb,
-                    MaximumAnnouncementVolumeDb);
+                float ourMusicVolumeDb = ReadFloatElement(
+                    ourMusic, "VolumeDb", MinimumMusicVolumeDb, MaximumMusicVolumeDb);
+                float myMusicVolumeDb = ReadFloatElement(
+                    myMusic, "VolumeDb", MinimumMusicVolumeDb, MaximumMusicVolumeDb);
+                float announcementVolumeDb = ReadFloatElement(
+                    announcements, "VolumeDb", MinimumAnnouncementVolumeDb, MaximumAnnouncementVolumeDb);
 
-                ReadAnnouncementSettings(root);
-                ValidateAnnouncementSettings();
+                int announcementMinSongsBetween =
+                    ReadIntElement(announcements, "MinSongsBetween", 1, 100);
+                int announcementMaxSongsBetween =
+                    ReadIntElement(announcements, "MaxSongsBetween", 1, 100);
+                int announcementRecentHistory =
+                    ReadIntElement(announcements, "RecentHistory", 0, 100);
+
+                int morningStartHour = ReadIntElement(periods, "MorningStart", 0, 23);
+                int afternoonStartHour = ReadIntElement(periods, "AfternoonStart", 0, 23);
+                int eveningStartHour = ReadIntElement(periods, "EveningStart", 0, 23);
+                int nightStartHour = ReadIntElement(periods, "NightStart", 0, 23);
+
+                if (announcementMaxSongsBetween < announcementMinSongsBetween)
+                {
+                    throw new FormatException(
+                        "Announcements MaxSongsBetween cannot be lower than MinSongsBetween.");
+                }
+
+                if (!(morningStartHour < afternoonStartHour
+                    && afternoonStartHour < eveningStartHour
+                    && eveningStartHour < nightStartHour))
+                {
+                    throw new FormatException(
+                        "Announcement period start hours must be ordered Morning < Afternoon < Evening < Night.");
+                }
+
+                OurMusicEnabled = ourMusicEnabled;
+                MyMusicEnabled = myMusicEnabled;
+                VanillaMusicEnabled = vanillaMusicEnabled;
+                DiagnosticsEnabled = diagnosticsEnabled;
+                AnnouncementsEnabled = announcementsEnabled;
+
+                OurMusicVolumeDb = ourMusicVolumeDb;
+                MyMusicVolumeDb = myMusicVolumeDb;
+                AnnouncementVolumeDb = announcementVolumeDb;
+
+                AnnouncementMinSongsBetween = announcementMinSongsBetween;
+                AnnouncementMaxSongsBetween = announcementMaxSongsBetween;
+                AnnouncementRecentHistory = announcementRecentHistory;
+                MorningStartHour = morningStartHour;
+                AfternoonStartHour = afternoonStartHour;
+                EveningStartHour = eveningStartHour;
+                NightStartHour = nightStartHour;
+
                 LogEffectiveSettings();
+                LogInactiveAnnouncementNotice();
             }
             catch (Exception exception)
             {
@@ -114,183 +171,207 @@ namespace HospitalRadio
                     "Could not load " + FileName + ": " +
                     exception.GetType().Name + ": " + exception.Message);
                 Plugin.Log.LogWarning("Using built-in Hospital Radio defaults.");
-                LogEffectiveSettings();
+                LogInactiveAnnouncementNotice();
             }
         }
 
-        private static bool ReadEnabled(XmlElement root, string elementName, bool fallback)
+        private static XmlDocument LoadDocument(string configPath)
         {
-            XmlNode node = root.SelectSingleNode(elementName);
-            XmlElement element = node as XmlElement;
-            if (element == null)
-            {
-                Plugin.Log.LogWarning(
-                    "Missing <" + elementName + "> in " + FileName +
-                    "; using default " + fallback.ToString().ToLowerInvariant() + ".");
-                return fallback;
-            }
+            XmlReaderSettings settings = new XmlReaderSettings();
+            settings.ProhibitDtd = true;
+            settings.IgnoreComments = false;
 
-            string value = element.GetAttribute("Enabled");
-            bool enabled;
-            if (!bool.TryParse(value, out enabled))
+            XmlDocument document = new XmlDocument();
+            document.XmlResolver = null;
+            using (XmlReader reader = XmlReader.Create(configPath, settings))
             {
-                Plugin.Log.LogWarning(
-                    "<" + elementName + "> Enabled must be true or false; using default " +
-                    fallback.ToString().ToLowerInvariant() + ".");
-                return fallback;
+                document.Load(reader);
             }
-
-            return enabled;
+            return document;
         }
 
-        private static void ReadAnnouncementSettings(XmlElement root)
+        private static XmlElement RequireUniqueChild(XmlElement parent, string elementName)
         {
-            XmlElement announcements = root.SelectSingleNode("Announcements") as XmlElement;
-            if (announcements == null)
+            XmlElement found = null;
+            foreach (XmlNode node in parent.ChildNodes)
             {
-                return;
+                XmlElement element = node as XmlElement;
+                if (element == null ||
+                    !string.Equals(element.Name, elementName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (found != null)
+                {
+                    throw new FormatException(
+                        "Duplicate <" + elementName + "> inside <" + parent.Name + ">.");
+                }
+
+                found = element;
             }
 
-            AnnouncementMinSongsBetween = ReadIntAttribute(
-                announcements,
-                "MinSongsBetween",
-                AnnouncementMinSongsBetween,
-                1,
-                100);
-
-            AnnouncementMaxSongsBetween = ReadIntAttribute(
-                announcements,
-                "MaxSongsBetween",
-                AnnouncementMaxSongsBetween,
-                1,
-                100);
-
-            AnnouncementRecentHistory = ReadIntAttribute(
-                announcements,
-                "RecentHistory",
-                AnnouncementRecentHistory,
-                0,
-                100);
-
-            XmlElement periods = announcements.SelectSingleNode("Periods") as XmlElement;
-            if (periods == null)
+            if (found == null)
             {
-                Plugin.Log.LogWarning(
-                    "Missing <Periods> inside <Announcements>; using default announcement period hours.");
-                return;
+                throw new FormatException(
+                    "Missing <" + elementName + "> inside <" + parent.Name + ">.");
             }
 
-            MorningStartHour = ReadIntAttribute(
-                periods,
-                "MorningStart",
-                MorningStartHour,
-                0,
-                23);
-
-            AfternoonStartHour = ReadIntAttribute(
-                periods,
-                "AfternoonStart",
-                AfternoonStartHour,
-                0,
-                23);
-
-            EveningStartHour = ReadIntAttribute(
-                periods,
-                "EveningStart",
-                EveningStartHour,
-                0,
-                23);
-
-            NightStartHour = ReadIntAttribute(
-                periods,
-                "NightStart",
-                NightStartHour,
-                0,
-                23);
+            return found;
         }
 
-        private static float ReadFloatAttribute(
-            XmlElement element,
-            string attributeName,
-            float fallback,
+        private static void RequireOnlyChildElements(XmlElement parent, string[] allowedNames)
+        {
+            foreach (XmlNode node in parent.ChildNodes)
+            {
+                XmlElement element = node as XmlElement;
+                if (element == null)
+                {
+                    if ((node.NodeType == XmlNodeType.Text || node.NodeType == XmlNodeType.CDATA)
+                        && !string.IsNullOrEmpty(node.Value)
+                        && node.Value.Trim().Length > 0)
+                    {
+                        throw new FormatException(
+                            "Unexpected text inside <" + parent.Name + ">.");
+                    }
+                    continue;
+                }
+
+                bool allowed = false;
+                for (int i = 0; i < allowedNames.Length; i++)
+                {
+                    if (string.Equals(element.Name, allowedNames[i], StringComparison.Ordinal))
+                    {
+                        allowed = true;
+                        break;
+                    }
+                }
+
+                if (!allowed)
+                {
+                    throw new FormatException(
+                        "Unexpected <" + element.Name + "> inside <" + parent.Name + ">.");
+                }
+            }
+        }
+
+        private static XmlElement RequireSection(
+            XmlElement parent,
+            string elementName,
+            string[] allowedChildNames)
+        {
+            XmlElement section = RequireUniqueChild(parent, elementName);
+            RequireAttributes(section, new string[0]);
+            RequireOnlyChildElements(section, allowedChildNames);
+            return section;
+        }
+
+        private static XmlElement RequireScalarElement(
+            XmlElement parent,
+            string elementName)
+        {
+            XmlElement element = RequireUniqueChild(parent, elementName);
+            RequireAttributes(element, new string[0]);
+
+            foreach (XmlNode node in element.ChildNodes)
+            {
+                if (node.NodeType == XmlNodeType.Text ||
+                    node.NodeType == XmlNodeType.Whitespace ||
+                    node.NodeType == XmlNodeType.SignificantWhitespace ||
+                    node.NodeType == XmlNodeType.Comment)
+                {
+                    continue;
+                }
+
+                throw new FormatException(
+                    "<" + elementName + "> inside <" + parent.Name +
+                    "> must contain only a scalar text value.");
+            }
+
+            return element;
+        }
+
+        private static void RequireAttributes(XmlElement element, string[] attributeNames)
+        {
+            if (element.Attributes.Count != attributeNames.Length)
+            {
+                throw new FormatException(
+                    "<" + element.Name + "> has an unexpected attribute set.");
+            }
+
+            for (int i = 0; i < attributeNames.Length; i++)
+            {
+                if (!element.HasAttribute(attributeNames[i]))
+                {
+                    throw new FormatException(
+                        "<" + element.Name + "> is missing the " +
+                        attributeNames[i] + " attribute.");
+                }
+            }
+        }
+
+        private static bool ReadBoolElement(XmlElement parent, string elementName)
+        {
+            XmlElement element = RequireScalarElement(parent, elementName);
+            bool parsed;
+            if (!bool.TryParse(element.InnerText.Trim(), out parsed))
+            {
+                throw new FormatException(
+                    "<" + elementName + "> inside <" + parent.Name +
+                    "> must be true or false.");
+            }
+            return parsed;
+        }
+
+        private static float ReadFloatElement(
+            XmlElement parent,
+            string elementName,
             float minimum,
             float maximum)
         {
-            if (element == null)
-            {
-                return fallback;
-            }
-
-            string value = element.GetAttribute(attributeName);
+            XmlElement element = RequireScalarElement(parent, elementName);
             float parsed;
-            if (string.IsNullOrEmpty(value)
-                || !float.TryParse(
-                    value,
+            if (!float.TryParse(
+                    element.InnerText.Trim(),
                     NumberStyles.Float,
                     CultureInfo.InvariantCulture,
                     out parsed)
                 || parsed < minimum
                 || parsed > maximum)
             {
-                Plugin.Log.LogWarning(
-                    "<" + element.Name + "> " + attributeName +
-                    " must be from " + minimum.ToString("0.##", CultureInfo.InvariantCulture) +
-                    " to " + maximum.ToString("0.##", CultureInfo.InvariantCulture) +
-                    " dB; using default " +
-                    fallback.ToString("0.##", CultureInfo.InvariantCulture) + " dB.");
-                return fallback;
+                throw new FormatException(
+                    "<" + elementName + "> inside <" + parent.Name +
+                    "> must be from " +
+                    minimum.ToString("0.##", CultureInfo.InvariantCulture) +
+                    " to " +
+                    maximum.ToString("0.##", CultureInfo.InvariantCulture) +
+                    " dB.");
             }
-
             return parsed;
         }
 
-        private static int ReadIntAttribute(
-            XmlElement element,
-            string attributeName,
-            int fallback,
+        private static int ReadIntElement(
+            XmlElement parent,
+            string elementName,
             int minimum,
             int maximum)
         {
-            string value = element.GetAttribute(attributeName);
+            XmlElement element = RequireScalarElement(parent, elementName);
             int parsed;
-            if (string.IsNullOrEmpty(value)
-                || !int.TryParse(value, out parsed)
+            if (!int.TryParse(
+                    element.InnerText.Trim(),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out parsed)
                 || parsed < minimum
                 || parsed > maximum)
             {
-                Plugin.Log.LogWarning(
-                    "<" + element.Name + "> " + attributeName +
-                    " must be an integer from " + minimum + " to " + maximum +
-                    "; using default " + fallback + ".");
-                return fallback;
+                throw new FormatException(
+                    "<" + elementName + "> inside <" + parent.Name +
+                    "> must be an integer from " + minimum +
+                    " to " + maximum + ".");
             }
-
             return parsed;
-        }
-
-        private static void ValidateAnnouncementSettings()
-        {
-            if (AnnouncementMaxSongsBetween < AnnouncementMinSongsBetween)
-            {
-                Plugin.Log.LogWarning(
-                    "Announcements MaxSongsBetween cannot be lower than MinSongsBetween; using defaults 3-5.");
-
-                AnnouncementMinSongsBetween = DefaultAnnouncementMinSongsBetween;
-                AnnouncementMaxSongsBetween = DefaultAnnouncementMaxSongsBetween;
-            }
-
-            if (!(MorningStartHour < AfternoonStartHour
-                && AfternoonStartHour < EveningStartHour
-                && EveningStartHour < NightStartHour))
-            {
-                Plugin.Log.LogWarning(
-                    "Announcement period start hours must be ordered Morning < Afternoon < Evening < Night; using defaults.");
-
-                MorningStartHour = DefaultMorningStartHour;
-                AfternoonStartHour = DefaultAfternoonStartHour;
-                EveningStartHour = DefaultEveningStartHour;
-                NightStartHour = DefaultNightStartHour;
-            }
         }
 
         private static void UseDefaults()
@@ -316,8 +397,13 @@ namespace HospitalRadio
 
         private static void LogEffectiveSettings()
         {
+            if (!DiagnosticsEnabled)
+            {
+                return;
+            }
+
             Plugin.Log.LogInfo(
-                "Settings: OurMusic=" + OurMusicEnabled +
+                "[Diag] Settings: OurMusic=" + OurMusicEnabled +
                 ", MyMusic=" + MyMusicEnabled +
                 ", VanillaMusic=" + VanillaMusicEnabled +
                 ", Announcements=" + AnnouncementsEnabled +
@@ -328,11 +414,12 @@ namespace HospitalRadio
                 ", SongsBetweenAnnouncements=" + AnnouncementMinSongsBetween +
                 "-" + AnnouncementMaxSongsBetween +
                 ", RecentHistory=" + AnnouncementRecentHistory +
-                ", Periods=" + MorningStartHour +
-                "/" + AfternoonStartHour +
-                "/" + EveningStartHour +
-                "/" + NightStartHour + ".");
+                ", Periods=" + MorningStartHour + "/" + AfternoonStartHour +
+                "/" + EveningStartHour + "/" + NightStartHour + ".");
+        }
 
+        private static void LogInactiveAnnouncementNotice()
+        {
             if (!RadioEnabled && AnnouncementsEnabled)
             {
                 Plugin.Log.LogInfo(

@@ -1,27 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
 <HospitalRadio>
-  <!-- Bundled Hospital Radio music. Enabled accepts true/false; default true. VolumeDb accepts -30 through -16 dB; default -22. -->
-  <OurMusic Enabled="true" VolumeDb="-22" />
+  <!-- @HMUC:desc Controls the bundled Hospital Radio music pool. -->
+  <OurMusic>
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables bundled Hospital Radio music. -->
+    <Enabled>true</Enabled>
 
-  <!-- Personal tracks from Audio\MyMusic. Enabled accepts true/false; default false. VolumeDb accepts -30 through -16 dB; default -22. -->
-  <MyMusic Enabled="false" VolumeDb="-22" />
+    <!-- @HMUC:set label="Volume (dB)" control="slider" min="-30" max="-16" step="1" -->
+    <!-- @HMUC:desc Sets the bundled Hospital Radio music volume in decibels. -->
+    <VolumeDb>-22</VolumeDb>
+  </OurMusic>
 
-  <!-- Include Project Hospital gameplay/day-night music in the shuffle. Enabled accepts true/false; default true. -->
-  <VanillaMusic Enabled="true" />
+  <!-- @HMUC:desc Controls personal music loaded from Audio/MyMusic. -->
+  <MyMusic>
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables personal music from Audio/MyMusic. -->
+    <Enabled>false</Enabled>
 
-  <!-- Diagnostic mode. Enabled accepts true/false; default false. When enabled, the normal playlist is replaced by the built-in short-track diagnostic pool. -->
-  <Diagnostics Enabled="false" />
+    <!-- @HMUC:set label="Volume (dB)" control="slider" min="-30" max="-16" step="1" -->
+    <!-- @HMUC:desc Sets the personal music volume in decibels. -->
+    <VolumeDb>-22</VolumeDb>
+  </MyMusic>
 
-  <!-- Automatic announcements. Enabled accepts true/false; default true. VolumeDb accepts -14 through -4 dB; default -8. Song interval values accept integers from 1 through 100; RecentHistory accepts 0 through 100. -->
-  <Announcements Enabled="true"
-                 VolumeDb="-8"
-                 MinSongsBetween="3"
-                 MaxSongsBetween="5"
-                 RecentHistory="10">
-    <!-- Period start hours accept 0 through 23 and must remain ordered Morning < Afternoon < Evening < Night. Defaults: 6 / 12 / 17 / 21. -->
-    <Periods MorningStart="6"
-             AfternoonStart="12"
-             EveningStart="17"
-             NightStart="21" />
+  <!-- @HMUC:desc Controls Project Hospital gameplay music in the Hospital Radio playlist. -->
+  <VanillaMusic>
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Includes or excludes Project Hospital gameplay and day-night music from the shuffle. -->
+    <Enabled>true</Enabled>
+  </VanillaMusic>
+
+  <!-- @HMUC:desc Controls automatic Hospital Radio announcements, their volume, spacing and recent-history protection. -->
+  <Announcements>
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Enables or disables automatic Hospital Radio voice announcements. -->
+    <Enabled>true</Enabled>
+
+    <!-- @HMUC:set label="Volume (dB)" control="slider" min="-14" max="-4" step="1" -->
+    <!-- @HMUC:desc Sets the announcement voice volume in decibels. -->
+    <VolumeDb>-8</VolumeDb>
+
+    <!-- @HMUC:set label="Minimum songs between" control="slider" min="1" max="100" step="1" -->
+    <!-- @HMUC:desc Minimum number of naturally completed songs before the next automatic announcement. -->
+    <MinSongsBetween>3</MinSongsBetween>
+
+    <!-- @HMUC:set label="Maximum songs between" control="slider" min="1" max="100" step="1" -->
+    <!-- @HMUC:desc Maximum number of naturally completed songs before the next automatic announcement. -->
+    <MaxSongsBetween>5</MaxSongsBetween>
+
+    <!-- @HMUC:set label="Recent history" control="slider" min="0" max="100" step="1" -->
+    <!-- @HMUC:desc Number of recently played announcement IDs excluded from immediate reselection. -->
+    <RecentHistory>10</RecentHistory>
+
+    <!-- @HMUC:desc Defines the start hour of each announcement period. Hours must remain ordered Morning < Afternoon < Evening < Night. -->
+    <Periods>
+      <!-- @HMUC:set label="Morning start" control="slider" min="0" max="23" step="1" -->
+      <!-- @HMUC:desc Hour when the morning announcement period begins. -->
+      <MorningStart>6</MorningStart>
+
+      <!-- @HMUC:set label="Afternoon start" control="slider" min="0" max="23" step="1" -->
+      <!-- @HMUC:desc Hour when the afternoon announcement period begins. -->
+      <AfternoonStart>12</AfternoonStart>
+
+      <!-- @HMUC:set label="Evening start" control="slider" min="0" max="23" step="1" -->
+      <!-- @HMUC:desc Hour when the evening announcement period begins. -->
+      <EveningStart>17</EveningStart>
+
+      <!-- @HMUC:set label="Night start" control="slider" min="0" max="23" step="1" -->
+      <!-- @HMUC:desc Hour when the night announcement period begins. -->
+      <NightStart>21</NightStart>
+    </Periods>
   </Announcements>
+
+  <!-- @HMUC:desc Controls Hospital Radio diagnostic mode. -->
+  <Diagnostics>
+    <!-- @HMUC:set label="Enable" control="checkbox" -->
+    <!-- @HMUC:desc Replaces the normal playlist with the built-in short-track diagnostic pool when enabled. -->
+    <Enabled>false</Enabled>
+  </Diagnostics>
 </HospitalRadio>
