@@ -22,6 +22,12 @@ A collection of mods for **Project Hospital**, developed and maintained by **Lou
 
 This repository contains the public source code and releases of my Project Hospital mods.
 
+## ❤️ Support ❤️
+
+If you enjoy my Project Hospital mods and want to support future updates and new projects:
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/loupito75)
+
 ## Mods
 
 Hover over a mod to see its description, or click its name to browse the source code on GitHub.
@@ -44,10 +50,6 @@ Use the **Latest Release** column to download the newest version, and the links 
 | <a name="hfo"></a>[![HFO - Hospital Flow Optimizer](https://img.shields.io/badge/HFO-Hospital%20Flow%20Optimizer-f6f8fa?style=flat-square&labelColor=2f81f7&logo=github&logoColor=white)](mods/Loupito75.HospitalFlowOptimizer/ "Improves hospital flow by distributing doctors, rooms, laboratory work, staff needs and transport tasks more efficiently while preserving Project Hospital's normal medical and pathfinding rules. • First release: 2026-10-17") | [![Download](https://img.shields.io/badge/v1.1.1-2026--10--23-f6f8fa?style=flat&labelColor=3fb950&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnYxMC4xN2wzLjU5LTMuNThMMTggMTFsLTYgNi02LTYgMS40MS0xLjQxTDExIDEzLjE3VjN6TTUgMTloMTR2Mkg1eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Loupito75/Project-Hospital-Mods/releases/tag/HospitalFlowOptimizer-v1.1.1 "Download the latest version of Hospital Flow Optimizer") | [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-2a475e?style=flat&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3821683216 "Open Hospital Flow Optimizer on Steam Workshop") [![Changelog](https://img.shields.io/badge/Changelog-f0883e?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BCjxkZWZzPgo8bWFzayBpZD0ibSI%2BCjxyZWN0IHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0iYmxhY2siLz4KPHBhdGggZD0iTTYgMmg4bDQgNHYxNkg2eiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0IDJ2NWg0IiBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTkgMTFoNk05IDE1aDYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8%2BCjwvbWFzaz4KPC9kZWZzPgo8cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IndoaXRlIiBtYXNrPSJ1cmwoI20pIi8%2BCjwvc3ZnPg%3D%3D)](https://loupito75.github.io/Project-Hospital-Mods/changelog.html?mod=HospitalFlowOptimizer "View changelog") |
 | <a name="hro"></a>[![HRO - Hospital Runtime Optimizer](https://img.shields.io/badge/HRO-Hospital%20Runtime%20Optimizer-f6f8fa?style=flat-square&labelColor=2f81f7&logo=github&logoColor=white)](mods/Loupito75.HospitalRuntimeOptimizer/ "Improves Project Hospital performance by reducing redundant Vanilla runtime and rendering work without changing simulation, pathfinding or gameplay decisions. • First release: 2026-10-25") | [![Download](https://img.shields.io/badge/v1.0.0-2026--10--25-f6f8fa?style=flat&labelColor=3fb950&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnYxMC4xN2wzLjU5LTMuNThMMTggMTFsLTYgNi02LTYgMS40MS0xLjQxTDExIDEzLjE3VjN6TTUgMTloMTR2Mkg1eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Loupito75/Project-Hospital-Mods/releases/tag/HospitalRuntimeOptimizer-v1.0.0 "Download the latest version of Hospital Runtime Optimizer") | [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-2a475e?style=flat&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3826785142 "Open Hospital Runtime Optimizer on Steam Workshop") [![Changelog](https://img.shields.io/badge/Changelog-f0883e?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BCjxkZWZzPgo8bWFzayBpZD0ibSI%2BCjxyZWN0IHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0iYmxhY2siLz4KPHBhdGggZD0iTTYgMmg4bDQgNHYxNkg2eiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0IDJ2NWg0IiBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTkgMTFoNk05IDE1aDYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8%2BCjwvbWFzaz4KPC9kZWZzPgo8cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IndoaXRlIiBtYXNrPSJ1cmwoI20pIi8%2BCjwvc3ZnPg%3D%3D)](https://loupito75.github.io/Project-Hospital-Mods/changelog.html?mod=HospitalRuntimeOptimizer "View changelog") |
 | <a name="hfx"></a>[![HFX - Hospital Fixes](https://img.shields.io/badge/HFX-Hospital%20Fixes-f6f8fa?style=flat-square&labelColor=2f81f7&logo=github&logoColor=white)](mods/Loupito75.HospitalFixes/ "Fixes targeted Vanilla bugs and inconsistencies in Project Hospital across hospital operations, interface, construction and visuals. • First release: 2026-11-05") | [![Download](https://img.shields.io/badge/v1.0.0-2026--11--05-f6f8fa?style=flat&labelColor=3fb950&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnYxMC4xN2wzLjU5LTMuNThMMTggMTFsLTYgNi02LTYgMS40MS0xLjQxTDExIDEzLjE3VjN6TTUgMTloMTR2Mkg1eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Loupito75/Project-Hospital-Mods/releases/tag/HospitalFixes-v1.0.0 "Download the latest version of Hospital Fixes") | [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-2a475e?style=flat&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3833415041 "Open Hospital Fixes on Steam Workshop") [![Changelog](https://img.shields.io/badge/Changelog-f0883e?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BCjxkZWZzPgo8bWFzayBpZD0ibSI%2BCjxyZWN0IHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0iYmxhY2siLz4KPHBhdGggZD0iTTYgMmg4bDQgNHYxNkg2eiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0IDJ2NWg0IiBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTkgMTFoNk05IDE1aDYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8%2BCjwvbWFzaz4KPC9kZWZzPgo8cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IndoaXRlIiBtYXNrPSJ1cmwoI20pIi8%2BCjwvc3ZnPg%3D%3D)](https://loupito75.github.io/Project-Hospital-Mods/changelog.html?mod=HospitalFixes "View changelog") |
-
-## 🗺️ Roadmap
-
-See the [public development roadmap](ROADMAP.md) for planned, in-development and released features across the mod collection.
 
 ## Installation
 
@@ -114,33 +116,12 @@ If you have customized an XML or configuration file, **do not automatically over
 
 For complete installation and update instructions, see the [BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363).
 
-## ❤️ Support ❤️
+## Project links
 
-If you enjoy my Project Hospital mods and want to support future updates and new projects:
-
-[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/loupito75)
-
-## Bug reports and suggestions
-
-### Bug reports
-
-Please use the dedicated bug-report form:
-
-**[Report a Bug](https://loupito75.github.io/Project-Hospital-Mods/report.html)**
-
-The form creates a private ticket for your report and allows you to attach saves, BepInEx logs, game logs, screenshots and other useful files through a private Dropbox upload request.
-
-No GitHub or Dropbox account is required to submit a report.
-
-After submission, you will receive a confirmation email containing your ticket number. Keep this number if you need to follow up on the report.
-
-The form indicates which information is required.
-
-### Suggestions
-
-Suggestions should be posted in the **Steam Workshop Discussions** of the corresponding mod.
-
-Use the **Discussions** link in the mod table above to open the discussion page for the relevant mod.
+- **[Roadmap](https://loupito75.github.io/Project-Hospital-Mods/roadmap.html)** — Browse planned, in-development and released features across the mod collection.
+- **[Changelogs](https://loupito75.github.io/Project-Hospital-Mods/changelog.html)** — View the release history and changes for each mod.
+- **[Report a Bug](https://loupito75.github.io/Project-Hospital-Mods/report.html)** — Submit a private bug report with logs, saves, screenshots and other useful files. No GitHub or Dropbox account is required.
+- **[Make a Suggestion](#)** — Submit ideas, improvements or feature requests for the mods.
 
 ## Compatibility
 
