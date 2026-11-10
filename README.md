@@ -114,9 +114,7 @@ Compatibility issues may be investigated when practical, but compatibility with 
 - **[GitHub Releases](https://github.com/Loupito75/Project-Hospital-Mods/releases)** — Published mod versions and downloadable ZIP packages are available through GitHub Releases.
 - **Versioning** — Public releases use `MAJOR.MINOR.PATCH` version numbers, kept synchronized across the mod, documentation and release package.
 
-*For installation, always download the mod ZIP from the **Assets** section of its release rather than GitHub's automatically generated **Source code** archives.*
-
-## Source code
+## Development
 
 The mods in this repository are developed using C#, BepInEx, Harmony / HarmonyLib, Unity and Project Hospital's game APIs.
 
