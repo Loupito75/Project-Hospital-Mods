@@ -51,70 +51,45 @@ Use the **Latest Release** column to download the newest version, and the links 
 | <a name="hro"></a>[![HRO - Hospital Runtime Optimizer](https://img.shields.io/badge/HRO-Hospital%20Runtime%20Optimizer-f6f8fa?style=flat-square&labelColor=2f81f7&logo=github&logoColor=white)](mods/Loupito75.HospitalRuntimeOptimizer/ "Improves Project Hospital performance by reducing redundant Vanilla runtime and rendering work without changing simulation, pathfinding or gameplay decisions. • First release: 2026-10-25") | [![Download](https://img.shields.io/badge/v1.0.0-2026--10--25-f6f8fa?style=flat&labelColor=3fb950&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnYxMC4xN2wzLjU5LTMuNThMMTggMTFsLTYgNi02LTYgMS40MS0xLjQxTDExIDEzLjE3VjN6TTUgMTloMTR2Mkg1eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Loupito75/Project-Hospital-Mods/releases/tag/HospitalRuntimeOptimizer-v1.0.0 "Download the latest version of Hospital Runtime Optimizer") | [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-2a475e?style=flat&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3826785142 "Open Hospital Runtime Optimizer on Steam Workshop") [![Changelog](https://img.shields.io/badge/Changelog-f0883e?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BCjxkZWZzPgo8bWFzayBpZD0ibSI%2BCjxyZWN0IHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0iYmxhY2siLz4KPHBhdGggZD0iTTYgMmg4bDQgNHYxNkg2eiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0IDJ2NWg0IiBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTkgMTFoNk05IDE1aDYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8%2BCjwvbWFzaz4KPC9kZWZzPgo8cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IndoaXRlIiBtYXNrPSJ1cmwoI20pIi8%2BCjwvc3ZnPg%3D%3D)](https://loupito75.github.io/Project-Hospital-Mods/changelog.html?mod=HospitalRuntimeOptimizer "View changelog") |
 | <a name="hfx"></a>[![HFX - Hospital Fixes](https://img.shields.io/badge/HFX-Hospital%20Fixes-f6f8fa?style=flat-square&labelColor=2f81f7&logo=github&logoColor=white)](mods/Loupito75.HospitalFixes/ "Fixes targeted Vanilla bugs and inconsistencies in Project Hospital across hospital operations, interface, construction and visuals. • First release: 2026-11-05") | [![Download](https://img.shields.io/badge/v1.0.0-2026--11--05-f6f8fa?style=flat&labelColor=3fb950&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnYxMC4xN2wzLjU5LTMuNThMMTggMTFsLTYgNi02LTYgMS40MS0xLjQxTDExIDEzLjE3VjN6TTUgMTloMTR2Mkg1eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Loupito75/Project-Hospital-Mods/releases/tag/HospitalFixes-v1.0.0 "Download the latest version of Hospital Fixes") | [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-2a475e?style=flat&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3833415041 "Open Hospital Fixes on Steam Workshop") [![Changelog](https://img.shields.io/badge/Changelog-f0883e?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BCjxkZWZzPgo8bWFzayBpZD0ibSI%2BCjxyZWN0IHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0iYmxhY2siLz4KPHBhdGggZD0iTTYgMmg4bDQgNHYxNkg2eiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0IDJ2NWg0IiBmaWxsPSJub25lIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTkgMTFoNk05IDE1aDYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8%2BCjwvbWFzaz4KPC9kZWZzPgo8cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IndoaXRlIiBtYXNrPSJ1cmwoI20pIi8%2BCjwvc3ZnPg%3D%3D)](https://loupito75.github.io/Project-Hospital-Mods/changelog.html?mod=HospitalFixes "View changelog") |
 
-## Installation
+## Installation and updates
 
-These are **BepInEx code mods**.
+These are **BepInEx code mods** and require BepInEx 5.x.
 
-For complete BepInEx installation instructions for Windows and macOS, code mod installation, updates and troubleshooting, see my Steam guide:
+For complete BepInEx installation instructions for Windows and macOS, mod installation, updates and troubleshooting, see the **[BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363)**.
 
-**[BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363)**
+BepInEx itself can be downloaded from its **[official releases page](https://github.com/BepInEx/BepInEx/releases)**.
 
-BepInEx can be downloaded from its official release page:
+### Recommended setup
 
-**[BepInEx — Official Releases](https://github.com/BepInEx/BepInEx/releases)**
+A simple way to get started is to install **[Hospital Mod Update Checker (HMUC)](#hmuc)** manually first.
 
-Download files are available in the **Assets** section of each BepInEx release. See the installation guide above for the correct package for your platform.
+Once **[HMUC](#hmuc)** is installed, it can be used directly from Project Hospital to discover, install and update supported mods without having to download each release manually.
 
-### Installing from GitHub
+Existing user settings and configuration files are preserved during HMUC updates.
 
-When downloading a mod from this repository, you do **not** need to subscribe to its Steam Workshop item.
+### Manual installation
 
-Instead:
+Mods can also be installed manually from GitHub:
 
-1. Use the **Latest Release** column in the table above to open the mod's latest GitHub Release.
-2. In the Assets section near the bottom of the release page, download the provided mod ZIP archive.
-3. Do not download GitHub's automatically generated Source code archives.
-4. Extract the complete mod folder into:
+1. Use the **[Latest Release column in the mod table](#mods)** to open the mod's latest GitHub Release.
+2. Download the provided mod ZIP from the **Assets** section. Do not use GitHub's automatically generated **Source code** archives.
+3. Extract the complete mod folder into:
 
 ```text
 BepInEx/plugins
 ```
 
-The resulting structure should look similar to:
+Always install the complete package, as some mods include configuration files, Database files or other runtime content in addition to the plugin DLL.
 
-```text
-Project Hospital
-└── BepInEx
-    └── plugins
-        └── Loupito75.ModName
-            ├── Loupito75.ModName.dll
-            ├── configuration XML files if included
-            └── additional files or folders if required
-```
+Installing a mod from GitHub does not require subscribing to its Steam Workshop item. Avoid keeping multiple copies of the same plugin under `BepInEx/plugins`.
 
-Always install the complete mod package. Some mods may include configuration XML files, a Database folder or other files required at runtime.
+### Updating mods
 
-The Steam guide still applies for installing BepInEx and troubleshooting. The only difference is where the mod files come from: **download the ZIP from GitHub instead of subscribing to the Steam Workshop item and copying its files.**
+The recommended way to keep supported mods up to date is **[HMUC](#hmuc)**, which checks for newer public versions and can download and install them directly.
 
-If you install a mod from GitHub, subscribing to the same Steam Workshop item is not required.
+Updates can also be installed manually using the **[Latest Release column in the mod table](#mods)**.
 
-Avoid keeping multiple installed copies of the same plugin under BepInEx/plugins, as BepInEx may load duplicate plugin files.
-
-### Updating Mods
-
-Mods installed inside `BepInEx/plugins` can be updated directly using **Hospital Mod Update Checker (HMUC)**.
-
-HMUC checks supported installed mods for newer public versions, notifies you directly from the Project Hospital title screen, and can download and install available updates for you.
-
-**Existing user settings and configuration files are preserved during HMUC updates.**
-
-You can also use the **Latest Release** column in the mod table above to check and download the newest published version of each mod manually.
-
-When updating manually, replace the DLL and any other required runtime files or folders with those included in the new release package.
-
-If you have customized an XML or configuration file, **do not automatically overwrite it during a manual update**. Back it up first and check the release notes or changelog for new or changed configuration options.
-
-For complete installation and update instructions, see the [BepInEx Code Mods — Installation Guide](https://steamcommunity.com/sharedfiles/filedetails/?id=3797459363).
+If you have customized a configuration XML file, do not overwrite it manually without checking the mod's changelog for new or changed options.
 
 ## Project links
 
