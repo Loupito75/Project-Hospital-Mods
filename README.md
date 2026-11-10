@@ -133,58 +133,13 @@ Compatibility with every third-party mod **cannot be guaranteed**. Other mods ma
 
 Compatibility issues may be investigated when practical, but compatibility with every mod or every individual compatibility request cannot be guaranteed or maintained.
 
-## Repository structure on GitHub
+## Repository and releases
 
-```text
-mods/
-└── Loupito75.ModName/
-    ├── source files
-    └── configuration files when applicable
-```
+- **Source code** — Each mod has its own directory under `mods/Loupito75.ModName/`, containing its public source code and configuration files when applicable.
+- **[GitHub Releases](https://github.com/Loupito75/Project-Hospital-Mods/releases)** — Published mod versions and downloadable ZIP packages are available through GitHub Releases.
+- **Versioning** — Public releases use `MAJOR.MINOR.PATCH` version numbers, kept synchronized across the mod, documentation and release package.
 
-Each mod has its own directory containing its public source code and configuration files when applicable.
-
-Compiled release packages are distributed through GitHub Releases and are not stored directly in the repository.
-
-## Releases
-
-Each public version is published through the GitHub **Releases** section of this repository.
-
-Release tags identify both the mod and its version.
-
-Example:
-
-```text
-ModName-vX.X.X
-```
-
-The downloadable archive follows the same principle:
-
-```text
-Loupito75.ModName-vX.X.X.zip
-```
-
-The mod ZIP is available in the **Assets** section of its GitHub Release.
-
-For installation, use this ZIP rather than GitHub's automatically generated **Source code** archives.
-
-## Versioning
-
-Public releases use three-part version numbers:
-
-```text
-MAJOR.MINOR.PATCH
-```
-
-Examples:
-
-```text
-1.0.0
-1.0.1
-1.1.0
-```
-
-Version numbers shown in the mod, plugin metadata, assembly information, documentation and GitHub Release are kept synchronized.
+*For installation, always download the mod ZIP from the **Assets** section of its release rather than GitHub's automatically generated **Source code** archives.*
 
 ## Source code
 
