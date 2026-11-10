@@ -26,7 +26,7 @@ This repository contains the public source code and releases of my Project Hospi
 
 Hover over a mod to see its description, or click its name to browse the source code on GitHub.
 
-Use the **Latest Release** column to download the newest version, and the links provided to access the Steam Workshop page, discussions and changelog.
+Use the **Latest Release** column to download the newest version, and the links provided to access the Steam Workshop page and changelog.
 
 *Mods are listed by first release date, with the newest additions at the bottom.*
 
