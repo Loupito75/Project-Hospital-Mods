@@ -28,6 +28,17 @@ If you enjoy my Project Hospital mods and want to support future updates and new
 
 [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/loupito75)
 
+## Contents
+
+- [Mods](#mods)
+- [Installation and updates](#installation-and-updates)
+- [Project links (Bug reports, suggestions, roadmap, changelogs)](#project-links-bug-reports-suggestions-roadmap-changelogs)
+- [Compatibility](#compatibility)
+- [Repository and releases](#repository-and-releases)
+- [Development](#development)
+- [Disclaimer](#disclaimer)
+- [License](#license)
+
 ## Mods
 
 Hover over a mod to see its description, or click its name to browse the source code on GitHub.
@@ -91,7 +102,7 @@ Updates can also be installed manually using the **[Latest Release column in the
 
 If you have customized a configuration XML file, do not overwrite it manually without checking the mod's changelog for new or changed options.
 
-## Project links
+## Project links (Bug reports, suggestions, roadmap, changelogs)
 
 - **[Roadmap](https://loupito75.github.io/Project-Hospital-Mods/roadmap.html)** — Browse planned, in-development and released features across the mod collection.
 - **[Changelogs](https://loupito75.github.io/Project-Hospital-Mods/changelog.html)** — View the release history and changes for each mod.
