@@ -27,7 +27,7 @@ textarea {
 }
 
 .page {
-    width: min(780px, calc(100% - 32px));
+    width: min(960px, calc(100% - 32px));
     margin: 48px auto;
 }
 
@@ -523,7 +523,7 @@ button:not(:disabled):hover,
 
 @media (max-width: 600px) {
     .page {
-        width: min(100% - 20px, 780px);
+        width: min(100% - 20px, 960px);
         margin: 20px auto;
     }
 
