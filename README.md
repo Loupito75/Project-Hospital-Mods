@@ -12,7 +12,7 @@
 
 <p align="center">
 <a href="https://loupito75.github.io/Project-Hospital-Mods/report.html" title="Open the Project Hospital Mods bug report form"><img src="https://img.shields.io/badge/Report%20a%20Bug-Open%20Form-d73a49?style=flat&labelColor=f6f8fa&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI%2BPHBhdGggZmlsbD0iI2Q3M2E0OSIgZD0iTTcgMmgybC0uMyA4SDcuM0w3IDJ6bTAgMTBoMnYySDd2LTJ6Ii8%2BPC9zdmc%2B" alt="Report a Bug"></a> 
-<a href="#" title="Open the Project Hospital Mods suggestion form"><img src="https://img.shields.io/badge/Make%20a%20Suggestion-Open%20Form-bf4b8a?style=flat&labelColor=f6f8fa&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI%2BPHBhdGggZmlsbD0iI2JmNGI4YSIgZD0iTTggMUM0LjEgMSAxIDMuNSAxIDYuNmMwIDEuOSAxLjEgMy42IDIuOSA0LjdMMyAxNWwzLjgtMmMuNC4xLjguMSAxLjIuMSAzLjkgMCA3LTIuNSA3LTYuNVMxMS45IDEgOCAxem0tMyA3SDNWNmgydjJ6bTQgMEg3VjZoMnYyem00IDBoLTJWNmgydjJ6Ii8%2BPC9zdmc%2B" alt="Make a Suggestion"></a>
+<a href="https://loupito75.github.io/Project-Hospital-Mods/suggestion.html" title="Open the Project Hospital Mods suggestion form"><img src="https://img.shields.io/badge/Make%20a%20Suggestion-Open%20Form-bf4b8a?style=flat&labelColor=f6f8fa&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI%2BPHBhdGggZmlsbD0iI2JmNGI4YSIgZD0iTTggMUM0LjEgMSAxIDMuNSAxIDYuNmMwIDEuOSAxLjEgMy42IDIuOSA0LjdMMyAxNWwzLjgtMmMuNC4xLjguMSAxLjIuMSAzLjkgMCA3LTIuNSA3LTYuNVMxMS45IDEgOCAxem0tMyA3SDNWNmgydjJ6bTQgMEg3VjZoMnYyem00IDBoLTJWNmgydjJ6Ii8%2BPC9zdmc%2B" alt="Make a Suggestion"></a>
 <a href="https://loupito75.github.io/Project-Hospital-Mods/roadmap.html" title="View the Project Hospital Mods development roadmap"><img src="https://img.shields.io/badge/Roadmap-View%20Plans-0f8b8d?style=flat&labelColor=f6f8fa&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI%2BPHBhdGggZmlsbD0iIzBmOGI4ZCIgZD0iTTMgMWgydjFoN2wtMS41IDJMMTIgNkg1djlIM1YxeiIvPjwvc3ZnPg%3D%3D" alt="Roadmap"></a>
 </p>
 
@@ -107,7 +107,7 @@ If you have customized a configuration XML file, do not overwrite it manually wi
 - **[Roadmap](https://loupito75.github.io/Project-Hospital-Mods/roadmap.html)** — Browse planned, in-development and released features across the mod collection.
 - **[Changelogs](https://loupito75.github.io/Project-Hospital-Mods/changelog.html)** — View the release history and changes for each mod.
 - **[Report a Bug](https://loupito75.github.io/Project-Hospital-Mods/report.html)** — Submit a private bug report with logs, saves, screenshots and other useful files. No GitHub or Dropbox account is required.
-- **[Make a Suggestion](#)** — Submit ideas, improvements or feature requests for the mods.
+- **[Make a Suggestion](https://loupito75.github.io/Project-Hospital-Mods/suggestion.html)** — Submit ideas, improvements or feature requests for the mods.
 
 ## Compatibility
 
