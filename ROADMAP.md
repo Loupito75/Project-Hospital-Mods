@@ -10,8 +10,8 @@ Plans may change as implementation, compatibility checks and in-game testing pro
 | Status | Items |
 | --- | ---: |
 | 🛠️ In development | 14 |
-| 🟡 Planned | 66 |
-| 💡 Ideas | 42 |
+| 🟡 Planned | 54 |
+| 💡 Ideas | 44 |
 
 ## Hospital Always Lit (HAL)
 
@@ -159,22 +159,12 @@ Plans may change as implementation, compatibility checks and in-game testing pro
 | 🟡 Planned | Feature | Clinic vs Emergency Routing | Route patients toward clinic or emergency care based on their intake and triage information. |
 | 🟡 Planned | Feature | CTAS-Inspired Triage Levels | Give arriving patients an acuity level from 1 to 5 so the most urgent cases can be identified and prioritized more realistically. |
 | 🟡 Planned | Feature | Department-Based Intake Routing | Allow intake rules to direct patients toward the most appropriate department before their normal care begins. |
-| 🟡 Planned | Feature | Department-Specific Intake Rules | Allow departments to use different intake rules without turning HPI into a diagnostic engine or global resource selector. |
 | 🟡 Planned | Improvement | Early Department Routing When Diagnoses Converge | Move a patient toward the appropriate department once every remaining possible diagnosis belongs to that department. |
 | 🟡 Planned | Improvement | Just-in-Time Receptionist Assignment | Assign receptionists when intake actually needs them instead of reserving them too early. |
-| 🟡 Planned | UI/UX | Localized HPI Interface | Provide translatable HPI text with English fallback while preserving vanilla localization tables. |
-| 🟡 Planned | Feature | Mandatory Walk-In Intake Before Waiting Room | Have eligible walk-in patients pass through a real reception or triage step instead of silently bypassing intake. |
-| 🟡 Planned | Feature | Multi-Reception Shared Intake | Expand shared intake from one central reception to multiple admissible shared reception points. |
-| 🟡 Planned | Feature | Native Trauma Center & Observation Intake Handoff | Hand appropriately triaged patients into native Trauma Center or Observation workflows only when vanilla or HCLT already considers that level of care medically admissible. |
-| 🟡 Planned | Improvement | Natural Intake Variability | Use bounded variation in equivalent HPI timings and presentation so intake feels less mechanical without randomizing medical safety, acuity or routing rules. |
-| 🟡 Planned | Improvement | Richer Acuity Reassessment | Expand reassessment with additional validated clinical triggers while remaining event-driven and avoiding global polling. |
-| 🟡 Planned | UI/UX | Shared Intake Configuration | Let players configure a reception for shared intake using vanilla-style UI whenever possible. |
-| 🟡 Planned | UI/UX | Shared Intake Reception Indicator | Make it clear when a reception is configured as a shared HPI intake point. |
-| 🟡 Planned | Feature | Shared Reception & Central Intake | Allow multiple departments to use one shared reception and intake area while preserving each patient's clinical department. |
-| 🟡 Planned | UI/UX | Triage Acuity Indicator | Use a discreet visual indicator for acuity levels 1 to 5 while staying visually consistent with the vanilla UI. |
-| 🟡 Planned | UI/UX | Triage Reassessment Feedback | Show meaningful acuity changes without creating repetitive notification spam. |
-| 🟡 Planned | Improvement | Triage Reassessment While Waiting | Reassess waiting patients so meaningful deterioration or new clinical information can update their intake priority. |
-| 🟡 Planned | UI/UX | Visible Triage Level | Show the patient's HPI triage level clearly in the patient interface. |
+| 🟡 Planned | Improvement | Mandatory Walk-In Intake Before Waiting Room | Have eligible walk-in patients pass through a real reception or triage step instead of silently bypassing intake. |
+| 🟡 Planned | Feature | Shared Reception & Central Intake | Allow multiple departments to use shared reception and intake areas instead of requiring completely separate front desks. |
+| 💡 Ideas | Feature | Trauma Center & Observation Intake Routing | Route appropriately triaged patients into the native Trauma Center or Observation workflow when the game's clinical state and hospitalization rules make that safe. |
+| 💡 Ideas | Improvement | Triage Reassessment While Waiting | Reassess waiting patients so meaningful deterioration can update their intake priority. |
 
 ## Hospital Expansion (HEX)
 
