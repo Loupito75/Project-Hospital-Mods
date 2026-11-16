@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1">
+
+    <meta
+        name="description"
+        content="Submit a feature or improvement suggestion for Project Hospital Mods by Loupito75.">
+
+    <title>Project Hospital Mods - Suggest an Idea</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css">
+
+    <script src="suggestion.js"></script>
+
+    <script
+        src="https://www.google.com/recaptcha/enterprise.js?onload=onRecaptchaLoaded&render=explicit"
+        async
+        defer>
+    </script>
+</head>
+
+<body>
+
+<main class="page">
+
+    <header class="site-header">
+        <div>
+            <h1>Project Hospital Mods</h1>
+
+            <p class="author-line">
+                by Loupito75
+            </p>
+        </div>
+
+        <nav
+            class="site-nav"
+            aria-label="Project Hospital Mods">
+            <a href="index.html">Home</a>
+            <a href="roadmap.html">Roadmap</a>
+            <a href="changelog.html">Changelogs</a>
+            <a href="report.html">Report a bug</a>
+            <a
+                href="suggestion.html"
+                aria-current="page">
+                Suggest an idea
+            </a>
+        </nav>
+    </header>
+
+
+    <section
+        id="verification-section"
+        class="card verification-card">
+
+        <h2>Suggest an Idea</h2>
+
+        <p>
+            Verify that you're human to create a private
+            suggestion ticket.
+        </p>
+
+        <div id="captcha-container"></div>
+
+        <div
+            id="ticket-loader"
+            class="ticket-loader"
+            hidden
+            aria-live="polite">
+
+            <div
+                class="spinner"
+                aria-hidden="true">
+            </div>
+
+            <div>
+                <strong>Creating your ticket…</strong>
+
+                <p>
+                    Please keep this page open.
+                    This may take a few seconds.
+                </p>
+            </div>
+
+        </div>
+
+        <p
+            id="status"
+            class="status"
+            aria-live="polite">
+            Waiting for verification…
+        </p>
+
+    </section>
+
+
+    <section
+        id="ticket-section"
+        class="card"
+        hidden>
+
+        <div class="ticket-header">
+
+            <div class="success-mark">
+                ✓
+            </div>
+
+            <h2>
+                Suggestion ticket
+            </h2>
+
+            <p class="ticket-ready-text">
+                Your ticket is ready.
+            </p>
+
+            <p class="label">
+                Ticket number
+            </p>
+
+            <div class="ticket-row">
+
+                <input
+                    id="ticket-id"
+                    type="text"
+                    readonly
+                    aria-label="Ticket number">
+
+                <button
+                    id="copy-ticket"
+                    type="button">
+                    Copy
+                </button>
+
+            </div>
+
+            <p class="field-help">
+                Keep this number if you need to contact me
+                about your suggestion.
+            </p>
+
+            <p
+                id="confirmation-status"
+                class="confirmation-note">
+                After you submit the suggestion, a confirmation
+                email containing this ticket number will be sent
+                to the email address you provide below.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <section
+        id="suggestion-section"
+        class="card"
+        hidden>
+
+        <h2>
+            Submit your suggestion
+        </h2>
+
+        <p>
+            Please submit one idea at a time and describe the
+            problem or need as well as the solution you have in mind.
+        </p>
+
+        <div class="info-box">
+
+            <strong>
+                Check the roadmap before submitting.
+            </strong>
+
+            <p>
+                Planned features and ideas already being considered
+                are listed on the public roadmap.
+            </p>
+
+            <p>
+                <a href="roadmap.html">
+                    View the public roadmap
+                </a>
+            </p>
+
+            <p>
+                All fields are required unless marked “optional”.
+                Your suggestion will be sent privately to Loupito75
+                by email.
+            </p>
+
+        </div>
+
+
+        <form
+            id="suggestion-form"
+            novalidate>
+
+            <div class="form-row">
+
+                <div class="form-field">
+
+                    <label for="reporter-name">
+                        Your name or nickname
+                    </label>
+
+                    <input
+                        id="reporter-name"
+                        type="text"
+                        maxlength="100"
+                        autocomplete="name"
+                        required>
+
+                </div>
+
+
+                <div class="form-field">
+
+                    <label for="reporter-email">
+                        Email address
+                    </label>
+
+                    <input
+                        id="reporter-email"
+                        type="email"
+                        maxlength="254"
+                        autocomplete="email"
+                        required
+                        placeholder="you@example.com">
+
+                    <p class="field-help">
+                        Used only for confirmation or if more
+                        information is needed.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="suggestion-target">
+                    Suggestion for
+                </label>
+
+                <select
+                    id="suggestion-target"
+                    required>
+
+                    <option value="">
+                        Select a category…
+                    </option>
+
+                    <option value="existing-mod">
+                        Existing mod
+                    </option>
+
+                    <option value="new-mod">
+                        New mod idea
+                    </option>
+
+                    <option value="general">
+                        General / Other
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div
+                id="mod-field"
+                class="form-field"
+                hidden>
+
+                <label for="mod-select">
+                    Mod
+                </label>
+
+                <select
+                    id="mod-select"
+                    disabled>
+
+                    <option value="">
+                        Loading mod list…
+                    </option>
+
+                </select>
+
+                <p
+                    id="mod-status"
+                    class="field-help">
+                    Loading current published mods…
+                </p>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="suggestion-title">
+                    Short title
+                </label>
+
+                <input
+                    id="suggestion-title"
+                    type="text"
+                    maxlength="160"
+                    autocomplete="off"
+                    required
+                    placeholder="Summarize the idea in one sentence">
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="problem">
+                    What problem or limitation does this address?
+                </label>
+
+                <textarea
+                    id="problem"
+                    rows="6"
+                    maxlength="5000"
+                    required
+                    placeholder="Describe the situation, limitation or need that made you think of this suggestion."></textarea>
+
+                <p class="field-help">
+                    Describing the underlying need helps identify
+                    solutions that fit Project Hospital's systems.
+                </p>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="suggested-behaviour">
+                    What would you like to happen?
+                </label>
+
+                <textarea
+                    id="suggested-behaviour"
+                    rows="6"
+                    maxlength="5000"
+                    required
+                    placeholder="Describe the behaviour or improvement you would like to see."></textarea>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="example-use-case">
+                    Example or use case
+                </label>
+
+                <textarea
+                    id="example-use-case"
+                    rows="5"
+                    maxlength="5000"
+                    required
+                    placeholder="Give a concrete example of when this would help during gameplay."></textarea>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="usefulness">
+                    Why would this be useful?
+
+                    <span class="optional-label">
+                        optional
+                    </span>
+                </label>
+
+                <textarea
+                    id="usefulness"
+                    rows="4"
+                    maxlength="3000"
+                    placeholder="Explain the benefit for gameplay, hospital management, usability or realism."></textarea>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="workaround">
+                    Current workaround
+
+                    <span class="optional-label">
+                        optional
+                    </span>
+                </label>
+
+                <textarea
+                    id="workaround"
+                    rows="4"
+                    maxlength="3000"
+                    placeholder="If you currently work around this another way, describe it here."></textarea>
+
+            </div>
+
+
+            <div class="form-field">
+
+                <label for="additional-notes">
+                    Additional information
+
+                    <span class="optional-label">
+                        optional
+                    </span>
+                </label>
+
+                <textarea
+                    id="additional-notes"
+                    rows="4"
+                    maxlength="3000"
+                    placeholder="Anything else that may help explain or evaluate the suggestion."></textarea>
+
+            </div>
+
+
+            <div class="submit-area">
+
+                <button
+                    id="submit-suggestion"
+                    class="button primary-button"
+                    type="submit"
+                    disabled>
+                    Submit suggestion
+                </button>
+
+
+                <div
+                    id="suggestion-loader"
+                    class="report-loader"
+                    hidden
+                    aria-live="polite">
+
+                    <div
+                        class="spinner report-spinner"
+                        aria-hidden="true">
+                    </div>
+
+                    <div>
+                        <strong>
+                            Sending your suggestion…
+                        </strong>
+
+                        <p>
+                            Please keep this page open while your
+                            suggestion and confirmation are processed.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <p
+                    id="suggestion-status"
+                    class="status"
+                    aria-live="polite">
+                    Preparing the suggestion form…
+                </p>
+
+            </div>
+
+        </form>
+
+    </section>
+
+
+    <footer class="page-footer">
+
+        <p>
+            Project Hospital Mods by Loupito75
+        </p>
+
+        <a
+            href="https://github.com/Loupito75/Project-Hospital-Mods"
+            target="_blank"
+            rel="noopener noreferrer">
+            View Project Hospital Mods on GitHub
+        </a>
+
+    </footer>
+
+</main>
+
+
+<iframe
+    id="backend-bridge"
+    name="backend-bridge"
+    hidden>
+</iframe>
+
+
+<form
+    id="ticket-init-form"
+    method="post"
+    target="backend-bridge"
+    hidden>
+
+    <input
+        type="hidden"
+        name="action"
+        value="init">
+
+    <input
+        type="hidden"
+        name="requestType"
+        value="suggestion">
+
+    <input
+        id="captcha-token"
+        type="hidden"
+        name="captchaToken">
+
+    <input
+        id="client-nonce"
+        type="hidden"
+        name="clientNonce">
+
+</form>
+
+
+<form
+    id="suggestion-submit-form"
+    method="post"
+    target="backend-bridge"
+    hidden>
+
+    <input
+        type="hidden"
+        name="action"
+        value="submit">
+
+    <input
+        type="hidden"
+        name="requestType"
+        value="suggestion">
+
+    <input
+        id="submit-client-nonce"
+        type="hidden"
+        name="clientNonce">
+
+    <input
+        id="submit-ticket-id"
+        type="hidden"
+        name="ticketId">
+
+    <input
+        id="submit-reservation-token"
+        type="hidden"
+        name="reservationToken">
+
+    <input
+        id="submit-reporter-name"
+        type="hidden"
+        name="reporterName">
+
+    <input
+        id="submit-reporter-email"
+        type="hidden"
+        name="reporterEmail">
+
+    <input
+        id="submit-suggestion-target"
+        type="hidden"
+        name="suggestionTarget">
+
+    <input
+        id="submit-mod-guid"
+        type="hidden"
+        name="modGuid">
+
+    <input
+        id="submit-mod-name"
+        type="hidden"
+        name="modName">
+
+    <input
+        id="submit-title"
+        type="hidden"
+        name="title">
+
+    <input
+        id="submit-problem"
+        type="hidden"
+        name="problem">
+
+    <input
+        id="submit-suggested-behaviour"
+        type="hidden"
+        name="suggestedBehaviour">
+
+    <input
+        id="submit-example-use-case"
+        type="hidden"
+        name="exampleUseCase">
+
+    <input
+        id="submit-usefulness"
+        type="hidden"
+        name="usefulness">
+
+    <input
+        id="submit-workaround"
+        type="hidden"
+        name="workaround">
+
+    <input
+        id="submit-additional-notes"
+        type="hidden"
+        name="additionalNotes">
+
+</form>
+
+</body>
+</html>
