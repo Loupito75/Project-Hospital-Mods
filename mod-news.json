@@ -6,7 +6,7 @@
     {
       "id": 999999,
       "title": "HMUC update required",
-      "text": "Hospital Mod Update Checker has moved to a new secure catalog system. Update HMUC before November 30, 2026. After this date, the legacy update catalogs will be removed. If automatic updating is no longer available, download the latest HMUC version from the Steam Workshop or from the Loupito75 Project Hospital Mods GitHub repository."
+      "text": "Hospital Mod Update Checker has moved to a new secure catalog system. The legacy update catalogs were retired on November 20, 2026. If automatic updating is no longer available, download the latest HMUC version from the Steam Workshop or from the Loupito75 Project Hospital Mods GitHub repository."
     }
   ]
 }
