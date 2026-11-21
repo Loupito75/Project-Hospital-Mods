@@ -13,7 +13,8 @@ namespace HospitalPatientLife.Patches
             if (!HospitalPatientLifeConfig.AllowPersonalNeedChaining ||
                 hospitalization == null ||
                 hospitalization.m_entity == null ||
-                hospitalization.m_state == null)
+                hospitalization.m_state == null ||
+                !HospitalizedBedSafety.CanUseAssignedBed(hospitalization))
             {
                 return false;
             }

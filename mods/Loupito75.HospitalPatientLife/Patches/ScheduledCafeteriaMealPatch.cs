@@ -706,7 +706,8 @@ namespace HospitalPatientLife.Patches
         private static bool Prefix(HospitalizationComponent __instance)
         {
             if (__instance == null || __instance.m_entity == null ||
-                __instance.m_state == null)
+                __instance.m_state == null ||
+                !HospitalizedBedSafety.CanUseAssignedBed(__instance))
             {
                 return true;
             }

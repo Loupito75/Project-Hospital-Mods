@@ -12,7 +12,8 @@ namespace HospitalPatientLife
         public const string HarmonyId = "Loupito75:HospitalPatientLife";
         public const string PluginName = "Hospital Patient Life";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
+        public const string PluginWhatsNew = "Safer hospital resets, safe handling of missing patient beds, clearer yellow leisure-object placement feedback, safer configuration loading, lower background overhead";
 
         internal static ManualLogSource Log { get; private set; }
 

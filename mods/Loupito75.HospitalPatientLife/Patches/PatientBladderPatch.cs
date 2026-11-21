@@ -400,28 +400,31 @@ namespace HospitalPatientLife.Patches
                 }
             }
 
-            BehaviorPatient behavior =
-                patient.GetComponent<BehaviorPatient>();
-            Department patientDepartment =
-                behavior.m_state == null ||
-                behavior.m_state.m_department == null
-                    ? null
-                    : behavior.m_state.m_department.GetEntity();
+            if (HospitalizedPatientTrace.Enabled)
+            {
+                BehaviorPatient behavior =
+                    patient.GetComponent<BehaviorPatient>();
+                Department patientDepartment =
+                    behavior.m_state == null ||
+                    behavior.m_state.m_department == null
+                        ? null
+                        : behavior.m_state.m_department.GetEntity();
 
-            HospitalizedPatientTrace.Log(
-                HospitalizedPatientTrace.GetName(patient) +
-                " | bladder-wc-reselect=" +
-                (reselectForProcedureAccess
-                    ? "PATIENT_PROCEDURE"
-                    : "BIOHAZARD_FILTER") +
-                " | patientDpt=" +
-                NeedDestinationDiagnostics.GetDepartmentId(
-                    patientDepartment) +
-                " | original=" +
-                PatientBladderRules.DescribeWc(selected) +
-                " | replacement=" +
-                PatientBladderRules.DescribeWc(replacement) +
-                " | searchAccess=" + effectiveAccess);
+                HospitalizedPatientTrace.Log(
+                    HospitalizedPatientTrace.GetName(patient) +
+                    " | bladder-wc-reselect=" +
+                    (reselectForProcedureAccess
+                        ? "PATIENT_PROCEDURE"
+                        : "BIOHAZARD_FILTER") +
+                    " | patientDpt=" +
+                    NeedDestinationDiagnostics.GetDepartmentId(
+                        patientDepartment) +
+                    " | original=" +
+                    PatientBladderRules.DescribeWc(selected) +
+                    " | replacement=" +
+                    PatientBladderRules.DescribeWc(replacement) +
+                    " | searchAccess=" + effectiveAccess);
+            }
         }
     }
 
@@ -430,7 +433,9 @@ namespace HospitalPatientLife.Patches
     {
         private static void Postfix(ProcedureScriptNeedBladder __instance)
         {
-            if (__instance == null || __instance.m_stateData == null ||
+            if (!HospitalizedPatientTrace.Enabled ||
+                __instance == null ||
+                __instance.m_stateData == null ||
                 __instance.m_stateData.m_procedureScene == null)
             {
                 return;

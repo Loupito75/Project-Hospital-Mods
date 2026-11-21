@@ -73,16 +73,19 @@ namespace HospitalPatientLife.Patches
 
             if (NightTripStarted.ContainsKey(patient) && stage == 1)
             {
-                HospitalizedPatientTrace.Log(
-                    HospitalizedPatientTrace.GetName(patient) +
-                    " | night-bladder-chance=DEFERRED" +
-                    " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
-                    " | stageThreshold=" + stageThreshold +
-                    " | nextStageThreshold=90" +
-                    " | chance=0" +
-                    " | roll=-1" +
-                    " | bladder=" + bladder.ToString("0.0") +
-                    " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+                if (HospitalizedPatientTrace.Enabled)
+                {
+                    HospitalizedPatientTrace.Log(
+                        HospitalizedPatientTrace.GetName(patient) +
+                        " | night-bladder-chance=DEFERRED" +
+                        " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
+                        " | stageThreshold=" + stageThreshold +
+                        " | nextStageThreshold=90" +
+                        " | chance=0" +
+                        " | roll=-1" +
+                        " | bladder=" + bladder.ToString("0.0") +
+                        " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+                }
                 return false;
             }
 
@@ -102,15 +105,18 @@ namespace HospitalPatientLife.Patches
                 action = state.Allowed ? "PASSED" : "SKIPPED";
             }
 
-            HospitalizedPatientTrace.Log(
-                HospitalizedPatientTrace.GetName(patient) +
-                " | night-bladder-chance=" + action +
-                " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
-                " | stageThreshold=" + stageThreshold +
-                " | chance=" + chance +
-                " | roll=" + roll +
-                " | bladder=" + bladder.ToString("0.0") +
-                " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+            if (HospitalizedPatientTrace.Enabled)
+            {
+                HospitalizedPatientTrace.Log(
+                    HospitalizedPatientTrace.GetName(patient) +
+                    " | night-bladder-chance=" + action +
+                    " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
+                    " | stageThreshold=" + stageThreshold +
+                    " | chance=" + chance +
+                    " | roll=" + roll +
+                    " | bladder=" + bladder.ToString("0.0") +
+                    " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+            }
 
             return state.Allowed;
         }
@@ -121,6 +127,18 @@ namespace HospitalPatientLife.Patches
             {
                 NightTripStarted[patient] = true;
             }
+        }
+
+        internal static bool HasRuntimeState(Entity patient)
+        {
+            return patient != null &&
+                (EpisodeDecisions.ContainsKey(patient) ||
+                 NightTripStarted.ContainsKey(patient));
+        }
+
+        internal static bool HasEpisodeDecision(Entity patient)
+        {
+            return patient != null && EpisodeDecisions.ContainsKey(patient);
         }
 
         internal static void ResetEpisode(Entity patient)
@@ -158,10 +176,29 @@ namespace HospitalPatientLife.Patches
             }
 
             Entity patient = __instance.m_entity;
+            if (!HospitalPatientLifeConfig.AllowNightBathroomTrips)
+            {
+                if (NightBathroomChancePatch.HasRuntimeState(patient))
+                {
+                    NightBathroomChancePatch.ResetNight(patient);
+                }
+                return;
+            }
+
+            if (!NightBathroomChancePatch.HasRuntimeState(patient))
+            {
+                return;
+            }
+
             if (!__instance.IsHospitalized() ||
                 (DayTime.Instance != null && DayTime.Instance.IsOpenForStaff()))
             {
                 NightBathroomChancePatch.ResetNight(patient);
+                return;
+            }
+
+            if (!NightBathroomChancePatch.HasEpisodeDecision(patient))
+            {
                 return;
             }
 

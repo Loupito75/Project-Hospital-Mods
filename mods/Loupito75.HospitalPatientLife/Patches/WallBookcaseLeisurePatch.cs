@@ -121,6 +121,19 @@ namespace HospitalPatientLife.Patches
             Room room,
             string[] requiredTags)
         {
+            return FindEligibleBookcases(
+                patient,
+                room,
+                requiredTags,
+                null);
+        }
+
+        internal static List<TileObject> FindEligibleBookcases(
+            Entity patient,
+            Room room,
+            string[] requiredTags,
+            List<float> routeDistances)
+        {
             List<TileObject> result = new List<TileObject>();
 
             if (room == null ||
@@ -165,28 +178,32 @@ namespace HospitalPatientLife.Patches
                         room,
                         floor,
                         floor.m_tileObjects[x, y].m_ObjectNW,
-                        requiredTags);
+                        requiredTags,
+                        routeDistances);
                     TryAddBookcase(
                         result,
                         patient,
                         room,
                         floor,
                         floor.m_tileObjects[x, y].m_ObjectNE,
-                        requiredTags);
+                        requiredTags,
+                        routeDistances);
                     TryAddBookcase(
                         result,
                         patient,
                         room,
                         floor,
                         floor.m_tileObjects[x, y].m_ObjectSE,
-                        requiredTags);
+                        requiredTags,
+                        routeDistances);
                     TryAddBookcase(
                         result,
                         patient,
                         room,
                         floor,
                         floor.m_tileObjects[x, y].m_ObjectSW,
-                        requiredTags);
+                        requiredTags,
+                        routeDistances);
                 }
             }
 
@@ -199,7 +216,8 @@ namespace HospitalPatientLife.Patches
             Room room,
             Floor floor,
             TileObject bookcase,
-            string[] requiredTags)
+            string[] requiredTags,
+            List<float> routeDistances)
         {
             if (bookcase == null ||
                 !IsAllowedNonValidBookcase(bookcase) ||
@@ -223,6 +241,7 @@ namespace HospitalPatientLife.Patches
                 return;
             }
 
+            float routeDistance = 0f;
             if (patient != null)
             {
                 if (YellowPosterLeisureAccess.IsUsePositionOccupied(
@@ -235,14 +254,18 @@ namespace HospitalPatientLife.Patches
 
                 WalkComponent walk = patient.GetComponent<WalkComponent>();
                 GridMap gridMap = GridMap.GetInstance();
-                if (walk == null ||
-                    gridMap == null ||
-                    gridMap.GetDistance(
-                        walk.GetFloorIndex(),
-                        walk.GetCurrentTile(),
-                        floor.m_floorIndex,
-                        usePosition,
-                        AccessRights.PATIENT) < 0f)
+                if (walk == null || gridMap == null)
+                {
+                    return;
+                }
+
+                routeDistance = gridMap.GetDistance(
+                    walk.GetFloorIndex(),
+                    walk.GetCurrentTile(),
+                    floor.m_floorIndex,
+                    usePosition,
+                    AccessRights.PATIENT);
+                if (routeDistance < 0f)
                 {
                     return;
                 }
@@ -251,6 +274,10 @@ namespace HospitalPatientLife.Patches
             if (!result.Contains(bookcase))
             {
                 result.Add(bookcase);
+                if (routeDistances != null)
+                {
+                    routeDistances.Add(routeDistance);
+                }
             }
         }
 
@@ -508,11 +535,13 @@ namespace HospitalPatientLife.Patches
                 return;
             }
 
+            List<float> bookcaseDistances = new List<float>();
             List<TileObject> bookcases =
                 WallBookcaseLeisureAccess.FindEligibleBookcases(
                     character,
                     room,
-                    tags);
+                    tags,
+                    bookcaseDistances);
             if (bookcases.Count == 0)
             {
                 return;
@@ -522,9 +551,7 @@ namespace HospitalPatientLife.Patches
             float bestDistance = float.MaxValue;
             for (int i = 0; i < bookcases.Count; i++)
             {
-                float distance = WallBookcaseLeisureAccess.GetRouteDistance(
-                    character,
-                    bookcases[i]);
+                float distance = bookcaseDistances[i];
                 if (distance >= 0f && distance < bestDistance)
                 {
                     bestDistance = distance;

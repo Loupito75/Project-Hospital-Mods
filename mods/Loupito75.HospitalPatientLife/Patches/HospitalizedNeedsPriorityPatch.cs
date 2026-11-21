@@ -9,10 +9,12 @@ namespace HospitalPatientLife.Patches
 {
     internal static class HospitalizedNeedsPriorityRules
     {
-        private static readonly Dictionary<Entity, bool> NightBladderFailureLogged =
+        private static readonly object RuntimeStateLock = new object();
+
+        private static Dictionary<Entity, bool> NightBladderFailureLogged =
             new Dictionary<Entity, bool>();
 
-        private static readonly Dictionary<Entity, string> UrgentFailureSignatures =
+        private static Dictionary<Entity, string> UrgentFailureSignatures =
             new Dictionary<Entity, string>();
 
         private static bool PassesPersonalNeedSafety(
@@ -195,7 +197,8 @@ namespace HospitalPatientLife.Patches
             ProcedureComponent procedures,
             float bladder)
         {
-            if (!NightBathroomChancePatch.CanStart(hospitalization, bladder))
+            if (!HospitalizedBedSafety.CanUseAssignedBed(hospitalization) ||
+                !NightBathroomChancePatch.CanStart(hospitalization, bladder))
             {
                 return false;
             }
@@ -206,20 +209,32 @@ namespace HospitalPatientLife.Patches
 
             if (availability != ProcedureSceneAvailability.AVAILABLE)
             {
-                if (!NightBladderFailureLogged.ContainsKey(patient))
+                if (HospitalizedPatientTrace.Enabled)
                 {
-                    NightBladderFailureLogged[patient] = true;
-                    HospitalizedPatientTrace.Log(
-                        HospitalizedPatientTrace.GetName(patient) +
-                        " | night-bladder=NO_DESTINATION" +
-                        " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
-                        " | bladder=" + bladder.ToString("0.0") +
-                        " | availability=" + availability +
-                        " | searchAccess=" + PatientBladderRules.GetEffectiveSearchAccess(
-                            patient,
-                            AccessRights.PATIENT) +
-                        " | floor=" + HospitalizedPatientTrace.GetFloor(patient) +
-                        NeedDestinationDiagnostics.BuildBladder(patient));
+                    bool shouldLogFailure = false;
+                    lock (RuntimeStateLock)
+                    {
+                        if (!NightBladderFailureLogged.ContainsKey(patient))
+                        {
+                            NightBladderFailureLogged[patient] = true;
+                            shouldLogFailure = true;
+                        }
+                    }
+
+                    if (shouldLogFailure)
+                    {
+                        HospitalizedPatientTrace.Log(
+                            HospitalizedPatientTrace.GetName(patient) +
+                            " | night-bladder=NO_DESTINATION" +
+                            " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
+                            " | bladder=" + bladder.ToString("0.0") +
+                            " | availability=" + availability +
+                            " | searchAccess=" + PatientBladderRules.GetEffectiveSearchAccess(
+                                patient,
+                                AccessRights.PATIENT) +
+                            " | floor=" + HospitalizedPatientTrace.GetFloor(patient) +
+                            NeedDestinationDiagnostics.BuildBladder(patient));
+                    }
                 }
                 return false;
             }
@@ -245,20 +260,23 @@ namespace HospitalPatientLife.Patches
             hospitalization.m_state.m_procedureReservationStatus = ProcedureReservationStatus.NONE;
             hospitalization.m_nextStepDelay = 0f;
             hospitalization.SwitchState(HospitalizationState.FulfillingNeeds);
-            NightBladderFailureLogged.Remove(patient);
+            ResetNightFailure(patient);
             ResetUrgentFailure(patient);
             NightBathroomChancePatch.MarkStarted(patient);
 
-            HospitalizedPatientTrace.Log(
-                HospitalizedPatientTrace.GetName(patient) +
-                " | night-bladder=STARTED" +
-                " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
-                " | source=HPL_FALLBACK" +
-                " | bladder=" + bladder.ToString("0.0") +
-                " | searchAccess=" + PatientBladderRules.GetEffectiveSearchAccess(
-                    patient,
-                    AccessRights.PATIENT) +
-                " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+            if (HospitalizedPatientTrace.Enabled)
+            {
+                HospitalizedPatientTrace.Log(
+                    HospitalizedPatientTrace.GetName(patient) +
+                    " | night-bladder=STARTED" +
+                    " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
+                    " | source=HPL_FALLBACK" +
+                    " | bladder=" + bladder.ToString("0.0") +
+                    " | searchAccess=" + PatientBladderRules.GetEffectiveSearchAccess(
+                        patient,
+                        AccessRights.PATIENT) +
+                    " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+            }
 
             return true;
         }
@@ -268,26 +286,34 @@ namespace HospitalPatientLife.Patches
             string bladderAvailability,
             int floor)
         {
-            if (patient == null)
+            if (!HospitalizedPatientTrace.Enabled || patient == null)
             {
                 return false;
             }
 
             string signature = bladderAvailability + "|" + floor;
-            string previousSignature;
-            if (UrgentFailureSignatures.TryGetValue(patient, out previousSignature) &&
-                previousSignature == signature)
+            lock (RuntimeStateLock)
             {
-                return false;
-            }
+                string previousSignature;
+                if (UrgentFailureSignatures.TryGetValue(patient, out previousSignature) &&
+                    previousSignature == signature)
+                {
+                    return false;
+                }
 
-            UrgentFailureSignatures[patient] = signature;
-            return true;
+                UrgentFailureSignatures[patient] = signature;
+                return true;
+            }
         }
 
         internal static void ResetUrgentFailure(Entity patient)
         {
-            if (patient != null)
+            if (!HospitalizedPatientTrace.Enabled || patient == null)
+            {
+                return;
+            }
+
+            lock (RuntimeStateLock)
             {
                 UrgentFailureSignatures.Remove(patient);
             }
@@ -295,7 +321,12 @@ namespace HospitalPatientLife.Patches
 
         internal static void ResetNightFailure(Entity patient)
         {
-            if (patient != null)
+            if (!HospitalizedPatientTrace.Enabled || patient == null)
+            {
+                return;
+            }
+
+            lock (RuntimeStateLock)
             {
                 NightBladderFailureLogged.Remove(patient);
             }
@@ -303,8 +334,14 @@ namespace HospitalPatientLife.Patches
 
         internal static void ResetRuntimeState()
         {
-            NightBladderFailureLogged.Clear();
-            UrgentFailureSignatures.Clear();
+            lock (RuntimeStateLock)
+            {
+                // Discard the runtime containers instead of mutating them in place.
+                // This makes hospital teardown atomic for these transient caches and
+                // avoids calling Clear() on a container that may already be inconsistent.
+                NightBladderFailureLogged = new Dictionary<Entity, bool>();
+                UrgentFailureSignatures = new Dictionary<Entity, string>();
+            }
         }
     }
 
@@ -318,7 +355,8 @@ namespace HospitalPatientLife.Patches
                 return true;
             }
 
-            if (__instance.m_state.m_hospitalizationState != HospitalizationState.InBed)
+            if (__instance.m_state.m_hospitalizationState != HospitalizationState.InBed ||
+                !HospitalizedBedSafety.CanUseAssignedBed(__instance))
             {
                 return true;
             }
@@ -360,36 +398,40 @@ namespace HospitalPatientLife.Patches
             // procedure start to the native BehaviorPatient implementation.
             if (!behavior.CheckNeeds(AccessRights.PATIENT))
             {
-                string bladderAvailability = "n/a";
-                if (bladder >= HospitalPatientLifeConfig.UrgentBladderThreshold)
+                if (HospitalizedPatientTrace.Enabled)
                 {
-                    bladderAvailability =
-                        HospitalizedNeedsPriorityRules.GetBladderAvailability(
-                            behavior,
-                            procedures).ToString();
-                }
+                    string bladderAvailability = "n/a";
+                    if (bladder >= HospitalPatientLifeConfig.UrgentBladderThreshold)
+                    {
+                        bladderAvailability =
+                            HospitalizedNeedsPriorityRules.GetBladderAvailability(
+                                behavior,
+                                procedures).ToString();
+                    }
 
-                int floor = HospitalizedPatientTrace.GetFloor(patient);
-                if (HospitalizedNeedsPriorityRules.ShouldLogUrgentFailure(
-                    patient,
-                    bladderAvailability,
-                    floor))
-                {
-                    string diagnostics = bladder >= HospitalPatientLifeConfig.UrgentBladderThreshold
-                        ? NeedDestinationDiagnostics.BuildBladder(patient)
-                        : string.Empty;
+                    int floor = HospitalizedPatientTrace.GetFloor(patient);
+                    if (HospitalizedNeedsPriorityRules.ShouldLogUrgentFailure(
+                        patient,
+                        bladderAvailability,
+                        floor))
+                    {
+                        string diagnostics =
+                            bladder >= HospitalPatientLifeConfig.UrgentBladderThreshold
+                                ? NeedDestinationDiagnostics.BuildBladder(patient)
+                                : string.Empty;
 
-                    HospitalizedPatientTrace.Log(
-                        HospitalizedPatientTrace.GetName(patient) +
-                        " | urgent-needs-window=NO_DESTINATION" +
-                        " | hunger=" + hunger.ToString("0.0") +
-                        " | bladder=" + bladder.ToString("0.0") +
-                        " | bladderAvailability=" + bladderAvailability +
-                        " | searchAccess=" + PatientBladderRules.GetEffectiveSearchAccess(
-                            patient,
-                            AccessRights.PATIENT) +
-                        " | floor=" + floor +
-                        diagnostics);
+                        HospitalizedPatientTrace.Log(
+                            HospitalizedPatientTrace.GetName(patient) +
+                            " | urgent-needs-window=NO_DESTINATION" +
+                            " | hunger=" + hunger.ToString("0.0") +
+                            " | bladder=" + bladder.ToString("0.0") +
+                            " | bladderAvailability=" + bladderAvailability +
+                            " | searchAccess=" + PatientBladderRules.GetEffectiveSearchAccess(
+                                patient,
+                                AccessRights.PATIENT) +
+                            " | floor=" + floor +
+                            diagnostics);
+                    }
                 }
                 return true;
             }
@@ -401,12 +443,15 @@ namespace HospitalPatientLife.Patches
             __instance.m_nextStepDelay = 0f;
             __instance.SwitchState(HospitalizationState.FulfillingNeeds);
 
-            HospitalizedPatientTrace.Log(
-                HospitalizedPatientTrace.GetName(patient) +
-                " | urgent-needs-window=STARTED" +
-                " | hunger=" + hunger.ToString("0.0") +
-                " | bladder=" + bladder.ToString("0.0") +
-                " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+            if (HospitalizedPatientTrace.Enabled)
+            {
+                HospitalizedPatientTrace.Log(
+                    HospitalizedPatientTrace.GetName(patient) +
+                    " | urgent-needs-window=STARTED" +
+                    " | hunger=" + hunger.ToString("0.0") +
+                    " | bladder=" + bladder.ToString("0.0") +
+                    " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+            }
 
             __result = true;
             return false;
