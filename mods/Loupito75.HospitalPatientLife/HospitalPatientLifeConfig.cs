@@ -1,7 +1,8 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace HospitalPatientLife
 {
@@ -21,6 +22,14 @@ namespace HospitalPatientLife
         private const int DefaultRestActivityWeight = 40;
         private const int DefaultEducationActivityWeight = 30;
         private const int DefaultVisualActivityWeight = 30;
+
+        private const int DefaultRoomRestActivityWeight = 40;
+        private const int DefaultRoomEducationActivityWeight = 30;
+        private const int DefaultRoomVisualActivityWeight = 30;
+        private const int DefaultRoomTelevisionActivityWeight = 25;
+        private const int DefaultLyingRestActivityWeight = 50;
+        private const int DefaultLyingNurseBookActivityWeight = 25;
+        private const int DefaultLyingTelevisionActivityWeight = 25;
 
         private const int DefaultBedtimeStaggerMinutes = 60;
         private const int DefaultWakeUpStaggerMinutes = 60;
@@ -42,19 +51,11 @@ namespace HospitalPatientLife
         private const int DefaultBedsideBladderRemainingMax = 25;
         private const bool DefaultAllowNightBathroomTrips = true;
         private const int DefaultNightBathroomTripChancePercent = 50;
+
+        private const bool DefaultAllowYellowLeisureObjectInteraction = true;
         private const bool DefaultDebugLogging = false;
 
-        private static readonly Regex XmlCommentRegex = new Regex(
-            "<!--.*?-->",
-            RegexOptions.Singleline | RegexOptions.CultureInvariant);
-
-        private static readonly Regex RootOpenRegex = new Regex(
-            @"<\s*HospitalPatientLife(?:\s[^>]*)?>",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-        private static readonly Regex RootCloseRegex = new Regex(
-            @"<\s*/\s*HospitalPatientLife\s*>",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        private static bool s_loaded;
 
         internal static string ConfigPath { get; private set; }
 
@@ -70,6 +71,14 @@ namespace HospitalPatientLife
         internal static int RestActivityWeight { get; private set; }
         internal static int EducationActivityWeight { get; private set; }
         internal static int VisualActivityWeight { get; private set; }
+
+        internal static int RoomRestActivityWeight { get; private set; }
+        internal static int RoomEducationActivityWeight { get; private set; }
+        internal static int RoomVisualActivityWeight { get; private set; }
+        internal static int RoomTelevisionActivityWeight { get; private set; }
+        internal static int LyingRestActivityWeight { get; private set; }
+        internal static int LyingNurseBookActivityWeight { get; private set; }
+        internal static int LyingTelevisionActivityWeight { get; private set; }
 
         internal static int BedtimeStaggerMinutes { get; private set; }
         internal static int WakeUpStaggerMinutes { get; private set; }
@@ -91,11 +100,21 @@ namespace HospitalPatientLife
         internal static int BedsideBladderRemainingMax { get; private set; }
         internal static bool AllowNightBathroomTrips { get; private set; }
         internal static int NightBathroomTripChancePercent { get; private set; }
+
+        internal static bool AllowYellowLeisureObjectInteraction { get; private set; }
         internal static bool DebugLogging { get; private set; }
+
+        internal static void EnsureLoaded()
+        {
+            if (!s_loaded)
+            {
+                Load();
+            }
+        }
 
         internal static void Load()
         {
-            UseDefaults();
+            ConfigValues defaults = CreateDefaultValues();
 
             try
             {
@@ -107,14 +126,20 @@ namespace HospitalPatientLife
 
                 if (!File.Exists(ConfigPath))
                 {
-                    Plugin.Log.LogWarning(
+                    Apply(defaults);
+                    s_loaded = true;
+                    LogWarning(
                         ConfigFileName +
                         " was not found. Using built-in defaults.");
                     return;
                 }
 
-                string content = File.ReadAllText(ConfigPath);
-                LoadFromText(content);
+                ConfigValues values = CreateDefaultValues();
+                XmlDocument document = LoadDocument(ConfigPath);
+                LoadFromDocument(document, values);
+                Validate(values);
+                Apply(values);
+                s_loaded = true;
 
                 if (DebugLogging && Plugin.Log != null)
                 {
@@ -133,10 +158,19 @@ namespace HospitalPatientLife
                         OtherFloorLoungeChanceMultiplierPercentPerFloor +
                         "%/floor, nearby leisure rooms " + NearbyRoomsToSearch +
                         ", leisure candidate pool " + CandidatePoolSize +
-                        ", leisure weights rest/education/visual " +
+                        ", external leisure weights rest/education/visual " +
                         RestActivityWeight + "/" +
                         EducationActivityWeight + "/" +
                         VisualActivityWeight +
+                        ", room weights rest/education/visual/television " +
+                        RoomRestActivityWeight + "/" +
+                        RoomEducationActivityWeight + "/" +
+                        RoomVisualActivityWeight + "/" +
+                        RoomTelevisionActivityWeight +
+                        ", lying weights rest/nurse-book/television " +
+                        LyingRestActivityWeight + "/" +
+                        LyingNurseBookActivityWeight + "/" +
+                        LyingTelevisionActivityWeight +
                         ", bedtime stagger 0-" + BedtimeStaggerMinutes + "m" +
                         ", wake-up stagger 0-" + WakeUpStaggerMinutes + "m" +
                         ", clinic cafeteria visit " +
@@ -158,13 +192,16 @@ namespace HospitalPatientLife
                         "-" + BedsideBladderRemainingMax +
                         ", night bathroom trips " + AllowNightBathroomTrips +
                         ", night bathroom chance " + NightBathroomTripChancePercent +
-                        "%, debug logging " + DebugLogging + ".");
+                        "%, yellow leisure interaction " +
+                        AllowYellowLeisureObjectInteraction +
+                        ", debug logging " + DebugLogging + ".");
                 }
             }
             catch (Exception exception)
             {
-                UseDefaults();
-                Plugin.Log.LogWarning(
+                Apply(defaults);
+                s_loaded = true;
+                LogWarning(
                     "Could not load " + ConfigFileName +
                     "; using built-in defaults: " +
                     exception.GetType().Name + ": " + exception.Message);
@@ -272,321 +309,436 @@ namespace HospitalPatientLife
             return roll < retainedChancePercent;
         }
 
-        private static void LoadFromText(string content)
+        private static XmlDocument LoadDocument(string path)
         {
-            string xml = XmlCommentRegex.Replace(
-                content ?? string.Empty,
-                string.Empty);
+            XmlReaderSettings settings = new XmlReaderSettings();
+            settings.ProhibitDtd = true;
 
-            if (!RootOpenRegex.IsMatch(xml) || !RootCloseRegex.IsMatch(xml))
+            XmlDocument document = new XmlDocument();
+            using (XmlReader reader = XmlReader.Create(path, settings))
+            {
+                document.Load(reader);
+            }
+
+            if (document.DocumentType != null)
+            {
+                throw new FormatException("DTD declarations are not allowed.");
+            }
+
+            return document;
+        }
+
+        private static void LoadFromDocument(
+            XmlDocument document,
+            ConfigValues values)
+        {
+            XmlElement root = document == null ? null : document.DocumentElement;
+            if (root == null ||
+                !NamesEqual(root.Name, "HospitalPatientLife"))
             {
                 throw new FormatException(
                     "The XML root element must be <HospitalPatientLife>...</HospitalPatientLife>.");
             }
 
-            string hospitalizedContent = GetSectionContent(xml, "HospitalizedPatients");
-            if (!string.IsNullOrEmpty(hospitalizedContent))
+            XmlElement hospitalized =
+                GetUniqueChildElement(root, "HospitalizedPatients");
+            if (hospitalized != null)
             {
                 LoadHospitalizedCafeteria(
-                    GetSectionContent(hospitalizedContent, "Cafeteria"));
+                    GetUniqueChildElement(hospitalized, "Cafeteria"),
+                    values);
                 LoadHospitalizedFreeTime(
-                    GetSectionContent(hospitalizedContent, "FreeTime"));
+                    GetUniqueChildElement(hospitalized, "FreeTime"),
+                    values);
                 LoadHospitalizedSleep(
-                    GetSectionContent(hospitalizedContent, "Sleep"));
+                    GetUniqueChildElement(hospitalized, "Sleep"),
+                    values);
                 LoadHospitalizedNeeds(
-                    GetSectionContent(hospitalizedContent, "Needs"));
+                    GetUniqueChildElement(hospitalized, "Needs"),
+                    values);
             }
 
-            string clinicContent = GetSectionContent(xml, "ClinicPatients");
-            if (!string.IsNullOrEmpty(clinicContent))
+            XmlElement clinic =
+                GetUniqueChildElement(root, "ClinicPatients");
+            if (clinic != null)
             {
-                LoadClinicCafeteria(GetSectionContent(clinicContent, "Cafeteria"));
+                LoadClinicCafeteria(
+                    GetUniqueChildElement(clinic, "Cafeteria"),
+                    values);
             }
 
-            string diagnosticsContent = GetSectionContent(xml, "Diagnostics");
-            if (!string.IsNullOrEmpty(diagnosticsContent))
+            XmlElement patientLeisure =
+                GetUniqueChildElement(root, "PatientLeisure");
+            if (patientLeisure != null)
             {
-                DebugLogging = ParseOptionalBool(
-                    diagnosticsContent,
+                values.AllowYellowLeisureObjectInteraction = ParseOptionalBool(
+                    patientLeisure,
+                    "AllowYellowLeisureObjectInteraction",
+                    values.AllowYellowLeisureObjectInteraction);
+            }
+
+            XmlElement diagnostics =
+                GetUniqueChildElement(root, "Diagnostics");
+            if (diagnostics != null)
+            {
+                values.DebugLogging = ParseOptionalBool(
+                    diagnostics,
                     "DebugLogging",
-                    DefaultDebugLogging);
+                    values.DebugLogging);
             }
         }
 
-        private static void LoadHospitalizedCafeteria(string cafeteriaContent)
+        private static void LoadHospitalizedCafeteria(
+            XmlElement cafeteria,
+            ConfigValues values)
         {
-            if (string.IsNullOrEmpty(cafeteriaContent))
+            if (cafeteria == null)
             {
                 return;
             }
 
-            ScheduledMealCafeteriaChancePercent = ParseOptionalInt(
-                cafeteriaContent,
+            values.ScheduledMealCafeteriaChancePercent = ParseOptionalInt(
+                cafeteria,
                 "ScheduledMealCafeteriaChancePercent",
-                DefaultScheduledMealCafeteriaChancePercent,
+                values.ScheduledMealCafeteriaChancePercent,
                 0,
                 100);
-            FreeTimeCafeteriaSnackChancePercent = ParseOptionalInt(
-                cafeteriaContent,
+            values.FreeTimeCafeteriaSnackChancePercent = ParseOptionalInt(
+                cafeteria,
                 "FreeTimeCafeteriaSnackChancePercent",
-                DefaultFreeTimeCafeteriaSnackChancePercent,
+                values.FreeTimeCafeteriaSnackChancePercent,
                 0,
                 100);
-            OtherFloorCafeteriaChanceMultiplierPercentPerFloor = ParseOptionalInt(
-                cafeteriaContent,
-                "OtherFloorCafeteriaChanceMultiplierPercentPerFloor",
-                DefaultOtherFloorCafeteriaChanceMultiplierPercentPerFloor,
-                0,
-                100);
+            values.OtherFloorCafeteriaChanceMultiplierPercentPerFloor =
+                ParseOptionalInt(
+                    cafeteria,
+                    "OtherFloorCafeteriaChanceMultiplierPercentPerFloor",
+                    values.OtherFloorCafeteriaChanceMultiplierPercentPerFloor,
+                    0,
+                    100);
         }
 
-        private static void LoadHospitalizedFreeTime(string freeTimeContent)
+        private static void LoadHospitalizedFreeTime(
+            XmlElement freeTime,
+            ConfigValues values)
         {
-            if (string.IsNullOrEmpty(freeTimeContent))
+            if (freeTime == null)
             {
                 return;
             }
 
-            SameFloorLeisureChancePercent = ParseOptionalInt(
-                freeTimeContent,
+            values.SameFloorLeisureChancePercent = ParseOptionalInt(
+                freeTime,
                 "SameFloorLeisureChancePercent",
-                DefaultSameFloorLeisureChancePercent,
+                values.SameFloorLeisureChancePercent,
                 0,
                 100);
-            OutdoorLeisureChancePercent = ParseOptionalInt(
-                freeTimeContent,
+            values.OutdoorLeisureChancePercent = ParseOptionalInt(
+                freeTime,
                 "OutdoorLeisureChancePercent",
-                DefaultOutdoorLeisureChancePercent,
+                values.OutdoorLeisureChancePercent,
                 0,
                 100);
-            OtherFloorLoungeChanceMultiplierPercentPerFloor = ParseOptionalInt(
-                freeTimeContent,
-                "OtherFloorLoungeChanceMultiplierPercentPerFloor",
-                DefaultOtherFloorLoungeChanceMultiplierPercentPerFloor,
-                0,
-                100);
-            NearbyRoomsToSearch = ParseOptionalInt(
-                freeTimeContent,
+            values.OtherFloorLoungeChanceMultiplierPercentPerFloor =
+                ParseOptionalInt(
+                    freeTime,
+                    "OtherFloorLoungeChanceMultiplierPercentPerFloor",
+                    values.OtherFloorLoungeChanceMultiplierPercentPerFloor,
+                    0,
+                    100);
+            values.NearbyRoomsToSearch = ParseOptionalInt(
+                freeTime,
                 "NearbyRoomsToSearch",
-                DefaultNearbyRoomsToSearch,
+                values.NearbyRoomsToSearch,
                 1,
                 96);
-            CandidatePoolSize = ParseOptionalInt(
-                freeTimeContent,
+            values.CandidatePoolSize = ParseOptionalInt(
+                freeTime,
                 "CandidatePoolSize",
-                DefaultCandidatePoolSize,
+                values.CandidatePoolSize,
                 1,
                 16);
-            RestActivityWeight = ParseOptionalInt(
-                freeTimeContent,
+            values.RestActivityWeight = ParseOptionalInt(
+                freeTime,
                 "RestActivityWeight",
-                DefaultRestActivityWeight,
+                values.RestActivityWeight,
                 0,
                 100);
-            EducationActivityWeight = ParseOptionalInt(
-                freeTimeContent,
+            values.EducationActivityWeight = ParseOptionalInt(
+                freeTime,
                 "EducationActivityWeight",
-                DefaultEducationActivityWeight,
+                values.EducationActivityWeight,
                 0,
                 100);
-            VisualActivityWeight = ParseOptionalInt(
-                freeTimeContent,
+            values.VisualActivityWeight = ParseOptionalInt(
+                freeTime,
                 "VisualActivityWeight",
-                DefaultVisualActivityWeight,
+                values.VisualActivityWeight,
+                0,
+                100);
+
+            values.RoomRestActivityWeight = ParseOptionalInt(
+                freeTime,
+                "RoomRestActivityWeight",
+                values.RoomRestActivityWeight,
+                0,
+                100);
+            values.RoomEducationActivityWeight = ParseOptionalInt(
+                freeTime,
+                "RoomEducationActivityWeight",
+                values.RoomEducationActivityWeight,
+                0,
+                100);
+            values.RoomVisualActivityWeight = ParseOptionalInt(
+                freeTime,
+                "RoomVisualActivityWeight",
+                values.RoomVisualActivityWeight,
+                0,
+                100);
+            values.RoomTelevisionActivityWeight = ParseOptionalInt(
+                freeTime,
+                "RoomTelevisionActivityWeight",
+                values.RoomTelevisionActivityWeight,
+                0,
+                100);
+            values.LyingRestActivityWeight = ParseOptionalInt(
+                freeTime,
+                "LyingRestActivityWeight",
+                values.LyingRestActivityWeight,
+                0,
+                100);
+            values.LyingNurseBookActivityWeight = ParseOptionalInt(
+                freeTime,
+                "LyingNurseBookActivityWeight",
+                values.LyingNurseBookActivityWeight,
+                0,
+                100);
+            values.LyingTelevisionActivityWeight = ParseOptionalInt(
+                freeTime,
+                "LyingTelevisionActivityWeight",
+                values.LyingTelevisionActivityWeight,
                 0,
                 100);
         }
 
-        private static void LoadHospitalizedSleep(string sleepContent)
+        private static void LoadHospitalizedSleep(
+            XmlElement sleep,
+            ConfigValues values)
         {
-            if (string.IsNullOrEmpty(sleepContent))
+            if (sleep == null)
             {
                 return;
             }
 
-            BedtimeStaggerMinutes = ParseOptionalInt(
-                sleepContent,
+            values.BedtimeStaggerMinutes = ParseOptionalInt(
+                sleep,
                 "BedtimeStaggerMinutes",
-                DefaultBedtimeStaggerMinutes,
+                values.BedtimeStaggerMinutes,
                 0,
                 120);
-            WakeUpStaggerMinutes = ParseOptionalInt(
-                sleepContent,
+            values.WakeUpStaggerMinutes = ParseOptionalInt(
+                sleep,
                 "WakeUpStaggerMinutes",
-                DefaultWakeUpStaggerMinutes,
+                values.WakeUpStaggerMinutes,
                 0,
                 120);
         }
 
-        private static void LoadClinicCafeteria(string cafeteriaContent)
+        private static void LoadClinicCafeteria(
+            XmlElement cafeteria,
+            ConfigValues values)
         {
-            if (string.IsNullOrEmpty(cafeteriaContent))
+            if (cafeteria == null)
             {
                 return;
             }
 
-            ClinicCafeteriaVisitChancePercent = ParseOptionalInt(
-                cafeteriaContent,
+            values.ClinicCafeteriaVisitChancePercent = ParseOptionalInt(
+                cafeteria,
                 "CafeteriaVisitChancePercent",
-                DefaultClinicCafeteriaVisitChancePercent,
+                values.ClinicCafeteriaVisitChancePercent,
                 0,
                 100);
-            ClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor = ParseOptionalInt(
-                cafeteriaContent,
-                "OtherFloorCafeteriaChanceMultiplierPercentPerFloor",
-                DefaultClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor,
-                0,
-                100);
-            ClinicFullMealPrice = ParseOptionalInt(
-                cafeteriaContent,
+            values.ClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor =
+                ParseOptionalInt(
+                    cafeteria,
+                    "OtherFloorCafeteriaChanceMultiplierPercentPerFloor",
+                    values.ClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor,
+                    0,
+                    100);
+            values.ClinicFullMealPrice = ParseOptionalInt(
+                cafeteria,
                 "FullMealPrice",
-                DefaultClinicFullMealPrice,
+                values.ClinicFullMealPrice,
                 0,
                 25);
-            ClinicFullMealHungerReductionMin = ParseOptionalInt(
-                cafeteriaContent,
+            values.ClinicFullMealHungerReductionMin = ParseOptionalInt(
+                cafeteria,
                 "FullMealHungerReductionMin",
-                DefaultClinicFullMealHungerReductionMin,
+                values.ClinicFullMealHungerReductionMin,
                 0,
                 100);
-            ClinicFullMealHungerReductionMax = ParseOptionalInt(
-                cafeteriaContent,
+            values.ClinicFullMealHungerReductionMax = ParseOptionalInt(
+                cafeteria,
                 "FullMealHungerReductionMax",
-                DefaultClinicFullMealHungerReductionMax,
+                values.ClinicFullMealHungerReductionMax,
                 0,
                 100);
-
-            if (ClinicFullMealHungerReductionMin > ClinicFullMealHungerReductionMax)
-            {
-                throw new FormatException(
-                    "Clinic FullMealHungerReductionMin must be less than or equal to " +
-                    "FullMealHungerReductionMax.");
-            }
         }
 
-        private static void LoadHospitalizedNeeds(string needsContent)
+        private static void LoadHospitalizedNeeds(
+            XmlElement needs,
+            ConfigValues values)
         {
-            if (string.IsNullOrEmpty(needsContent))
+            if (needs == null)
             {
                 return;
             }
 
-            AllowPersonalNeedChaining = ParseOptionalBool(
-                needsContent,
+            values.AllowPersonalNeedChaining = ParseOptionalBool(
+                needs,
                 "AllowPersonalNeedChaining",
-                DefaultAllowPersonalNeedChaining);
-            UrgentHungerThreshold = ParseOptionalInt(
-                needsContent,
+                values.AllowPersonalNeedChaining);
+            values.UrgentHungerThreshold = ParseOptionalInt(
+                needs,
                 "UrgentHungerThreshold",
-                DefaultUrgentHungerThreshold,
+                values.UrgentHungerThreshold,
                 0,
                 100);
-            BedsideMealHungerReductionMin = ParseOptionalInt(
-                needsContent,
+            values.BedsideMealHungerReductionMin = ParseOptionalInt(
+                needs,
                 "BedsideMealHungerReductionMin",
-                DefaultBedsideMealHungerReductionMin,
+                values.BedsideMealHungerReductionMin,
                 0,
                 100);
-            BedsideMealHungerReductionMax = ParseOptionalInt(
-                needsContent,
+            values.BedsideMealHungerReductionMax = ParseOptionalInt(
+                needs,
                 "BedsideMealHungerReductionMax",
-                DefaultBedsideMealHungerReductionMax,
+                values.BedsideMealHungerReductionMax,
                 0,
                 100);
-            CafeteriaMealHungerReductionMin = ParseOptionalInt(
-                needsContent,
+            values.CafeteriaMealHungerReductionMin = ParseOptionalInt(
+                needs,
                 "CafeteriaMealHungerReductionMin",
-                DefaultCafeteriaMealHungerReductionMin,
+                values.CafeteriaMealHungerReductionMin,
                 0,
                 100);
-            CafeteriaMealHungerReductionMax = ParseOptionalInt(
-                needsContent,
+            values.CafeteriaMealHungerReductionMax = ParseOptionalInt(
+                needs,
                 "CafeteriaMealHungerReductionMax",
-                DefaultCafeteriaMealHungerReductionMax,
+                values.CafeteriaMealHungerReductionMax,
                 0,
                 100);
-            UrgentBladderThreshold = ParseOptionalInt(
-                needsContent,
+            values.UrgentBladderThreshold = ParseOptionalInt(
+                needs,
                 "UrgentBladderThreshold",
-                DefaultUrgentBladderThreshold,
+                values.UrgentBladderThreshold,
                 0,
                 100);
-            BedsideBladderRemainingMin = ParseOptionalInt(
-                needsContent,
+            values.BedsideBladderRemainingMin = ParseOptionalInt(
+                needs,
                 "BedsideBladderRemainingMin",
-                DefaultBedsideBladderRemainingMin,
+                values.BedsideBladderRemainingMin,
                 0,
                 79);
-            BedsideBladderRemainingMax = ParseOptionalInt(
-                needsContent,
+            values.BedsideBladderRemainingMax = ParseOptionalInt(
+                needs,
                 "BedsideBladderRemainingMax",
-                DefaultBedsideBladderRemainingMax,
+                values.BedsideBladderRemainingMax,
                 0,
                 79);
-            AllowNightBathroomTrips = ParseOptionalBool(
-                needsContent,
+            values.AllowNightBathroomTrips = ParseOptionalBool(
+                needs,
                 "AllowNightBathroomTrips",
-                DefaultAllowNightBathroomTrips);
-            NightBathroomTripChancePercent = ParseOptionalInt(
-                needsContent,
+                values.AllowNightBathroomTrips);
+            values.NightBathroomTripChancePercent = ParseOptionalInt(
+                needs,
                 "NightBathroomTripChancePercent",
-                AllowNightBathroomTrips ? DefaultNightBathroomTripChancePercent : 0,
+                values.NightBathroomTripChancePercent,
                 0,
                 100);
-
-            if (BedsideMealHungerReductionMin > BedsideMealHungerReductionMax)
-            {
-                throw new FormatException(
-                    "BedsideMealHungerReductionMin must be less than or equal to " +
-                    "BedsideMealHungerReductionMax.");
-            }
-
-            if (CafeteriaMealHungerReductionMin > CafeteriaMealHungerReductionMax)
-            {
-                throw new FormatException(
-                    "CafeteriaMealHungerReductionMin must be less than or equal to " +
-                    "CafeteriaMealHungerReductionMax.");
-            }
-
-            if (BedsideBladderRemainingMin > BedsideBladderRemainingMax)
-            {
-                throw new FormatException(
-                    "BedsideBladderRemainingMin must be less than or equal to " +
-                    "BedsideBladderRemainingMax.");
-            }
         }
 
-        private static string GetSectionContent(string xml, string sectionName)
+        private static XmlElement GetUniqueChildElement(
+            XmlElement parent,
+            string elementName)
         {
-            string escapedName = Regex.Escape(sectionName);
-            Match match = Regex.Match(
-                xml ?? string.Empty,
-                @"<\s*" + escapedName +
-                @"(?:\s[^>]*)?>\s*(?<value>.*?)\s*<\s*/\s*" +
-                escapedName + @"\s*>",
-                RegexOptions.IgnoreCase |
-                RegexOptions.Singleline |
-                RegexOptions.CultureInvariant);
+            if (parent == null)
+            {
+                return null;
+            }
 
-            return match.Success ? match.Groups["value"].Value : null;
+            XmlElement result = null;
+            for (int i = 0; i < parent.ChildNodes.Count; i++)
+            {
+                XmlElement child = parent.ChildNodes[i] as XmlElement;
+                if (child == null || !NamesEqual(child.Name, elementName))
+                {
+                    continue;
+                }
+
+                if (result != null)
+                {
+                    throw new FormatException(
+                        "Duplicate <" + elementName + "> element under <" +
+                        parent.Name + ">.");
+                }
+
+                result = child;
+            }
+
+            return result;
+        }
+
+        private static string GetOptionalScalarText(
+            XmlElement parent,
+            string elementName)
+        {
+            XmlElement element = GetUniqueChildElement(parent, elementName);
+            if (element == null)
+            {
+                return null;
+            }
+
+            if (element.HasAttributes)
+            {
+                throw new FormatException(
+                    "<" + elementName + "> must not have attributes.");
+            }
+
+            for (int i = 0; i < element.ChildNodes.Count; i++)
+            {
+                if (element.ChildNodes[i].NodeType == XmlNodeType.Element)
+                {
+                    throw new FormatException(
+                        "<" + elementName + "> must contain a scalar value.");
+                }
+            }
+
+            return element.InnerText == null ? string.Empty : element.InnerText.Trim();
         }
 
         private static int ParseOptionalInt(
-            string content,
+            XmlElement parent,
             string elementName,
             int defaultValue,
             int minimum,
             int maximum)
         {
-            string value = GetElementValue(content, elementName);
+            string value = GetOptionalScalarText(parent, elementName);
             if (string.IsNullOrEmpty(value))
             {
                 return defaultValue;
             }
 
             int parsed;
-            if (!int.TryParse(value.Trim(), out parsed) ||
-                parsed < minimum || parsed > maximum)
+            if (!int.TryParse(
+                    value,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out parsed) ||
+                parsed < minimum ||
+                parsed > maximum)
             {
                 throw new FormatException(
                     elementName + " must be an integer from " +
@@ -597,18 +749,18 @@ namespace HospitalPatientLife
         }
 
         private static bool ParseOptionalBool(
-            string content,
+            XmlElement parent,
             string elementName,
             bool defaultValue)
         {
-            string value = GetElementValue(content, elementName);
+            string value = GetOptionalScalarText(parent, elementName);
             if (string.IsNullOrEmpty(value))
             {
                 return defaultValue;
             }
 
             bool parsed;
-            if (!bool.TryParse(value.Trim(), out parsed))
+            if (!bool.TryParse(value, out parsed))
             {
                 throw new FormatException(
                     elementName + " must be true or false.");
@@ -617,67 +769,239 @@ namespace HospitalPatientLife
             return parsed;
         }
 
-        private static string GetElementValue(
-            string content,
-            string elementName)
+        private static bool NamesEqual(string left, string right)
         {
-            string escapedName = Regex.Escape(elementName);
-            Match match = Regex.Match(
-                content ?? string.Empty,
-                @"<\s*" + escapedName +
-                @"\s*>\s*(?<value>.*?)\s*<\s*/\s*" +
-                escapedName + @"\s*>",
-                RegexOptions.IgnoreCase |
-                RegexOptions.Singleline |
-                RegexOptions.CultureInvariant);
-
-            return match.Success ? match.Groups["value"].Value : null;
+            return string.Equals(
+                left,
+                right,
+                StringComparison.OrdinalIgnoreCase);
         }
 
-        private static void UseDefaults()
+        private static void Validate(ConfigValues values)
         {
-            ScheduledMealCafeteriaChancePercent =
+            if (values.BedsideMealHungerReductionMin >
+                values.BedsideMealHungerReductionMax)
+            {
+                throw new FormatException(
+                    "BedsideMealHungerReductionMin must be less than or equal to " +
+                    "BedsideMealHungerReductionMax.");
+            }
+
+            if (values.CafeteriaMealHungerReductionMin >
+                values.CafeteriaMealHungerReductionMax)
+            {
+                throw new FormatException(
+                    "CafeteriaMealHungerReductionMin must be less than or equal to " +
+                    "CafeteriaMealHungerReductionMax.");
+            }
+
+            if (values.BedsideBladderRemainingMin >
+                values.BedsideBladderRemainingMax)
+            {
+                throw new FormatException(
+                    "BedsideBladderRemainingMin must be less than or equal to " +
+                    "BedsideBladderRemainingMax.");
+            }
+
+            if (values.ClinicFullMealHungerReductionMin >
+                values.ClinicFullMealHungerReductionMax)
+            {
+                throw new FormatException(
+                    "Clinic FullMealHungerReductionMin must be less than or equal to " +
+                    "FullMealHungerReductionMax.");
+            }
+        }
+
+        private static ConfigValues CreateDefaultValues()
+        {
+            ConfigValues values = new ConfigValues();
+
+            values.ScheduledMealCafeteriaChancePercent =
                 DefaultScheduledMealCafeteriaChancePercent;
-            FreeTimeCafeteriaSnackChancePercent =
+            values.FreeTimeCafeteriaSnackChancePercent =
                 DefaultFreeTimeCafeteriaSnackChancePercent;
-            OtherFloorCafeteriaChanceMultiplierPercentPerFloor =
+            values.OtherFloorCafeteriaChanceMultiplierPercentPerFloor =
                 DefaultOtherFloorCafeteriaChanceMultiplierPercentPerFloor;
 
-            SameFloorLeisureChancePercent = DefaultSameFloorLeisureChancePercent;
-            OutdoorLeisureChancePercent = DefaultOutdoorLeisureChancePercent;
-            OtherFloorLoungeChanceMultiplierPercentPerFloor =
+            values.SameFloorLeisureChancePercent =
+                DefaultSameFloorLeisureChancePercent;
+            values.OutdoorLeisureChancePercent =
+                DefaultOutdoorLeisureChancePercent;
+            values.OtherFloorLoungeChanceMultiplierPercentPerFloor =
                 DefaultOtherFloorLoungeChanceMultiplierPercentPerFloor;
-            NearbyRoomsToSearch = DefaultNearbyRoomsToSearch;
-            CandidatePoolSize = DefaultCandidatePoolSize;
-            RestActivityWeight = DefaultRestActivityWeight;
-            EducationActivityWeight = DefaultEducationActivityWeight;
-            VisualActivityWeight = DefaultVisualActivityWeight;
+            values.NearbyRoomsToSearch = DefaultNearbyRoomsToSearch;
+            values.CandidatePoolSize = DefaultCandidatePoolSize;
+            values.RestActivityWeight = DefaultRestActivityWeight;
+            values.EducationActivityWeight = DefaultEducationActivityWeight;
+            values.VisualActivityWeight = DefaultVisualActivityWeight;
 
-            BedtimeStaggerMinutes = DefaultBedtimeStaggerMinutes;
-            WakeUpStaggerMinutes = DefaultWakeUpStaggerMinutes;
+            values.RoomRestActivityWeight = DefaultRoomRestActivityWeight;
+            values.RoomEducationActivityWeight = DefaultRoomEducationActivityWeight;
+            values.RoomVisualActivityWeight = DefaultRoomVisualActivityWeight;
+            values.RoomTelevisionActivityWeight = DefaultRoomTelevisionActivityWeight;
+            values.LyingRestActivityWeight = DefaultLyingRestActivityWeight;
+            values.LyingNurseBookActivityWeight =
+                DefaultLyingNurseBookActivityWeight;
+            values.LyingTelevisionActivityWeight =
+                DefaultLyingTelevisionActivityWeight;
 
-            ClinicCafeteriaVisitChancePercent =
+            values.BedtimeStaggerMinutes = DefaultBedtimeStaggerMinutes;
+            values.WakeUpStaggerMinutes = DefaultWakeUpStaggerMinutes;
+
+            values.ClinicCafeteriaVisitChancePercent =
                 DefaultClinicCafeteriaVisitChancePercent;
-            ClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor =
+            values.ClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor =
                 DefaultClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor;
-            ClinicFullMealPrice = DefaultClinicFullMealPrice;
-            ClinicFullMealHungerReductionMin =
+            values.ClinicFullMealPrice = DefaultClinicFullMealPrice;
+            values.ClinicFullMealHungerReductionMin =
                 DefaultClinicFullMealHungerReductionMin;
-            ClinicFullMealHungerReductionMax =
+            values.ClinicFullMealHungerReductionMax =
                 DefaultClinicFullMealHungerReductionMax;
 
-            AllowPersonalNeedChaining = DefaultAllowPersonalNeedChaining;
-            UrgentHungerThreshold = DefaultUrgentHungerThreshold;
-            BedsideMealHungerReductionMin = DefaultBedsideMealHungerReductionMin;
-            BedsideMealHungerReductionMax = DefaultBedsideMealHungerReductionMax;
-            CafeteriaMealHungerReductionMin = DefaultCafeteriaMealHungerReductionMin;
-            CafeteriaMealHungerReductionMax = DefaultCafeteriaMealHungerReductionMax;
-            UrgentBladderThreshold = DefaultUrgentBladderThreshold;
-            BedsideBladderRemainingMin = DefaultBedsideBladderRemainingMin;
-            BedsideBladderRemainingMax = DefaultBedsideBladderRemainingMax;
-            AllowNightBathroomTrips = DefaultAllowNightBathroomTrips;
-            NightBathroomTripChancePercent = DefaultNightBathroomTripChancePercent;
-            DebugLogging = DefaultDebugLogging;
+            values.AllowPersonalNeedChaining = DefaultAllowPersonalNeedChaining;
+            values.UrgentHungerThreshold = DefaultUrgentHungerThreshold;
+            values.BedsideMealHungerReductionMin =
+                DefaultBedsideMealHungerReductionMin;
+            values.BedsideMealHungerReductionMax =
+                DefaultBedsideMealHungerReductionMax;
+            values.CafeteriaMealHungerReductionMin =
+                DefaultCafeteriaMealHungerReductionMin;
+            values.CafeteriaMealHungerReductionMax =
+                DefaultCafeteriaMealHungerReductionMax;
+            values.UrgentBladderThreshold = DefaultUrgentBladderThreshold;
+            values.BedsideBladderRemainingMin =
+                DefaultBedsideBladderRemainingMin;
+            values.BedsideBladderRemainingMax =
+                DefaultBedsideBladderRemainingMax;
+            values.AllowNightBathroomTrips = DefaultAllowNightBathroomTrips;
+            values.NightBathroomTripChancePercent =
+                DefaultNightBathroomTripChancePercent;
+
+            values.AllowYellowLeisureObjectInteraction =
+                DefaultAllowYellowLeisureObjectInteraction;
+            values.DebugLogging = DefaultDebugLogging;
+
+            return values;
+        }
+
+        private static void Apply(ConfigValues values)
+        {
+            ScheduledMealCafeteriaChancePercent =
+                values.ScheduledMealCafeteriaChancePercent;
+            FreeTimeCafeteriaSnackChancePercent =
+                values.FreeTimeCafeteriaSnackChancePercent;
+            OtherFloorCafeteriaChanceMultiplierPercentPerFloor =
+                values.OtherFloorCafeteriaChanceMultiplierPercentPerFloor;
+
+            SameFloorLeisureChancePercent =
+                values.SameFloorLeisureChancePercent;
+            OutdoorLeisureChancePercent =
+                values.OutdoorLeisureChancePercent;
+            OtherFloorLoungeChanceMultiplierPercentPerFloor =
+                values.OtherFloorLoungeChanceMultiplierPercentPerFloor;
+            NearbyRoomsToSearch = values.NearbyRoomsToSearch;
+            CandidatePoolSize = values.CandidatePoolSize;
+            RestActivityWeight = values.RestActivityWeight;
+            EducationActivityWeight = values.EducationActivityWeight;
+            VisualActivityWeight = values.VisualActivityWeight;
+
+            RoomRestActivityWeight = values.RoomRestActivityWeight;
+            RoomEducationActivityWeight = values.RoomEducationActivityWeight;
+            RoomVisualActivityWeight = values.RoomVisualActivityWeight;
+            RoomTelevisionActivityWeight = values.RoomTelevisionActivityWeight;
+            LyingRestActivityWeight = values.LyingRestActivityWeight;
+            LyingNurseBookActivityWeight = values.LyingNurseBookActivityWeight;
+            LyingTelevisionActivityWeight = values.LyingTelevisionActivityWeight;
+
+            BedtimeStaggerMinutes = values.BedtimeStaggerMinutes;
+            WakeUpStaggerMinutes = values.WakeUpStaggerMinutes;
+
+            ClinicCafeteriaVisitChancePercent =
+                values.ClinicCafeteriaVisitChancePercent;
+            ClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor =
+                values.ClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor;
+            ClinicFullMealPrice = values.ClinicFullMealPrice;
+            ClinicFullMealHungerReductionMin =
+                values.ClinicFullMealHungerReductionMin;
+            ClinicFullMealHungerReductionMax =
+                values.ClinicFullMealHungerReductionMax;
+
+            AllowPersonalNeedChaining = values.AllowPersonalNeedChaining;
+            UrgentHungerThreshold = values.UrgentHungerThreshold;
+            BedsideMealHungerReductionMin =
+                values.BedsideMealHungerReductionMin;
+            BedsideMealHungerReductionMax =
+                values.BedsideMealHungerReductionMax;
+            CafeteriaMealHungerReductionMin =
+                values.CafeteriaMealHungerReductionMin;
+            CafeteriaMealHungerReductionMax =
+                values.CafeteriaMealHungerReductionMax;
+            UrgentBladderThreshold = values.UrgentBladderThreshold;
+            BedsideBladderRemainingMin = values.BedsideBladderRemainingMin;
+            BedsideBladderRemainingMax = values.BedsideBladderRemainingMax;
+            AllowNightBathroomTrips = values.AllowNightBathroomTrips;
+            NightBathroomTripChancePercent =
+                values.NightBathroomTripChancePercent;
+
+            AllowYellowLeisureObjectInteraction =
+                values.AllowYellowLeisureObjectInteraction;
+            DebugLogging = values.DebugLogging;
+        }
+
+        private static void LogWarning(string message)
+        {
+            if (Plugin.Log != null)
+            {
+                Plugin.Log.LogWarning(message);
+            }
+        }
+
+        private sealed class ConfigValues
+        {
+            internal int ScheduledMealCafeteriaChancePercent;
+            internal int FreeTimeCafeteriaSnackChancePercent;
+            internal int OtherFloorCafeteriaChanceMultiplierPercentPerFloor;
+
+            internal int SameFloorLeisureChancePercent;
+            internal int OutdoorLeisureChancePercent;
+            internal int OtherFloorLoungeChanceMultiplierPercentPerFloor;
+            internal int NearbyRoomsToSearch;
+            internal int CandidatePoolSize;
+            internal int RestActivityWeight;
+            internal int EducationActivityWeight;
+            internal int VisualActivityWeight;
+
+            internal int RoomRestActivityWeight;
+            internal int RoomEducationActivityWeight;
+            internal int RoomVisualActivityWeight;
+            internal int RoomTelevisionActivityWeight;
+            internal int LyingRestActivityWeight;
+            internal int LyingNurseBookActivityWeight;
+            internal int LyingTelevisionActivityWeight;
+
+            internal int BedtimeStaggerMinutes;
+            internal int WakeUpStaggerMinutes;
+
+            internal int ClinicCafeteriaVisitChancePercent;
+            internal int ClinicOtherFloorCafeteriaChanceMultiplierPercentPerFloor;
+            internal int ClinicFullMealPrice;
+            internal int ClinicFullMealHungerReductionMin;
+            internal int ClinicFullMealHungerReductionMax;
+
+            internal bool AllowPersonalNeedChaining;
+            internal int UrgentHungerThreshold;
+            internal int BedsideMealHungerReductionMin;
+            internal int BedsideMealHungerReductionMax;
+            internal int CafeteriaMealHungerReductionMin;
+            internal int CafeteriaMealHungerReductionMax;
+            internal int UrgentBladderThreshold;
+            internal int BedsideBladderRemainingMin;
+            internal int BedsideBladderRemainingMax;
+            internal bool AllowNightBathroomTrips;
+            internal int NightBathroomTripChancePercent;
+
+            internal bool AllowYellowLeisureObjectInteraction;
+            internal bool DebugLogging;
         }
     }
 }

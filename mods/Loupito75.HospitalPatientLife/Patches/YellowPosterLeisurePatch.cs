@@ -17,6 +17,19 @@ namespace HospitalPatientLife.Patches
             Room room,
             string requiredTag)
         {
+            return FindEligiblePosters(
+                patient,
+                room,
+                requiredTag,
+                null);
+        }
+
+        internal static List<TileObject> FindEligiblePosters(
+            Entity patient,
+            Room room,
+            string requiredTag,
+            List<float> routeDistances)
+        {
             List<TileObject> result = new List<TileObject>();
 
             if (patient == null ||
@@ -72,28 +85,32 @@ namespace HospitalPatientLife.Patches
                         room,
                         floor,
                         floor.m_tileObjects[x, y].m_ObjectNW,
-                        requiredTag);
+                        requiredTag,
+                        routeDistances);
                     TryAddPoster(
                         result,
                         patient,
                         room,
                         floor,
                         floor.m_tileObjects[x, y].m_ObjectNE,
-                        requiredTag);
+                        requiredTag,
+                        routeDistances);
                     TryAddPoster(
                         result,
                         patient,
                         room,
                         floor,
                         floor.m_tileObjects[x, y].m_ObjectSE,
-                        requiredTag);
+                        requiredTag,
+                        routeDistances);
                     TryAddPoster(
                         result,
                         patient,
                         room,
                         floor,
                         floor.m_tileObjects[x, y].m_ObjectSW,
-                        requiredTag);
+                        requiredTag,
+                        routeDistances);
                 }
             }
 
@@ -106,7 +123,8 @@ namespace HospitalPatientLife.Patches
             Room room,
             Floor floor,
             TileObject poster,
-            string requiredTag)
+            string requiredTag,
+            List<float> routeDistances)
         {
             if (poster == null ||
                 poster.User != null ||
@@ -179,6 +197,10 @@ namespace HospitalPatientLife.Patches
             }
 
             result.Add(poster);
+            if (routeDistances != null)
+            {
+                routeDistances.Add(distance);
+            }
         }
 
         internal static bool IsUsePositionOccupied(
@@ -384,6 +406,11 @@ namespace HospitalPatientLife.Patches
                 PendingPatientPosters.Remove(poster);
             }
         }
+
+        internal static void ResetRuntimeState()
+        {
+            PendingPatientPosters.Clear();
+        }
     }
 
     [HarmonyPatch]
@@ -447,11 +474,13 @@ namespace HospitalPatientLife.Patches
                 return;
             }
 
+            List<float> posterDistances = new List<float>();
             List<TileObject> posters =
                 YellowPosterLeisureAccess.FindEligiblePosters(
                     character,
                     room,
-                    requiredTag);
+                    requiredTag,
+                    posterDistances);
             if (posters.Count == 0)
             {
                 return;
@@ -461,9 +490,7 @@ namespace HospitalPatientLife.Patches
             float bestDistance = float.MaxValue;
             for (int i = 0; i < posters.Count; i++)
             {
-                float distance = YellowPosterLeisureAccess.GetRouteDistance(
-                    character,
-                    posters[i]);
+                float distance = posterDistances[i];
                 if (distance >= 0f && distance < bestDistance)
                 {
                     bestDistance = distance;

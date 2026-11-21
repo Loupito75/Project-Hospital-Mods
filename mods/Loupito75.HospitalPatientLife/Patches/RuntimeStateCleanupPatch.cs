@@ -12,6 +12,7 @@ namespace HospitalPatientLife.Patches
             HospitalizedNeedsPriorityRules.ResetRuntimeState();
             HospitalizedPatientTrace.ResetRuntimeState();
             HospitalizedTelevisionAccess.ResetRuntimeState();
+            YellowPosterLeisureAccess.ResetRuntimeState();
             NightBathroomChancePatch.ResetRuntimeState();
             ScheduledCafeteriaMealState.ResetRuntimeState();
         }

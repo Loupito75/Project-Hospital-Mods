@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <HospitalPatientLife>
-  <!-- Hospitalized-patient behavior. -->
+  <!-- @HMUC:desc Controls hospitalized-patient daily life, leisure, sleep and personal needs. -->
   <HospitalizedPatients>
+    <!-- @HMUC:desc Controls cafeteria choices for hospitalized patients. -->
     <Cafeteria>
       <!-- Chance that an eligible scheduled hospitalized-patient meal uses a cafeteria instead of a bedside tray.
            Default: 35%.
            Vanilla-equivalent: 0% (scheduled hospitalized patients keep the native bedside meal). -->
+      <!-- @HMUC:set label="Scheduled meal cafeteria chance" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Chance that an eligible scheduled hospitalized-patient meal uses a cafeteria instead of a bedside tray. -->
       <ScheduledMealCafeteriaChancePercent>35</ScheduledMealCafeteriaChancePercent>
 
       <!-- Chance that ambulatory hospitalized free time is replaced by a normal cafeteria snack/refreshment trip.
@@ -13,15 +16,20 @@
            Full meal-counter meals are NOT used by this free-time option.
            Default: 20%.
            Set to 0% to disable HPL free-time cafeteria snack trips. -->
+      <!-- @HMUC:set label="Free-time cafeteria snack chance" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Chance that ambulatory hospitalized free time becomes a normal cafeteria snack or refreshment trip. -->
       <FreeTimeCafeteriaSnackChancePercent>20</FreeTimeCafeteriaSnackChancePercent>
 
       <!-- Applied once per floor of vertical distance after a hospitalized-patient cafeteria choice succeeds.
            Default: 50% per floor.
            Example with 35% base chance and 50% here: same floor 35%, +/-1 floor 17.5%, +/-2 floors 8.75%.
            100% = no extra floor-distance penalty; 0% = never use a cafeteria on another floor. -->
+      <!-- @HMUC:set label="Other-floor cafeteria multiplier" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Percentage of the cafeteria choice chance retained for each floor of vertical distance. -->
       <OtherFloorCafeteriaChanceMultiplierPercentPerFloor>50</OtherFloorCafeteriaChanceMultiplierPercentPerFloor>
     </Cafeteria>
 
+    <!-- @HMUC:desc Controls hospitalized-patient free-time destinations and activity weights. -->
     <FreeTime>
       <!-- Chance that an eligible ambulatory hospitalized patient's normal free time tries an external leisure destination.
            Ordinary room leisure stays on the current floor. The patient's own department lounge may also be considered
@@ -29,6 +37,8 @@
            Default: 40%.
            0% = exact vanilla room-only leisure selection; 100% = always try a valid external leisure target.
            If no valid external target exists, vanilla's current-room choice is kept. -->
+      <!-- @HMUC:set label="External leisure chance" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Chance that eligible hospitalized free time tries an external leisure destination before keeping vanilla room leisure. -->
       <SameFloorLeisureChancePercent>40</SameFloorLeisureChancePercent>
 
       <!-- After the external-leisure roll succeeds, chance to prefer a native outdoor bench before indoor/lounge leisure.
@@ -36,6 +46,8 @@
            there is deliberately no additional per-floor outdoor multiplier.
            If the roll succeeds but no reachable outdoor bench is available, HPL continues with normal indoor/lounge leisure.
            0% = never specifically prefer outdoor benches; 100% = always try a reachable outdoor bench first. -->
+      <!-- @HMUC:set label="Outdoor leisure preference" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Chance to prefer a reachable outdoor bench after the external-leisure roll succeeds. -->
       <OutdoorLeisureChancePercent>35</OutdoorLeisureChancePercent>
 
       <!-- Applied once per floor of vertical distance when normal hospitalized Free Time considers the lounge
@@ -44,12 +56,16 @@
            Default: 75% per floor.
            75% = retain 75% of the lounge chance for each floor crossed; 100% = no vertical penalty;
            0% = never use the lounge on another floor. Same-floor lounge use is unaffected. -->
+      <!-- @HMUC:set label="Other-floor lounge multiplier" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Percentage of the own-department lounge chance retained for each floor crossed during hospitalized free time. -->
       <OtherFloorLoungeChanceMultiplierPercentPerFloor>75</OtherFloorLoungeChanceMultiplierPercentPerFloor>
 
       <!-- Maximum number of nearest patient-accessible ordinary rooms scanned when the leisure roll succeeds.
            Default: 24. Allowed range: 1-96.
            This applies only to ordinary same-floor rooms. Lounge and outdoor-bench discovery are handled separately.
            Rooms above PATIENT access, other hospitalization rooms and lounges are excluded from this ordinary-room scan. -->
+      <!-- @HMUC:set label="Nearby rooms to search" control="slider" min="1" max="96" step="1" -->
+      <!-- @HMUC:desc Maximum number of nearest patient-accessible ordinary rooms scanned for external leisure. -->
       <NearbyRoomsToSearch>24</NearbyRoomsToSearch>
 
       <!-- After choosing an indoor/lounge activity category, HPL sorts that category's valid destinations by native
@@ -58,14 +74,22 @@
            floor before proximity fills the remaining slots, so reachable roof/balcony benches can participate.
            Default: 6. Allowed range: 1-16.
            1 = always choose the closest valid target in the selected category; larger values increase variety. -->
+      <!-- @HMUC:set label="Leisure candidate pool size" control="slider" min="1" max="16" step="1" -->
+      <!-- @HMUC:desc Number of closest valid leisure destinations kept in the random candidate pool. -->
       <CandidatePoolSize>6</CandidatePoolSize>
 
       <!-- Relative activity weights used when HPL selects an external indoor/lounge leisure destination.
            These are NOT percentages and do not need to add up to 100.
            Defaults: rest=40, education=30, visual=30. Allowed range for each: 0-100.
            Unavailable categories are automatically removed from the weighted roll. -->
+      <!-- @HMUC:set label="External rest weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative weight of external rest activities for hospitalized patients. -->
       <RestActivityWeight>40</RestActivityWeight>
+      <!-- @HMUC:set label="External education weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative weight of external education activities for hospitalized patients. -->
       <EducationActivityWeight>30</EducationActivityWeight>
+      <!-- @HMUC:set label="External visual weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative weight of external visual activities for hospitalized patients. -->
       <VisualActivityWeight>30</VisualActivityWeight>
 
       <!-- Relative activity weights used only when an ambulatory hospitalized patient stays in the current room.
@@ -78,9 +102,17 @@
            Non-walking patients always watch from bed; their television weight competes against the combined
            non-TV room weights while the game's native lying free-time logic remains otherwise unchanged.
            Setting all four values to 0 keeps the exact vanilla room selection / lying free-time behavior. -->
+      <!-- @HMUC:set label="Room rest weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative weight of rest when an ambulatory hospitalized patient stays in the current room. -->
       <RoomRestActivityWeight>40</RoomRestActivityWeight>
+      <!-- @HMUC:set label="Room education weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative weight of education when an ambulatory hospitalized patient stays in the current room. -->
       <RoomEducationActivityWeight>30</RoomEducationActivityWeight>
+      <!-- @HMUC:set label="Room visual weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative weight of visual leisure when an ambulatory hospitalized patient stays in the current room. -->
       <RoomVisualActivityWeight>30</RoomVisualActivityWeight>
+      <!-- @HMUC:set label="Room television weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative television weight when an ambulatory hospitalized patient stays in a room containing the native TV. -->
       <RoomTelevisionActivityWeight>25</RoomTelevisionActivityWeight>
 
       <!-- Relative leisure weights for hospitalized patients who are NOT allowed to walk.
@@ -91,27 +123,38 @@
            Without a TV, REST and nurse/book normalize to roughly 2/3 vs 1/3.
            HPL does not increase the PLAYING/phone branch because reference/ contains no lying phone animation.
            A weight of 0 disables that HPL category; setting all three weights to 0 restores the native selection. -->
+      <!-- @HMUC:set label="Lying rest weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative rest weight for hospitalized patients who are not allowed to walk. -->
       <LyingRestActivityWeight>50</LyingRestActivityWeight>
+      <!-- @HMUC:set label="Lying nurse-book weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative nurse-and-book activity weight for hospitalized patients who are not allowed to walk. -->
       <LyingNurseBookActivityWeight>25</LyingNurseBookActivityWeight>
+      <!-- @HMUC:set label="Lying television weight" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Relative television weight for non-walking hospitalized patients when the native TV is available. -->
       <LyingTelevisionActivityWeight>25</LyingTelevisionActivityWeight>
     </FreeTime>
 
+    <!-- @HMUC:desc Controls hospitalized-patient bedtime and wake-up staggering. -->
     <Sleep>
       <!-- Maximum random delay after the native 20:00 night boundary before an otherwise idle hospitalized patient sleeps.
            Default: 60 minutes, producing stable per-patient bedtimes from 20:00 through 21:00.
            The offset is deterministic for a patient and game day, so save/reload does not reroll it.
            Medical examinations/treatments remain native and can still interrupt the patient.
            0 = exact vanilla 20:00 bedtime. Allowed range: 0-120. -->
+      <!-- @HMUC:set label="Bedtime stagger" control="slider" min="0" max="120" step="5" -->
+      <!-- @HMUC:desc Maximum random delay in in-game minutes after the native 20:00 night boundary before an otherwise idle hospitalized patient sleeps. -->
       <BedtimeStaggerMinutes>60</BedtimeStaggerMinutes>
 
       <!-- Maximum random delay after the native 07:00 day boundary before a sleeping hospitalized patient wakes normally.
            Default: 60 minutes, producing stable per-patient wake times from 07:00 through 08:00.
            Sleeping patients continue Project Hospital's native SelectNextStep() checks, so medical work can wake them sooner.
            0 = exact vanilla 07:00 wake-up. Allowed range: 0-120. -->
+      <!-- @HMUC:set label="Wake-up stagger" control="slider" min="0" max="120" step="5" -->
+      <!-- @HMUC:desc Maximum random delay in in-game minutes after the native 07:00 day boundary before a sleeping hospitalized patient wakes normally. -->
       <WakeUpStaggerMinutes>60</WakeUpStaggerMinutes>
     </Sleep>
 
-    <!-- Need thresholds and reductions use the game's 0-100 need scale. -->
+    <!-- @HMUC:desc Controls hospitalized-patient personal-need thresholds, reductions and night bathroom behavior. -->
     <Needs>
       <!-- After an ambulatory hospitalized patient's personal need or Free Time finishes,
            allow HPL to ask the native BehaviorPatient.CheckNeeds(PATIENT) for another currently important need
@@ -120,19 +163,27 @@
            Chaining is skipped when medical work is already planned/reserved, a scheduled meal is ready,
            the patient is unsafe/critical, or the patient's personal bedtime has been reached.
            false = exact vanilla return-to-bed behavior after each completed need/Free Time activity. -->
+      <!-- @HMUC:set label="Personal need chaining" control="checkbox" -->
+      <!-- @HMUC:desc Allows HPL to request another important personal need after a completed need or free-time activity when safety conditions allow. -->
       <AllowPersonalNeedChaining>true</AllowPersonalNeedChaining>
 
       <!-- HPL early personal-needs opportunity for hunger.
            Default: 70.
            The game's native critical need level is 80.
            100 = least intrusive HPL setting, but it is not a complete vanilla/off switch. -->
+      <!-- @HMUC:set label="Urgent hunger threshold" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Need threshold at which HPL may create an early hospitalized-patient hunger opportunity. -->
       <UrgentHungerThreshold>70</UrgentHungerThreshold>
 
       <!-- Amount of hunger removed by a scheduled bedside tray.
            Defaults: Min=50, Max=100.
            Vanilla-equivalent: 50-100. Project Hospital sends HUNGER_REDUCED=100 and Need.ReduceRandomized()
            removes a random value between 50 and 100. -->
+      <!-- @HMUC:set label="Bedside meal hunger reduction min" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Minimum hunger reduction applied by a scheduled bedside tray. -->
       <BedsideMealHungerReductionMin>50</BedsideMealHungerReductionMin>
+      <!-- @HMUC:set label="Bedside meal hunger reduction max" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Maximum hunger reduction applied by a scheduled bedside tray. -->
       <BedsideMealHungerReductionMax>100</BedsideMealHungerReductionMax>
 
       <!-- Amount of hunger removed by a hospitalized patient's scheduled full cafeteria meal.
@@ -140,13 +191,19 @@
            HPL intentionally makes a full cafeteria meal a little more filling than a bedside tray.
            There is no vanilla hospitalized-patient cafeteria equivalent; 50-100 matches the native full staff-lunch range.
            Normal patient snacks remain on the native smaller hunger reduction. -->
+      <!-- @HMUC:set label="Hospitalized cafeteria hunger reduction min" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Minimum hunger reduction applied by a hospitalized patient's scheduled full cafeteria meal. -->
       <CafeteriaMealHungerReductionMin>65</CafeteriaMealHungerReductionMin>
+      <!-- @HMUC:set label="Hospitalized cafeteria hunger reduction max" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Maximum hunger reduction applied by a hospitalized patient's scheduled full cafeteria meal. -->
       <CafeteriaMealHungerReductionMax>100</CafeteriaMealHungerReductionMax>
 
       <!-- HPL urgency threshold for bladder handling.
            Default: 80.
            The game's native critical need level is 80.
            100 = least intrusive HPL setting, but it is not a complete vanilla/off switch. -->
+      <!-- @HMUC:set label="Urgent bladder threshold" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Need threshold used by HPL for hospitalized-patient bladder handling. -->
       <UrgentBladderThreshold>80</UrgentBladderThreshold>
 
       <!-- Remaining bladder value after HPL bedside relief for eligible non-walking patients.
@@ -154,12 +211,18 @@
            Setting both to 0 fully empties the bladder during each HPL bedside-relief event.
            Vanilla continuously resets these patients to 0, so 0/0 matches the resulting value,
            but HPL still keeps its event-based timing instead of vanilla's continuous reset. -->
+      <!-- @HMUC:set label="Bedside bladder remaining min" control="slider" min="0" max="79" step="5" -->
+      <!-- @HMUC:desc Minimum bladder value left after HPL bedside relief for eligible non-walking patients. -->
       <BedsideBladderRemainingMin>0</BedsideBladderRemainingMin>
+      <!-- @HMUC:set label="Bedside bladder remaining max" control="slider" min="0" max="79" step="5" -->
+      <!-- @HMUC:desc Maximum bladder value left after HPL bedside relief for eligible non-walking patients. -->
       <BedsideBladderRemainingMax>25</BedsideBladderRemainingMax>
 
       <!-- Master switch for HPL night bathroom trips.
            Default: true.
            false = disable HPL's night bathroom fallback and keep Project Hospital's native night behavior. -->
+      <!-- @HMUC:set label="Night bathroom trips" control="checkbox" -->
+      <!-- @HMUC:desc Enables HPL's night bathroom fallback for eligible sleeping hospitalized patients. -->
       <AllowNightBathroomTrips>true</AllowNightBathroomTrips>
 
       <!-- Chance that an eligible sleeping hospitalized patient wakes for the bathroom.
@@ -169,24 +232,32 @@
            bathroom trip, later episodes that same night skip the 80 roll and wait until 90 for their first 50% chance;
            100 remains the safety wake. Daytime clears the per-night history.
            0% therefore still allows the HPL safety wake at 100; 100% wakes on the first eligible check of each allowed stage. -->
+      <!-- @HMUC:set label="Night bathroom trip chance" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Chance used at each eligible HPL night-bathroom decision stage before the safety wake at maximum bladder need. -->
       <NightBathroomTripChancePercent>50</NightBathroomTripChancePercent>
     </Needs>
   </HospitalizedPatients>
 
   <!-- Clinic-patient cafeteria behavior. Visitors have no vanilla hunger AI and pedestrians remain excluded. -->
+  <!-- @HMUC:desc Controls HPL behavior for clinic patients. -->
   <ClinicPatients>
+    <!-- @HMUC:desc Controls clinic-patient cafeteria preference, floor weighting, meal price and hunger reduction. -->
     <Cafeteria>
       <!-- Chance that a clinic patient's normal hunger trip prefers the cafeteria over ordinary same-floor food.
            Default: 35%.
            During hospitalized-patient meal windows (08-09, 12-13, 18-19), a successful cafeteria choice first
            tries a full meal from the meal counter. Outside those windows it uses a normal cafeteria snack/refreshment.
            0% = no HPL cafeteria preference; 100% = always prefer an available cafeteria. -->
+      <!-- @HMUC:set label="Clinic cafeteria visit chance" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Chance that a clinic patient's normal hunger trip prefers an available cafeteria over ordinary same-floor food. -->
       <CafeteriaVisitChancePercent>35</CafeteriaVisitChancePercent>
 
       <!-- Applied once per floor of vertical distance after a clinic-patient cafeteria choice succeeds.
            Default: 50% per floor.
            Example with 35% base chance and 50% here: same floor 35%, +/-1 floor 17.5%, +/-2 floors 8.75%.
            100% = no extra floor-distance penalty; 0% = never choose a cafeteria on another floor. -->
+      <!-- @HMUC:set label="Other-floor cafeteria multiplier" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Percentage of the cafeteria choice chance retained for each floor of vertical distance. -->
       <OtherFloorCafeteriaChanceMultiplierPercentPerFloor>50</OtherFloorCafeteriaChanceMultiplierPercentPerFloor>
 
       <!-- Price charged to a clinic patient for an HPL full cafeteria meal.
@@ -194,25 +265,34 @@
            0 = full cafeteria meals are free.
            Normal cafeteria snacks keep Project Hospital's native $5 vending/payment behavior.
            Patients for whom vanilla ShouldPatientPay() returns false are not charged. -->
+      <!-- @HMUC:set label="Clinic full meal price" control="slider" min="0" max="25" step="1" -->
+      <!-- @HMUC:desc Price charged to an eligible clinic patient for an HPL full cafeteria meal. -->
       <FullMealPrice>25</FullMealPrice>
 
       <!-- Amount of hunger removed by a clinic patient's full cafeteria meal.
            Defaults: Min=65, Max=100.
            These values are separate from hospitalized-patient cafeteria meals so both populations can be tuned independently.
            50-100 matches the native full staff-lunch reduction range. -->
+      <!-- @HMUC:set label="Clinic full meal hunger reduction min" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Minimum hunger reduction applied by a clinic patient's full cafeteria meal. -->
       <FullMealHungerReductionMin>65</FullMealHungerReductionMin>
+      <!-- @HMUC:set label="Clinic full meal hunger reduction max" control="slider" min="0" max="100" step="5" -->
+      <!-- @HMUC:desc Maximum hunger reduction applied by a clinic patient's full cafeteria meal. -->
       <FullMealHungerReductionMax>100</FullMealHungerReductionMax>
     </Cafeteria>
   </ClinicPatients>
 
   <!-- Shared leisure-object behavior for clinic and hospitalized patients.
        Default: true.
-       Wall leisure objects that are visually obstructed keep their yellow/orange warning regardless of this option.
+       When this option is enabled and HPL confirms a supported yellow placement is structurally usable, the building preview/status and placed-object tint are presented as valid while the underlying placement state remains unchanged.
        true = HPL may still allow a supported yellow leisure object, such as a poster or OBJECT_DLC_BOOKSHELF,
               when its real interaction tile is free, reachable and not occupied by another character.
-       false = yellow leisure objects remain unavailable for interaction; the warning color is unchanged.
+       false = yellow leisure objects remain unavailable for interaction and keep the native yellow/orange warning.
        Red/forbidden placements are never changed. -->
+  <!-- @HMUC:desc Controls shared leisure-object interaction rules for patients. -->
   <PatientLeisure>
+    <!-- @HMUC:set label="Allow yellow leisure objects" control="checkbox" -->
+    <!-- @HMUC:desc Allows supported yellow-warning leisure objects to remain usable when their real interaction tile is safe, free and reachable. -->
     <AllowYellowLeisureObjectInteraction>true</AllowYellowLeisureObjectInteraction>
   </PatientLeisure>
 
@@ -220,7 +300,10 @@
        Default: false.
        false = normal/public HPL logging; true = verbose HPL diagnostics.
        This setting affects Hospital Patient Life only and does not change Hospital Traffic Control logging. -->
+  <!-- @HMUC:desc Controls Hospital Patient Life troubleshooting diagnostics. -->
   <Diagnostics>
+    <!-- @HMUC:set label="Debug logging" control="checkbox" -->
+    <!-- @HMUC:desc Enables verbose Hospital Patient Life troubleshooting traces. -->
     <DebugLogging>false</DebugLogging>
   </Diagnostics>
 </HospitalPatientLife>

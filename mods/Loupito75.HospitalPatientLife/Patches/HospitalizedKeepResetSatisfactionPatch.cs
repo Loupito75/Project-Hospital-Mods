@@ -110,23 +110,22 @@ namespace HospitalPatientLife.Patches
         private static bool ClearCriticalModifier(MoodComponent mood, string needId)
         {
             GameDBNeed need = Database.Instance.GetEntry<GameDBNeed>(needId);
-            if (need == null ||
+            if (mood == null ||
+                mood.m_state == null ||
+                mood.m_state.m_satisfactionModifiers == null ||
+                need == null ||
                 need.SatisfactionModifierCritical == null ||
                 need.SatisfactionModifierCritical.Entry == null)
             {
                 return false;
             }
 
-            string modifierId = need.SatisfactionModifierCritical.Entry.DatabaseID.ToString();
-            bool changed = false;
-
-            while (mood.HasSatisfactionModifier(modifierId))
-            {
-                mood.RemoveSatisfactionModifier(modifierId);
-                changed = true;
-            }
-
-            return changed;
+            // Mood stores satisfaction modifiers in a HashSet. Remove the exact
+            // modifier pointer once instead of repeating string-based DB lookups through
+            // HasSatisfactionModifier()/RemoveSatisfactionModifier(). The caller already
+            // performs one final UpdateTotalSatisfaction() when anything changed.
+            return mood.m_state.m_satisfactionModifiers.Remove(
+                need.SatisfactionModifierCritical.Entry);
         }
     }
 }

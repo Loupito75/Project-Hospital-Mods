@@ -145,25 +145,38 @@ namespace HospitalPatientLife.Patches
                 }
             }
 
-            TileObject television =
-                HospitalizedTelevisionAccess.FindClosestTelevision(
-                    walk,
-                    currentRoom);
-            TileObject televisionSeat =
-                FindClosestAvailableRestSeat(
-                    mainCharacter,
-                    rest);
+            TileObject television = null;
+            TileObject televisionSeat = null;
+            bool canWatchFromBed = false;
+            bool canWatchFromSeat = false;
+            bool televisionAvailable = false;
 
-            TileObject bed = hospitalization.m_state.m_bed == null
-                ? null
-                : hospitalization.m_state.m_bed.GetEntity();
-            bool canWatchFromBed =
-                bed != null && walk.IsSittingOn(bed);
-            bool canWatchFromSeat =
-                televisionSeat != null;
-            bool televisionAvailable =
-                television != null &&
-                (canWatchFromBed || canWatchFromSeat);
+            // Television-specific pathfinding is useful only when the TV category can
+            // actually participate in this room-leisure decision.
+            if (PatientLeisureConfig.RoomTelevisionActivityWeight > 0)
+            {
+                television =
+                    HospitalizedTelevisionAccess.FindClosestTelevision(
+                        walk,
+                        currentRoom);
+
+                if (television != null)
+                {
+                    TileObject bed = hospitalization.m_state.m_bed == null
+                        ? null
+                        : hospitalization.m_state.m_bed.GetEntity();
+                    canWatchFromBed =
+                        bed != null && walk.IsSittingOn(bed);
+
+                    televisionSeat =
+                        FindClosestAvailableRestSeat(
+                            mainCharacter,
+                            rest);
+                    canWatchFromSeat = televisionSeat != null;
+                    televisionAvailable =
+                        canWatchFromBed || canWatchFromSeat;
+                }
+            }
 
             LeisureKind selectedKind;
             int roll;

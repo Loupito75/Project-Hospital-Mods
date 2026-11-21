@@ -119,7 +119,7 @@ namespace HospitalPatientLife.Patches
             }
 
             if (nextState != HospitalizationState.InBed ||
-                hospitalization.m_state.m_bed == null)
+                !HospitalizedBedSafety.CanUseAssignedBed(hospitalization))
             {
                 return;
             }
@@ -424,7 +424,7 @@ namespace HospitalPatientLife.Patches
                 walk == null ||
                 hospitalization.IsAllowedToWalk() != patientMustBeAllowedToWalk ||
                 hospitalization.m_state == null ||
-                hospitalization.m_state.m_bed == null)
+                !HospitalizedBedSafety.CanUseAssignedBed(hospitalization))
             {
                 return false;
             }

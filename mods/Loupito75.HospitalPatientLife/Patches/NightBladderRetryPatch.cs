@@ -62,14 +62,17 @@ namespace HospitalPatientLife.Patches
             if (__instance.m_nextStepDelay < preloadedDelay)
             {
                 __instance.m_nextStepDelay = preloadedDelay;
-                HospitalizedPatientTrace.Log(
-                    HospitalizedPatientTrace.GetName(patient) +
-                    " | night-bladder-retry=SCHEDULED" +
-                    " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
-                    " | bladder=" + bladder.ToString("0.0") +
-                    " | retryDelay=" + retryDelay.ToString("0.00") +
-                    " | preloadedDelay=" + preloadedDelay.ToString("0.00") +
-                    " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+                if (HospitalizedPatientTrace.Enabled)
+                {
+                    HospitalizedPatientTrace.Log(
+                        HospitalizedPatientTrace.GetName(patient) +
+                        " | night-bladder-retry=SCHEDULED" +
+                        " | gameTime=" + HospitalizedPatientTrace.GetGameTime() +
+                        " | bladder=" + bladder.ToString("0.0") +
+                        " | retryDelay=" + retryDelay.ToString("0.00") +
+                        " | preloadedDelay=" + preloadedDelay.ToString("0.00") +
+                        " | floor=" + HospitalizedPatientTrace.GetFloor(patient));
+                }
             }
         }
     }
