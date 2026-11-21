@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 482741,
-  "updatedUtc": "2026-11-07T18:17:07Z",
-  "expiresUtc": "2027-02-05T18:17:07Z",
+  "manifestRevision": 482742,
+  "updatedUtc": "2026-11-21T09:25:27Z",
+  "expiresUtc": "2027-02-19T09:25:27Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -235,20 +235,22 @@
       "guid": "loupito75.HospitalPatientLife",
       "name": "Hospital Patient Life",
       "author": "Loupito75",
-      "version": "1.0.1",
-      "description": "Project Hospital patient-life and hospital activity mod powered by BepInEx and Harmony.",
-      "whatsNew": "",
+      "version": "1.0.2",
+      "description": "Hospital Patient Life improves the everyday behavior of Project Hospital patients while keeping medical work, native procedures, reservations, access rules and pathfinding in control.",
+      "whatsNew": "Safer hospital resets, safe handling of missing patient beds, clearer yellow leisure-object placement feedback, safer configuration loading, lower background overhead",
       "package": {
-        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalPatientLife-v1.0.1-republished/Loupito75.HospitalPatientLife-v1.0.1.zip",
-        "sha256": "966f6c060803e959556b776eee040a10f11c0c11257a35876004fedceec25a59",
-        "packageBytes": 414753,
-        "maximumUnpackedBytes": 506587,
+        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalPatientLife-v1.0.2/Loupito75.HospitalPatientLife-v1.0.2.zip",
+        "sha256": "0b34f859bc07f419ea64efb53cf31402c319e0b567eb65f474f5b1749a722548",
+        "packageBytes": 419018,
+        "maximumUnpackedBytes": 521176,
         "installDirectory": "Loupito75.HospitalPatientLife",
         "archiveRoot": "Loupito75.HospitalPatientLife",
         "pluginFile": "Loupito75.HospitalPatientLife.dll",
         "configFile": "Loupito75.HospitalPatientLife.Config.xml",
         "runtimeDirectories": [],
         "runtimeFiles": [
+          "Database/ModAddon.xml",
+          "Database/ModStringTableEn.xml",
           "Loupito75.HospitalPatientLife.dll",
           "preview.png",
           "README_NEVER_MISS_AN_UPDATE.txt"
