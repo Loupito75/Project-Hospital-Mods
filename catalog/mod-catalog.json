@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 482743,
-  "updatedUtc": "2026-11-22T00:37:35Z",
-  "expiresUtc": "2027-02-20T00:37:35Z",
+  "manifestRevision": 482744,
+  "updatedUtc": "2026-11-22T02:18:30Z",
+  "expiresUtc": "2027-02-20T02:18:30Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -86,14 +86,14 @@
       "guid": "loupito75.HospitalFixes",
       "name": "Hospital Fixes",
       "author": "Loupito75",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Fixes targeted Vanilla bugs and inconsistencies in Project Hospital across hospital operations, interface, construction and visuals.",
-      "whatsNew": "29 targeted Vanilla fixes, workflow corrections, interface and construction fixes, visual improvements",
+      "whatsNew": "intrinsic workspace role fixes, Stat Lab assignment and fridge-wait fixes, attached-patient elevator fade, generic external clothing-change visuals",
       "package": {
-        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalFixes-v1.0.0/Loupito75.HospitalFixes-v1.0.0.zip",
-        "sha256": "a5323e96d5b189ec0ed1aa248284de8debdacec66a585bcb6c0ea70ce280b5c5",
-        "packageBytes": 797697,
-        "maximumUnpackedBytes": 1087202,
+        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalFixes-v1.1.0/Loupito75.HospitalFixes-v1.1.0.zip",
+        "sha256": "39799a7a71d6b7cbe2aa5843d74f0a08b32fea85868d8d1e68b2d0acdc4a58b1",
+        "packageBytes": 811069,
+        "maximumUnpackedBytes": 1124682,
         "installDirectory": "Loupito75.HospitalFixes",
         "archiveRoot": "Loupito75.HospitalFixes",
         "pluginFile": "Loupito75.HospitalFixes.dll",
