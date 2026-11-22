@@ -65,6 +65,17 @@ namespace HospitalTrafficControl
                 return;
             }
 
+            if (NavigationAccessPolicy
+                    .IsAuthorizedBiohazardPatientOccupancy(walk))
+            {
+                BlockedBubbleState existing;
+                if (Active.TryGetValue(walk, out existing))
+                {
+                    Refresh(walk, existing);
+                }
+                return;
+            }
+
             BlockedBubbleState entry = GetOrCreate(walk);
             if (entry == null)
             {
@@ -129,7 +140,9 @@ namespace HospitalTrafficControl
             bool noPath = walkState == WalkState.NoPath;
             bool restricted =
                 !walk.m_state.m_lying &&
-                AccessZoneRecoveryManager.IsCurrentTileRestricted(walk);
+                AccessZoneRecoveryManager.IsCurrentTileRestricted(walk) &&
+                !NavigationAccessPolicy
+                    .IsAuthorizedBiohazardPatientOccupancy(walk);
 
             BlockedBubbleState entry;
             if (!Active.TryGetValue(walk, out entry))
@@ -251,7 +264,9 @@ namespace HospitalTrafficControl
             WalkState state = walk.m_state.m_walkState;
             bool restricted =
                 !walk.m_state.m_lying &&
-                AccessZoneRecoveryManager.IsCurrentTileRestricted(walk);
+                AccessZoneRecoveryManager.IsCurrentTileRestricted(walk) &&
+                !NavigationAccessPolicy
+                    .IsAuthorizedBiohazardPatientOccupancy(walk);
 
             // A NoPath stays visible through native/HTC replanning. It ends
             // only when a usable route starts or movement is cancelled.

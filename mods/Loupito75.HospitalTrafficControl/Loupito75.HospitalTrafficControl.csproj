@@ -4,14 +4,15 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <AssemblyName>Loupito75.HospitalTrafficControl</AssemblyName>
+    <ModAcronym>HTC</ModAcronym>
     <RootNamespace>HospitalTrafficControl</RootNamespace>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 
-    <Version>1.5.3</Version>
-    <AssemblyVersion>1.5.3</AssemblyVersion>
-    <FileVersion>1.5.3</FileVersion>
-    <InformationalVersion>1.5.3</InformationalVersion>
+    <Version>1.6.0</Version>
+    <AssemblyVersion>1.6.0</AssemblyVersion>
+    <FileVersion>1.6.0</FileVersion>
+    <InformationalVersion>1.6.0</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Traffic Control</Product>
@@ -34,6 +35,7 @@
     <Compile Include="CrossFloorBlockedManager.cs" />
     <Compile Include="DoorDebugManager.cs" />
     <Compile Include="JanitorCleaningManager.cs" />
+    <Compile Include="CleaningTileProtectionRegistry.cs" />
     <Compile Include="HtcFullSpeechBubblePatch.cs" />
     <Compile Include="LocalizationManager.cs" />
     <Compile Include="NavigationChangeTracker.cs" />
@@ -68,6 +70,7 @@
     <Compile Include="Patches\JanitorCleaningPatch.cs" />
     <Compile Include="Patches\NoPathPatch.cs" />
     <Compile Include="Patches\DatabaseReadFilesPatch.cs" />
+    <Compile Include="Patches\DiagonalSavedDirectionCompatibilityPatch.cs" />
     <Compile Include="Patches\PlayerProfileLoadPatch.cs" />
     <Compile Include="Patches\OneWayAccessPatch.cs" />
     <Compile Include="Patches\OneWayManagementClickPatch.cs" />

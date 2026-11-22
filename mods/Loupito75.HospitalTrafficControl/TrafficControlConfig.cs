@@ -137,6 +137,7 @@ namespace HospitalTrafficControl
                 RoomTransitPenalty = parsedPenalty;
             }
 
+
             string janitorText = GetElementValue(xml, "AvoidCleaningActiveProcedureRooms");
             if (!string.IsNullOrEmpty(janitorText))
             {

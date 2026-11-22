@@ -14,8 +14,8 @@ namespace HospitalTrafficControl
         public const string HarmonyId = "Loupito75:HospitalTrafficControl";
         public const string PluginName = "Hospital Traffic Control";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.5.3";
-        public const string PluginWhatsNew = "Fixed Bucket Cart staging/reselection bug, safer cross-floor visitor recovery, janitor and pathfinding performance improvements";
+        public const string PluginVersion = "1.6.0";
+        public const string PluginWhatsNew = "Safer clinical-room janitor cleaning, generic cleaning-protection provider API, versioned bathroom compatibility API, fewer false BIOHAZARD path bubbles";
 
         internal static ManualLogSource Log { get; private set; }
 
@@ -132,6 +132,7 @@ namespace HospitalTrafficControl
         private void OnDestroy()
         {
             RuntimeStateManager.Reset();
+            CleaningTileProtectionRegistry.Shutdown();
             _harmony?.UnpatchSelf();
             DeferredGridMapPatches.Reset();
             s_harmony = null;

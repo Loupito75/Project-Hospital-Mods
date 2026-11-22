@@ -1,3 +1,4 @@
+using System;
 using GLib;
 using Lopital;
 
@@ -5,6 +6,34 @@ namespace HospitalTrafficControl
 {
     public static class HospitalTrafficControlApi
     {
+        public static int GetCleaningProtectionApiVersion()
+        {
+            return 1;
+        }
+
+        public static bool TryRegisterCleaningTileProtectionProvider(
+            string sourceId,
+            Delegate supportsRoom,
+            Delegate tryIsTileProtected)
+        {
+            return CleaningTileProtectionRegistry.TryRegister(
+                sourceId,
+                supportsRoom,
+                tryIsTileProtected);
+        }
+
+        public static bool TryUnregisterCleaningTileProtectionProvider(
+            string sourceId)
+        {
+            return CleaningTileProtectionRegistry.TryUnregister(
+                sourceId);
+        }
+
+        public static int GetBathroomCompatibilityApiVersion()
+        {
+            return 1;
+        }
+
         public static bool IsBathroomAllowedForCharacter(
             Entity character,
             TileObject bathroom)

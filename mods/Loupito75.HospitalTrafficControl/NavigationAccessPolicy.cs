@@ -103,6 +103,90 @@ namespace HospitalTrafficControl
             return Math.Max(roomAccess, logisticsAccess);
         }
 
+        internal static bool IsAuthorizedBiohazardPatientOccupancy(
+            WalkComponent walk)
+        {
+            if (walk == null ||
+                walk.m_state == null ||
+                walk.Floor == null)
+            {
+                return false;
+            }
+
+            Entity entity = CharacterAccess.GetEntity(walk);
+            if (entity == null ||
+                entity.GetComponent<BehaviorPatient>() == null)
+            {
+                return false;
+            }
+
+            HospitalizationComponent hospitalization =
+                entity.GetComponent<HospitalizationComponent>();
+            if (hospitalization == null ||
+                !hospitalization.IsHospitalized())
+            {
+                return false;
+            }
+
+            Floor floor = walk.Floor;
+            Vector2i tile = walk.GetCurrentTileSafe();
+            if (!IsBiohazardRoomTile(floor, tile) ||
+                floor.m_roomTiles == null)
+            {
+                return false;
+            }
+
+            Room currentRoom =
+                floor.m_roomTiles[tile.m_x, tile.m_y];
+            if (currentRoom == null)
+            {
+                return false;
+            }
+
+            ProcedureComponent procedures =
+                entity.GetComponent<ProcedureComponent>();
+            ProcedureScript script =
+                procedures == null ||
+                procedures.m_state == null ||
+                procedures.m_state.m_currentProcedureScript == null
+                    ? null
+                    : procedures.m_state.m_currentProcedureScript
+                        .GetEntity();
+
+            ProcedureScene scene =
+                script == null ||
+                script.m_stateData == null
+                    ? null
+                    : script.m_stateData.m_procedureScene;
+            Room procedureRoom =
+                scene == null ||
+                scene.m_room == null
+                    ? null
+                    : scene.m_room.GetEntity();
+
+            if (ReferenceEquals(
+                    procedureRoom,
+                    currentRoom))
+            {
+                return true;
+            }
+
+            TileObject bed =
+                hospitalization.m_state == null ||
+                hospitalization.m_state.m_bed == null
+                    ? null
+                    : hospitalization.m_state.m_bed.GetEntity();
+            Room bedRoom =
+                bed == null ||
+                MapScriptInterface.Instance == null
+                    ? null
+                    : MapScriptInterface.Instance.GetRoomAt(bed);
+
+            return ReferenceEquals(
+                bedRoom,
+                currentRoom);
+        }
+
         internal static bool NeedsBiohazardEndpointGraph(WalkComponent walk)
         {
             if (walk == null ||

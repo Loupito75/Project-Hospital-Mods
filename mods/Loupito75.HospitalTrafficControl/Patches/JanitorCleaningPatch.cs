@@ -28,6 +28,14 @@ namespace HospitalTrafficControl.Patches
                 behaviorJanitor,
                 department,
                 threshold);
+            if (JanitorCleaningManager.TryCaptureProviderRoomTileSelection(
+                    behaviorJanitor,
+                    __result,
+                    "assigned-room"))
+            {
+                __result =
+                    new Vector3i(0, 0, 0);
+            }
             return false;
         }
     }
@@ -50,9 +58,25 @@ namespace HospitalTrafficControl.Patches
                 return true;
             }
 
+            if (JanitorCleaningManager
+                    .HasCapturedProviderRoomTileSelection())
+            {
+                __result =
+                    new Vector3i(0, 0, 0);
+                return false;
+            }
+
             __result = JanitorCleaningManager.FindDirtiestTileInAnyUnreservedRoomAnyFloor(
                 department,
                 threshold);
+            if (JanitorCleaningManager.TryCaptureProviderRoomTileSelection(
+                    null,
+                    __result,
+                    "any-room"))
+            {
+                __result =
+                    new Vector3i(0, 0, 0);
+            }
             return false;
         }
     }
@@ -201,14 +225,48 @@ namespace HospitalTrafficControl.Patches
             BehaviorJanitor __instance,
             ref bool __result)
         {
-            if (!JanitorCleaningManager
+            JanitorCleaningManager
+                .ClearProviderRoomTileSelection();
+
+            if (JanitorCleaningManager
                     .ShouldYieldNightDeferredRoomToIndoorTile(__instance))
             {
-                return true;
+                __result = false;
+                return false;
             }
 
-            __result = false;
-            return false;
+            JanitorCleaningManager
+                .BeginProviderRoomTileSelection(
+                    __instance);
+            return true;
+        }
+
+        private static void Postfix(
+            BehaviorJanitor __instance,
+            ref bool __result)
+        {
+            if (!__result)
+            {
+                __result =
+                    JanitorCleaningManager
+                        .TryCompleteProviderRoomTileSelection(
+                            __instance);
+                return;
+            }
+
+            JanitorCleaningManager
+                .ReleaseProviderRoomClaim(
+                    __instance);
+            JanitorCleaningManager
+                .ClearProviderRoomTileSelection();
+        }
+
+        private static Exception Finalizer(
+            Exception __exception)
+        {
+            JanitorCleaningManager
+                .ClearProviderRoomTileSelection();
+            return __exception;
         }
     }
 
@@ -226,6 +284,10 @@ namespace HospitalTrafficControl.Patches
             int threshold,
             ref bool __result)
         {
+            JanitorCleaningManager
+                .BeginProviderIndoorTileSelection(
+                    __instance);
+
             if (threshold == 10 &&
                 JanitorCleaningManager.TryOfferOccupiedClinicalRoomWait(
                     __instance))
@@ -248,6 +310,27 @@ namespace HospitalTrafficControl.Patches
                     JanitorCleaningManager.TryOfferOccupiedClinicalRoomWait(
                         __instance);
             }
+
+            if (__result &&
+                !JanitorCleaningManager
+                    .FinalizeProviderIndoorTileSelection(
+                        __instance))
+            {
+                __result = false;
+            }
+            else
+            {
+                JanitorCleaningManager
+                    .ClearProviderIndoorTileSelection();
+            }
+        }
+
+        private static Exception Finalizer(
+            Exception __exception)
+        {
+            JanitorCleaningManager
+                .ClearProviderIndoorTileSelection();
+            return __exception;
         }
     }
 
@@ -260,6 +343,16 @@ namespace HospitalTrafficControl.Patches
             BehaviorJanitor __instance,
             ref bool __result)
         {
+            bool selectedProviderTile;
+            if (JanitorCleaningManager
+                    .TryContinueProviderRoomTileSelection(
+                        __instance,
+                        out selectedProviderTile))
+            {
+                __result = selectedProviderTile;
+                return false;
+            }
+
             if (!JanitorCleaningManager.TrySkipProtectedCurrentRoomSelection(
                     __instance))
             {
@@ -385,6 +478,10 @@ namespace HospitalTrafficControl.Patches
             BehaviorJanitor __instance,
             BehaviorJanitorState state)
         {
+            JanitorCleaningManager.OnJanitorStateChanged(
+                __instance,
+                state);
+
             if (state != BehaviorJanitorState.Cleaning)
             {
                 return;
