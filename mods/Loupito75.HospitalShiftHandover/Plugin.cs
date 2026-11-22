@@ -71,11 +71,11 @@ namespace HospitalShiftHandover
     {
         public const string PluginGuid = "loupito75.HospitalShiftHandover";
         public const string PluginName = "Hospital Shift Handover";
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "1.3.0";
         public const string PluginAuthor = "Loupito75";
         public const string HarmonyId = "Loupito75:HospitalShiftHandover";
         public const string PluginWhatsNew =
-            "Door-aware handover staging, safer doctor handovers, locker dressing enabled by default, locker dressing sounds and bubbles, handover wait bubble";
+            "More natural late-relief waiting, employee-card shift statuses, optional HFX clothing-change visuals";
 
         internal static ReleaseLog Log { get; private set; }
 

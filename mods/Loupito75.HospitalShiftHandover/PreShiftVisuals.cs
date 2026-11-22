@@ -265,6 +265,7 @@ namespace HospitalShiftHandover
         internal static void ResetForBaseLoad()
         {
             s_loaded = false;
+            HfxExternalClothingChangeInterop.Reset();
             PreShiftVisuals.ResetForDatabaseReload();
         }
 

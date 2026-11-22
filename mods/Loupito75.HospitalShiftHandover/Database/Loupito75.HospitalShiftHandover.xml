@@ -1,6 +1,443 @@
 <Database>
     <GameDBAsset ID="HSH_ASSET_SHIFT_HANDOVER_WAIT_BUBBLE">
         <Type>TEXTURE_CUSTOM_SPRITE</Type>
-        <File>MOD_ROOT/Textures/UI/shift_handover_wait_bubble.png</File>
+        <File>MOD_ROOT/Textures/UI/L75_HSH_SHIFT_HANDOVER_WAIT_BUBBLE.png</File>
     </GameDBAsset>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_EN">
+        <LanguageCode>en</LanguageCode>
+        <LanguageNameLocalized>English</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Waiting for shift</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Shift handover</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Changing clothes</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Waiting for relief</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_FR">
+        <LanguageCode>fr</LanguageCode>
+        <LanguageNameLocalized>Français</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Attend son service</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Changement de service</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Se change</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Attend sa relève</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_DE">
+        <LanguageCode>de</LanguageCode>
+        <LanguageNameLocalized>Deutsch</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Wartet auf Schichtbeginn</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Schichtübergabe</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Zieht sich um</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Wartet auf Ablösung</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_ES">
+        <LanguageCode>es</LanguageCode>
+        <LanguageNameLocalized>Español</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Esperando el turno</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Relevo de turno</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Cambiándose de ropa</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Esperando el relevo</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_CZ">
+        <LanguageCode>cz</LanguageCode>
+        <LanguageNameLocalized>Čeština</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Čeká na směnu</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Předání směny</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Převléká se</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Čeká na vystřídání</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_PTBR">
+        <LanguageCode>ptbr</LanguageCode>
+        <LanguageNameLocalized>Português do Brasil</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Aguardando o turno</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Passagem de turno</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Trocando de roupa</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Aguardando substituição</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_LA">
+        <LanguageCode>la</LanguageCode>
+        <LanguageNameLocalized>Español Latino</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Esperando el turno</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Relevo de turno</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Cambiándose de ropa</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Esperando el relevo</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_ZHTW">
+        <LanguageCode>zhtw</LanguageCode>
+        <LanguageNameLocalized>繁體中文</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>等待值班</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>交接班</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>更衣中</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>等待接班</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_RU">
+        <LanguageCode>ru</LanguageCode>
+        <LanguageNameLocalized>Русский</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Ожидает смену</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Передача смены</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Переодевается</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Ожидает сменщика</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_TR">
+        <LanguageCode>tr</LanguageCode>
+        <LanguageNameLocalized>Türkçe</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Vardiya başlangıcını bekliyor</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Vardiya devri</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Üstünü değiştiriyor</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Yerine gelecek personeli bekliyor</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_UK">
+        <LanguageCode>uk</LanguageCode>
+        <LanguageNameLocalized>Українська</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Очікує початку зміни</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Передача зміни</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Перевдягається</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Очікує змінника</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_IT">
+        <LanguageCode>it</LanguageCode>
+        <LanguageNameLocalized>Italiano</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>In attesa del turno</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Passaggio di consegne</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Si sta cambiando</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>In attesa del sostituto</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_ZHHANS">
+        <LanguageCode>zh-Hans</LanguageCode>
+        <LanguageNameLocalized>简体中文</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>等待值班</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>交接班</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>更衣中</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>等待接班</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_NL">
+        <LanguageCode>nl</LanguageCode>
+        <LanguageNameLocalized>Nederlands</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Wacht op dienst</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Dienstoverdracht</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Kleedt zich om</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Wacht op aflossing</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_JA">
+        <LanguageCode>ja</LanguageCode>
+        <LanguageNameLocalized>日本語</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>勤務開始待ち</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>引き継ぎ中</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>着替え中</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>交代要員待ち</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_HU">
+        <LanguageCode>hu</LanguageCode>
+        <LanguageNameLocalized>Magyar</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Műszakkezdésre vár</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Műszakátadás</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Átöltözik</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Váltásra vár</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_PL">
+        <LanguageCode>pl</LanguageCode>
+        <LanguageNameLocalized>Polski</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Czeka na zmianę</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Przekazanie zmiany</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Przebiera się</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Czeka na zmiennika</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_KR">
+        <LanguageCode>kr</LanguageCode>
+        <LanguageNameLocalized>한국어</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>근무 시작 대기</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>교대 인계</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>옷 갈아입는 중</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>교대자 대기</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
+
+    <GameDBStringTable ID="L75_HSH_STRING_TABLE_SWE">
+        <LanguageCode>swe</LanguageCode>
+        <LanguageNameLocalized>Svenska</LanguageNameLocalized>
+        <LocalizedStrings>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_SHIFT</LocID>
+                <Text>Väntar på arbetspass</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_SHIFT_HANDOVER</LocID>
+                <Text>Skiftöverlämning</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_CHANGING_CLOTHES</LocID>
+                <Text>Byter om</Text>
+            </GameDBLocalizedString>
+            <GameDBLocalizedString>
+                <LocID>L75_HSH_STATUS_WAITING_FOR_RELIEF</LocID>
+                <Text>Väntar på avlösning</Text>
+            </GameDBLocalizedString>
+        </LocalizedStrings>
+    </GameDBStringTable>
 </Database>
