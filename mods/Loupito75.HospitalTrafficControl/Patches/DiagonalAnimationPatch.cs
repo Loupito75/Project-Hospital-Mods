@@ -6,6 +6,53 @@ using Lopital;
 
 namespace HospitalTrafficControl.Patches
 {
+    // The experimental cardinal N/E/S/W directions are valid only while HTC
+    // has installed the matching runtime animation instances. AnimModelComponent
+    // persists m_direction directly, while vanilla AnimatedModel8DirController
+    // only owns NE/SE/SW/NW (plus lying directions). When the prototype is
+    // disabled, normalize an old development save before the native constructor
+    // rebuilds its controller. The same state object is then saved back cleanly.
+    [HarmonyPatch(
+        typeof(AnimModelComponent),
+        MethodType.Constructor,
+        new System.Type[]
+        {
+            typeof(Entity),
+            typeof(AnimModelComponentPersistentData)
+        })]
+    internal static class DiagonalSavedDirectionCompatibilityPatch
+    {
+        [HarmonyPrepare]
+        private static bool Prepare()
+        {
+            return !TrafficControlConfig.ExperimentalDiagonalCornerSmoothing;
+        }
+
+        private static void Prefix(AnimModelComponentPersistentData __1)
+        {
+            if (__1 == null)
+            {
+                return;
+            }
+
+            switch (__1.m_direction)
+            {
+                case Direction.N:
+                    __1.m_direction = Direction.NE;
+                    break;
+                case Direction.E:
+                    __1.m_direction = Direction.SE;
+                    break;
+                case Direction.S:
+                    __1.m_direction = Direction.SW;
+                    break;
+                case Direction.W:
+                    __1.m_direction = Direction.NW;
+                    break;
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(StreamingAssetManager), "FillAnimModelsToLoad")]
     internal static class DiagonalWalkAssetLoadPatch
     {
