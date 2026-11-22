@@ -5,15 +5,16 @@
     <Nullable>disable</Nullable>
     <AssemblyName>Loupito75.HospitalFixes</AssemblyName>
     <RootNamespace>HospitalFixes</RootNamespace>
+    <ModAcronym>HFX</ModAcronym>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0</AssemblyVersion>
-    <FileVersion>1.0.0</FileVersion>
-    <InformationalVersion>1.0.0</InformationalVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0</AssemblyVersion>
+    <FileVersion>1.1.0</FileVersion>
+    <InformationalVersion>1.1.0</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Fixes</Product>
@@ -26,6 +27,7 @@
   <ItemGroup>
     <Compile Include="Plugin.cs" />
     <Compile Include="FixConfig.cs" />
+    <Compile Include="HospitalFixesApi.cs" />
     <Compile Include="Diagnostics.cs" />
     <Compile Include="HfxDatabase.cs" />
     <Compile Include="LocalizationManager.cs" />
@@ -51,15 +53,21 @@
     <Compile Include="Patches\WorkspaceEmployeeSelectionPatch.cs" />
     <Compile Include="Patches\JanitorDuplicateCleaningPatch.cs" />
     <Compile Include="Patches\HospitalizedProcedureEquipmentSelectionPatch.cs" />
+    <Compile Include="Patches\IntrinsicWorkspaceRolesPatch.cs" />
+    <Compile Include="Patches\LabProcedureStatLabConsistencyPatch.cs" />
+    <Compile Include="Patches\ExternalWaitingStateRuntime.cs" />
+    <Compile Include="Patches\MedicalFridgeContentionNotificationRuntime.cs" />
+    <Compile Include="Patches\HfxLocalizationPatch.cs" />
+    <Compile Include="Patches\ExternalClothingChangeStateRuntime.cs" />
     <Compile Include="Patches\ReservedStaffWaitingVisualsPatch.cs" />
     <Compile Include="Patches\ReservedStaffWaitingBubbleRendererPatch.cs" />
     <Compile Include="Patches\CharacterVisualDepthPatch.cs" />
     <Compile Include="Patches\CharacterVisualDepthDiagnosticsPatch.cs" />
+    <Compile Include="Patches\AttachedPatientElevatorFadePatch.cs" />
     <Compile Include="Patches\OutpatientExamClothingSequencePatch.cs" />
     <Compile Include="Patches\PatientClothingChangeAnimationPatch.cs" />
     <Compile Include="Patches\ClothingChangeAnimationFactory.cs" />
     <Compile Include="Patches\ClothingChangeEffectRenderer.cs" />
-    <Compile Include="Patches\HshStaffClothingChangeIntegration.cs" />
     <ModAnimatedModelFiles Include="AnimatedModels\**\*" />
     <ModDatabaseFiles Include="Database\**\*" />
     <ModTextureFiles Include="Textures\**\*" />

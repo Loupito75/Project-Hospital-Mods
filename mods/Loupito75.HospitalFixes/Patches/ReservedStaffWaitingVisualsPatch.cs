@@ -19,6 +19,9 @@ namespace HospitalFixes.Patches
         internal const string WaitingAnimationId =
             "stand_wait";
 
+        private const string CollapseExternalWaitRepositionSourceId =
+            "loupito75.HospitalFixes:collapse-external-transport-wait";
+
         private enum PauseVisualKind
         {
             Waiting,
@@ -39,6 +42,15 @@ namespace HospitalFixes.Patches
         private static readonly HashSet<Entity> RenderedBubbleOwners =
             new HashSet<Entity>();
 
+        private static readonly HashSet<Entity> PendingWaitAnimationReleases =
+            new HashSet<Entity>();
+
+        private static readonly List<Entity> PendingWaitAnimationReleaseBuffer =
+            new List<Entity>();
+
+        private static readonly HashSet<Entity> PersistedWaitVisuals =
+            new HashSet<Entity>();
+
         private static readonly Dictionary<Entity, ProcedureScript>
             ReservedProcedureObservations =
                 new Dictionary<Entity, ProcedureScript>();
@@ -54,6 +66,18 @@ namespace HospitalFixes.Patches
         private static readonly List<ProcedureScript>
             StaleProcedureStates =
                 new List<ProcedureScript>();
+
+        private static readonly HashSet<Entity>
+            CollapseExternalWaitRepositionOwners =
+                new HashSet<Entity>();
+
+        private static readonly HashSet<Entity>
+            ActiveCollapseExternalWaitRepositionOwners =
+                new HashSet<Entity>();
+
+        private static readonly List<Entity>
+            StaleCollapseExternalWaitRepositionOwners =
+                new List<Entity>();
 
         private static readonly Dictionary<Entity, string>
             WaitOriginAnimations =
@@ -115,7 +139,9 @@ namespace HospitalFixes.Patches
                  RenderedBubbleOwners.Contains(character) ||
                  ReservedProcedureObservations.ContainsKey(character) ||
                  WaitOriginAnimations.ContainsKey(character) ||
-                 PauseKinds.ContainsKey(character));
+                 PauseKinds.ContainsKey(character) ||
+                 ExternalWaitingStateRuntime
+                    .HasWaitingState(character));
         }
 
         private static void ReleaseAnimationOwnershipIfReplaced(
@@ -133,6 +159,8 @@ namespace HospitalFixes.Patches
             if (!IsHfxWaitAnimation(animation))
             {
                 WaitAnimationOwners.Remove(character);
+                WaitOriginAnimations.Remove(character);
+                PendingWaitAnimationReleases.Remove(character);
             }
         }
 
@@ -147,14 +175,307 @@ namespace HospitalFixes.Patches
 
             Entity character = staff.m_entity;
 
+            ReservedProcedureObservations.Remove(character);
+
+            if (ExternalWaitingStateRuntime
+                    .HasWaitingState(character))
+            {
+                return;
+            }
+
+            ClearCharacterWaitingVisuals(
+                character,
+                restoreOwnedAnimation: false);
+        }
+
+        internal static void RefreshExternalWaitingState(
+            Entity character)
+        {
+            if (character == null ||
+                !ExternalWaitingStateRuntime
+                    .HasWaitingState(character))
+            {
+                return;
+            }
+
+            Behavior behavior =
+                character.GetComponent<Behavior>();
+
+            if (behavior == null)
+            {
+                ClearCharacterWaitingVisuals(
+                    character,
+                    restoreOwnedAnimation: true);
+                return;
+            }
+
+            if (ExternalWaitingStateRuntime
+                    .ShouldPreservePose(character))
+            {
+                ApplyOrMaintainExternalWaitPreservePose(
+                    behavior);
+                return;
+            }
+
+            ApplyOrMaintainWait(
+                behavior,
+                null,
+                string.Empty,
+                "external-api",
+                "external-api",
+                "waiting",
+                PauseVisualKind.Waiting,
+                featureEnabled:
+                    true,
+                featureName:
+                    "ExternalWaitingVisuals",
+                allowNeutralIdleReplacement:
+                    true);
+        }
+
+        private static void ApplyOrMaintainExternalWaitPreservePose(
+            Behavior behavior)
+        {
+            if (behavior == null ||
+                behavior.m_entity == null)
+            {
+                return;
+            }
+
+            Entity character =
+                behavior.m_entity;
+            WalkComponent walk =
+                behavior.GetComponent<WalkComponent>();
+            UseComponent use =
+                behavior.GetComponent<UseComponent>();
+
+            ReleaseOwnedWaitAnimationForPreservePose(
+                character,
+                walk,
+                use);
+
+            PauseKinds[character] =
+                PauseVisualKind.Waiting;
+            BubbleOnlyOwners.Add(character);
+
+            if (walk == null ||
+                walk.m_state == null ||
+                walk.IsBusy() ||
+                (use != null && use.IsUsing()))
+            {
+                HideOwnWaitingBubble(character);
+                return;
+            }
+
+            TryShowWaitingBubble(
+                character,
+                PauseVisualKind.Waiting);
+        }
+
+        private static void ReleaseOwnedWaitAnimationForPreservePose(
+            Entity character,
+            WalkComponent walk,
+            UseComponent use)
+        {
+            ReleaseAnimationOwnershipIfReplaced(
+                character);
+
+            if (character == null ||
+                !WaitAnimationOwners.Contains(character))
+            {
+                return;
+            }
+
+            AnimModelComponent animation =
+                character.GetComponent<AnimModelComponent>();
+
+            if (!IsHfxWaitAnimation(animation))
+            {
+                ReleaseAnimationOwnershipIfReplaced(
+                    character);
+                return;
+            }
+
+            bool realActionInProgress =
+                (walk != null &&
+                 walk.m_state != null &&
+                 (walk.IsBusy() ||
+                  walk.IsSitting())) ||
+                (use != null &&
+                 use.IsUsing()) ||
+                (animation.m_state.m_animationQueue != null &&
+                 animation.m_state.m_animationQueue.Count > 0);
+
+            if (realActionInProgress)
+            {
+                PendingWaitAnimationReleases.Add(
+                    character);
+                return;
+            }
+
+            animation.PlayAnimation(
+                "stand_idle",
+                looping: false);
+
+            WaitAnimationOwners.Remove(character);
+            WaitOriginAnimations.Remove(character);
+            PendingWaitAnimationReleases.Remove(character);
+        }
+
+        internal static void HandleExternalWaitingCleared(
+            Entity character)
+        {
+            if (character == null)
+            {
+                return;
+            }
+
+            ClearCharacterWaitingVisuals(
+                character,
+                restoreOwnedAnimation: true);
+        }
+
+        internal static void ClearDestroyedCharacterState(
+            Entity character)
+        {
+            if (character == null ||
+                !HasOccurrenceTracking(character))
+            {
+                return;
+            }
+
+            ReservedProcedureObservations.Remove(character);
+
+            ClearCharacterWaitingVisuals(
+                character,
+                restoreOwnedAnimation: true);
+        }
+
+        internal static void ClearCharacterWaitingVisuals(
+            Entity character,
+            bool restoreOwnedAnimation)
+        {
+            if (character == null)
+            {
+                return;
+            }
+
             HideOwnWaitingBubble(character);
             BubbleOnlyOwners.Remove(character);
-            ReservedProcedureObservations.Remove(character);
             RenderedBubbleOwners.Remove(character);
             WaitOriginAnimations.Remove(character);
             PauseKinds.Remove(character);
 
-            ReleaseAnimationOwnershipIfReplaced(character);
+            if (restoreOwnedAnimation &&
+                WaitAnimationOwners.Contains(character))
+            {
+                AnimModelComponent animation =
+                    character
+                        .GetComponent<AnimModelComponent>();
+
+                if (IsHfxWaitAnimation(animation) &&
+                    !character.DEBUG_destroyed)
+                {
+                    PendingWaitAnimationReleases.Add(
+                        character);
+                }
+                else
+                {
+                    WaitAnimationOwners.Remove(character);
+                    WaitOriginAnimations.Remove(character);
+                    PendingWaitAnimationReleases.Remove(character);
+                }
+            }
+            else
+            {
+                ReleaseAnimationOwnershipIfReplaced(
+                    character);
+            }
+
+            ReservedStaffWaitingBubbleRendererPatch
+                .Restore(character);
+        }
+
+        internal static void RefreshPendingAnimationReleases()
+        {
+            if (PendingWaitAnimationReleases.Count == 0)
+            {
+                return;
+            }
+
+            PendingWaitAnimationReleaseBuffer.Clear();
+
+            foreach (Entity character
+                     in PendingWaitAnimationReleases)
+            {
+                PendingWaitAnimationReleaseBuffer.Add(
+                    character);
+            }
+
+            for (int i = 0;
+                 i < PendingWaitAnimationReleaseBuffer.Count;
+                 i++)
+            {
+                RefreshPendingAnimationRelease(
+                    PendingWaitAnimationReleaseBuffer[i]);
+            }
+
+            PendingWaitAnimationReleaseBuffer.Clear();
+        }
+
+        private static void RefreshPendingAnimationRelease(
+            Entity character)
+        {
+            if (character == null)
+            {
+                return;
+            }
+
+            AnimModelComponent animation =
+                character
+                    .GetComponent<AnimModelComponent>();
+
+            if (character.DEBUG_destroyed ||
+                !IsHfxWaitAnimation(animation))
+            {
+                WaitAnimationOwners.Remove(character);
+                WaitOriginAnimations.Remove(character);
+                PendingWaitAnimationReleases.Remove(character);
+                return;
+            }
+
+            WalkComponent walk =
+                character
+                    .GetComponent<WalkComponent>();
+            UseComponent use =
+                character
+                    .GetComponent<UseComponent>();
+
+            bool actionInProgress =
+                (walk != null &&
+                 walk.m_state != null &&
+                 (walk.IsBusy() ||
+                  walk.IsSitting())) ||
+                (use != null &&
+                 use.IsUsing()) ||
+                (animation.m_state.m_animationQueue != null &&
+                 animation.m_state.m_animationQueue.Count > 0);
+
+            if (actionInProgress)
+            {
+                // Keep HFX logical IsIdle/IsLooping ownership until the real
+                // movement/use animation replaces stand_wait. This prevents
+                // visual cleanup from delaying the producer's resumed work.
+                return;
+            }
+
+            animation.PlayAnimation(
+                "stand_idle",
+                looping: false);
+
+            WaitAnimationOwners.Remove(character);
+            WaitOriginAnimations.Remove(character);
+            PendingWaitAnimationReleases.Remove(character);
         }
 
         internal static void HandleWaitingState(
@@ -237,9 +558,12 @@ namespace HospitalFixes.Patches
         internal static void RefreshActiveProcedures(
             ProcedureManager manager)
         {
+            ActiveCollapseExternalWaitRepositionOwners.Clear();
+
             if (manager == null ||
                 manager.m_scriptEntities == null)
             {
+                ClearAllCollapseExternalWaitRepositionOwners();
                 LastProcedureStates.Clear();
                 ActiveProcedureScripts.Clear();
                 return;
@@ -296,12 +620,21 @@ namespace HospitalFixes.Patches
                         script,
                         currentState);
 
+                bool continuousCollapseExternalResponderWait =
+                    !stable &&
+                    !string.IsNullOrEmpty(previousState) &&
+                    IsCollapseExternalResponderWaitingState(
+                        previousState) &&
+                    IsCollapseExternalResponderWaitingState(
+                        currentState);
+
                 LastProcedureStates[script] =
                     currentState;
 
                 if (!stable &&
                     !continuousSurgeryPreparation &&
-                    !continuousCollapseTransportWait)
+                    !continuousCollapseTransportWait &&
+                    !continuousCollapseExternalResponderWait)
                 {
                     ClearScriptWaitingState(script);
                     continue;
@@ -333,6 +666,8 @@ namespace HospitalFixes.Patches
             }
 
             StaleProcedureStates.Clear();
+
+            ClearStaleCollapseExternalWaitRepositionOwners();
         }
 
         private static void RefreshActiveProcedure(
@@ -371,12 +706,23 @@ namespace HospitalFixes.Patches
                 script as ProcedureScriptCollapse;
             if (collapseScript != null)
             {
+                TileObject[] interactionObjects =
+                    GetCollapseWaitInteractionObjects(scene);
+
                 RefreshCollapseTransportNurseWait(
                     collapseScript,
                     scene,
                     patient,
                     procedureLocID,
                     scriptState);
+
+                RefreshCollapseExternalResponderWaits(
+                    collapseScript,
+                    scene,
+                    patient,
+                    procedureLocID,
+                    scriptState,
+                    interactionObjects);
                 return;
             }
 
@@ -410,6 +756,7 @@ namespace HospitalFixes.Patches
                     procedureLocID,
                     scriptState);
             }
+
         }
 
         private static bool IsCollapseTransportNurseWaitingState(
@@ -539,8 +886,9 @@ namespace HospitalFixes.Patches
                 return;
             }
 
-            if (animation.m_state.m_animationQueue != null &&
-                animation.m_state.m_animationQueue.Count > 0)
+            if (!CanApplyWaitAnimation(
+                    animation,
+                    allowNeutralIdleReplacement: true))
             {
                 return;
             }
@@ -548,22 +896,13 @@ namespace HospitalFixes.Patches
             string currentAnimation =
                 animation.m_state.m_currentAnimationID;
 
-            if (!animation.IsIdle() ||
-                (!string.IsNullOrEmpty(currentAnimation) &&
-                 !string.Equals(
-                     currentAnimation,
-                     "stand_idle",
-                     StringComparison.Ordinal)))
-            {
-                return;
-            }
-
             string previousAnimation =
                 string.IsNullOrEmpty(currentAnimation)
                     ? "none"
                     : currentAnimation;
 
             animation.PlayAnimation(WaitingAnimationId);
+            PendingWaitAnimationReleases.Remove(character);
             WaitAnimationOwners.Add(character);
             WaitOriginAnimations[character] =
                 previousAnimation;
@@ -589,6 +928,254 @@ namespace HospitalFixes.Patches
                     HfxDiagnostics.EntityLabel(character),
                     3000);
             }
+        }
+
+        private static bool IsCollapseExternalResponderWaitingState(
+            string scriptState)
+        {
+            return string.Equals(
+                       scriptState,
+                       "WAITING_FOR_TRANSPORT_AWAY",
+                       StringComparison.Ordinal) ||
+                   string.Equals(
+                       scriptState,
+                       "TRANSPORTED_AWAY",
+                       StringComparison.Ordinal);
+        }
+
+        private static void RefreshCollapseExternalResponderWaits(
+            ProcedureScriptCollapse script,
+            ProcedureScene scene,
+            Entity patient,
+            string procedureLocID,
+            string scriptState,
+            TileObject[] interactionObjects)
+        {
+            if (!FixConfig.CollapseTransportNurseWaitingVisuals ||
+                !IsCollapseExternalResponderWaitingState(scriptState) ||
+                scene == null ||
+                scene.m_indistinctEmployees == null)
+            {
+                return;
+            }
+
+            for (int i = 0;
+                 i < scene.m_indistinctEmployees.Count;
+                 i++)
+            {
+                EntityIDPointer<Entity> pointer =
+                    scene.m_indistinctEmployees[i];
+                Entity character =
+                    pointer == null
+                        ? null
+                        : pointer.GetEntity();
+                Behavior staff =
+                    GetSupportedBehavior(character);
+
+                if (staff == null ||
+                    !IsActiveProcedureControlState(staff) ||
+                    !IsCollapseResponderOwnershipValid(
+                        staff,
+                        script,
+                        patient,
+                        procedureLocID))
+                {
+                    continue;
+                }
+
+                UseComponent use =
+                    staff.GetComponent<UseComponent>();
+                AnimModelComponent animation =
+                    staff.GetComponent<AnimModelComponent>();
+
+                if ((use != null && use.IsUsing()) ||
+                    animation == null ||
+                    animation.m_state == null ||
+                    (animation.m_state.m_animationQueue != null &&
+                     animation.m_state.m_animationQueue.Count > 0))
+                {
+                    continue;
+                }
+
+                RefreshCollapseExternalWaitReposition(
+                    character,
+                    interactionObjects);
+
+                ApplyOrMaintainWait(
+                    staff,
+                    patient,
+                    procedureLocID,
+                    "collapse-external-transport-wait",
+                    script.GetType().Name,
+                    scriptState,
+                    PauseVisualKind.CollapseTransportWaiting,
+                    featureEnabled:
+                        true,
+                    featureName:
+                        "CollapseTransportNurseWaitingVisuals",
+                    allowNeutralIdleReplacement:
+                        true);
+            }
+        }
+
+        private static TileObject[] GetCollapseWaitInteractionObjects(
+            ProcedureScene scene)
+        {
+            if (scene == null ||
+                scene.m_equipment == null)
+            {
+                return null;
+            }
+
+            int count = 0;
+            for (int i = 0;
+                 i < scene.m_equipment.Length;
+                 i++)
+            {
+                EntityIDPointer<TileObject> pointer =
+                    scene.m_equipment[i];
+
+                if (pointer != null &&
+                    pointer.GetEntity() != null)
+                {
+                    count++;
+                }
+            }
+
+            if (count == 0)
+            {
+                return null;
+            }
+
+            TileObject[] result =
+                new TileObject[count];
+            int index = 0;
+
+            for (int i = 0;
+                 i < scene.m_equipment.Length;
+                 i++)
+            {
+                EntityIDPointer<TileObject> pointer =
+                    scene.m_equipment[i];
+                TileObject tileObject =
+                    pointer == null
+                        ? null
+                        : pointer.GetEntity();
+
+                if (tileObject != null)
+                {
+                    result[index++] =
+                        tileObject;
+                }
+            }
+
+            return result;
+        }
+
+        private static void RefreshCollapseExternalWaitReposition(
+            Entity character,
+            TileObject[] interactionObjects)
+        {
+            if (character == null ||
+                character.DEBUG_destroyed)
+            {
+                return;
+            }
+
+            ActiveCollapseExternalWaitRepositionOwners.Add(
+                character);
+            CollapseExternalWaitRepositionOwners.Add(
+                character);
+
+            ExternalWaitingStateRuntime
+                .RefreshInternalRepositionState(
+                    character,
+                    CollapseExternalWaitRepositionSourceId,
+                    true,
+                    interactionObjects);
+        }
+
+        private static void ClearStaleCollapseExternalWaitRepositionOwners()
+        {
+            if (CollapseExternalWaitRepositionOwners.Count == 0)
+            {
+                return;
+            }
+
+            StaleCollapseExternalWaitRepositionOwners.Clear();
+
+            foreach (Entity character
+                     in CollapseExternalWaitRepositionOwners)
+            {
+                if (character == null ||
+                    !ActiveCollapseExternalWaitRepositionOwners
+                        .Contains(character))
+                {
+                    StaleCollapseExternalWaitRepositionOwners.Add(
+                        character);
+                }
+            }
+
+            for (int i = 0;
+                 i < StaleCollapseExternalWaitRepositionOwners.Count;
+                 i++)
+            {
+                Entity character =
+                    StaleCollapseExternalWaitRepositionOwners[i];
+
+                if (character != null)
+                {
+                    ExternalWaitingStateRuntime
+                        .RefreshInternalRepositionState(
+                            character,
+                            CollapseExternalWaitRepositionSourceId,
+                            false,
+                            null);
+                }
+
+                CollapseExternalWaitRepositionOwners.Remove(
+                    character);
+            }
+
+            StaleCollapseExternalWaitRepositionOwners.Clear();
+        }
+
+        private static void ClearAllCollapseExternalWaitRepositionOwners()
+        {
+            if (CollapseExternalWaitRepositionOwners.Count > 0)
+            {
+                StaleCollapseExternalWaitRepositionOwners.Clear();
+
+                foreach (Entity character
+                         in CollapseExternalWaitRepositionOwners)
+                {
+                    StaleCollapseExternalWaitRepositionOwners.Add(
+                        character);
+                }
+
+                for (int i = 0;
+                     i < StaleCollapseExternalWaitRepositionOwners.Count;
+                     i++)
+                {
+                    Entity character =
+                        StaleCollapseExternalWaitRepositionOwners[i];
+
+                    if (character != null)
+                    {
+                        ExternalWaitingStateRuntime
+                            .RefreshInternalRepositionState(
+                                character,
+                                CollapseExternalWaitRepositionSourceId,
+                                false,
+                                null);
+                    }
+                }
+
+                StaleCollapseExternalWaitRepositionOwners.Clear();
+            }
+
+            CollapseExternalWaitRepositionOwners.Clear();
+            ActiveCollapseExternalWaitRepositionOwners.Clear();
         }
 
         private static void RefreshSceneStaffList(
@@ -1070,6 +1657,34 @@ namespace HospitalFixes.Patches
             string scriptState,
             PauseVisualKind kind)
         {
+            ApplyOrMaintainWait(
+                staff,
+                patient,
+                procedureLocID,
+                waitSource,
+                scriptType,
+                scriptState,
+                kind,
+                featureEnabled:
+                    IsFeatureEnabled(kind),
+                featureName:
+                    GetFeatureName(kind),
+                allowNeutralIdleReplacement:
+                    false);
+        }
+
+        private static void ApplyOrMaintainWait(
+            Behavior staff,
+            Entity patient,
+            string procedureLocID,
+            string waitSource,
+            string scriptType,
+            string scriptState,
+            PauseVisualKind kind,
+            bool featureEnabled,
+            string featureName,
+            bool allowNeutralIdleReplacement)
+        {
             if (staff == null ||
                 staff.m_entity == null)
             {
@@ -1078,11 +1693,6 @@ namespace HospitalFixes.Patches
 
             Entity character = staff.m_entity;
             BubbleOnlyOwners.Remove(character);
-
-            string featureName =
-                GetFeatureName(kind);
-            bool featureEnabled =
-                IsFeatureEnabled(kind);
 
             PauseVisualKind previousKind;
             if (PauseKinds.TryGetValue(
@@ -1138,9 +1748,11 @@ namespace HospitalFixes.Patches
                 {
                     HfxDiagnostics.ResultRateLimited(
                         featureName,
-                        kind == PauseVisualKind.Thinking
-                            ? "clinical staff script thinking"
-                            : "clinical staff script wait",
+                        featureName == "ExternalWaitingVisuals"
+                            ? "external character wait"
+                            : kind == PauseVisualKind.Thinking
+                                ? "clinical staff script thinking"
+                                : "clinical staff script wait",
                         "pause-bubble-restored",
                         BuildDiagnosticContext(
                             staff,
@@ -1163,12 +1775,15 @@ namespace HospitalFixes.Patches
 
             if (WaitAnimationOwners.Remove(character))
             {
+                PendingWaitAnimationReleases.Remove(character);
                 RenderedBubbleOwners.Remove(character);
                 WaitOriginAnimations.Remove(character);
                 HideOwnWaitingBubble(character);
             }
 
-            if (!IsActualAnimationGap(animation))
+            if (!CanApplyWaitAnimation(
+                    animation,
+                    allowNeutralIdleReplacement))
             {
                 HideOwnWaitingBubble(character);
 
@@ -1203,9 +1818,11 @@ namespace HospitalFixes.Patches
             {
                 HfxDiagnostics.ResultRateLimited(
                     featureName,
-                    kind == PauseVisualKind.Thinking
-                        ? "clinical staff script thinking"
-                        : "clinical staff script wait",
+                    featureName == "ExternalWaitingVisuals"
+                        ? "external character wait"
+                        : kind == PauseVisualKind.Thinking
+                            ? "clinical staff script thinking"
+                            : "clinical staff script wait",
                     "pause-visuals-applied",
                     BuildDiagnosticContext(
                         staff,
@@ -1301,6 +1918,73 @@ namespace HospitalFixes.Patches
             }
 
             return true;
+        }
+
+        private static bool IsCollapseResponderOwnershipValid(
+            Behavior staff,
+            ProcedureScriptCollapse script,
+            Entity patient,
+            string procedureLocID)
+        {
+            if (staff == null ||
+                staff.m_entity == null ||
+                script == null ||
+                script.m_stateData == null ||
+                script.m_stateData.m_procedureScene == null ||
+                patient == null)
+            {
+                return false;
+            }
+
+            ProcedureScene scene =
+                script.m_stateData.m_procedureScene;
+
+            if (!ContainsEntity(
+                    scene.m_indistinctEmployees,
+                    staff.m_entity))
+            {
+                return false;
+            }
+
+            EmployeeComponent employee =
+                staff.GetComponent<EmployeeComponent>();
+
+            if (employee == null ||
+                employee.m_state == null ||
+                employee.m_state.m_reservedByPatient == null ||
+                employee.m_state.m_reservedByPatient.GetEntity() !=
+                    patient)
+            {
+                return false;
+            }
+
+            string reservedProcedure =
+                employee.m_state.m_reservedForProcedureLocID ??
+                string.Empty;
+
+            bool reservationMatches =
+                string.Equals(
+                    reservedProcedure,
+                    procedureLocID ?? string.Empty,
+                    StringComparison.Ordinal) ||
+                string.Equals(
+                    reservedProcedure,
+                    "CONTROL_PROCEDURE_COLLAPSE_HIGH",
+                    StringComparison.Ordinal);
+
+            if (!reservationMatches)
+            {
+                return false;
+            }
+
+            ProcedureComponent procedure =
+                patient.GetComponent<ProcedureComponent>();
+
+            return procedure != null &&
+                procedure.m_state != null &&
+                procedure.m_state.m_currentProcedureScript != null &&
+                procedure.m_state.m_currentProcedureScript.GetEntity() ==
+                    script;
         }
 
         private static bool IsActiveProcedureOwnershipValid(
@@ -1403,6 +2087,40 @@ namespace HospitalFixes.Patches
             return false;
         }
 
+        private static bool CanApplyWaitAnimation(
+            AnimModelComponent animation,
+            bool allowNeutralIdleReplacement)
+        {
+            if (animation == null ||
+                animation.m_state == null)
+            {
+                return false;
+            }
+
+            if (animation.m_state.m_animationQueue != null &&
+                animation.m_state.m_animationQueue.Count > 0)
+            {
+                return false;
+            }
+
+            if (allowNeutralIdleReplacement)
+            {
+                string currentAnimation =
+                    animation.m_state.m_currentAnimationID;
+
+                if (string.IsNullOrEmpty(currentAnimation) ||
+                    string.Equals(
+                        currentAnimation,
+                        "stand_idle",
+                        StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return IsActualAnimationGap(animation);
+        }
+
         private static bool IsActualAnimationGap(
             AnimModelComponent animation)
         {
@@ -1488,19 +2206,30 @@ namespace HospitalFixes.Patches
                 !BubbleOwners.Contains(character) ||
                 !PauseKinds.TryGetValue(
                     character,
-                    out kind) ||
-                !IsFeatureEnabled(kind))
+                    out kind))
             {
                 return false;
             }
 
-            Behavior staff =
-                GetSupportedBehavior(character);
+            bool externalWaiting =
+                ExternalWaitingStateRuntime
+                    .HasWaitingState(character);
 
-            if (staff == null ||
-                !IsSupportedProcedureControlState(staff))
+            if (!externalWaiting)
             {
-                return false;
+                if (!IsFeatureEnabled(kind))
+                {
+                    return false;
+                }
+
+                Behavior staff =
+                    GetSupportedBehavior(character);
+
+                if (staff == null ||
+                    !IsSupportedProcedureControlState(staff))
+                {
+                    return false;
+                }
             }
 
             WalkComponent walk =
@@ -1563,9 +2292,137 @@ namespace HospitalFixes.Patches
 
             BubbleOwners.Remove(character);
             RenderedBubbleOwners.Remove(character);
+
+            // HFX replaces Vanilla's speech-bubble icon renderer for its
+            // full-size waiting/thinking assets. Restore that renderer
+            // immediately when logical ownership ends: movement can fade the
+            // character (notably during ChangingFloor) before another
+            // CharacterRenderer.UpdateSpeechBubble() pass gets a chance to
+            // clean up the custom icon.
+            ReservedStaffWaitingBubbleRendererPatch
+                .Restore(character);
+        }
+
+        internal static void NeutralizeOwnedVisualsInSave(
+            Entity character,
+            EntitySave save)
+        {
+            if (character == null ||
+                save == null ||
+                save.m_entityComponentData == null)
+            {
+                return;
+            }
+
+            bool ownsAnimation =
+                WaitAnimationOwners.Contains(character);
+            bool ownsBubble =
+                BubbleOwners.Contains(character);
+
+            if (!ownsAnimation &&
+                !ownsBubble)
+            {
+                return;
+            }
+
+            AnimModelComponent animation =
+                ownsAnimation
+                    ? character
+                        .GetComponent<AnimModelComponent>()
+                    : null;
+
+            bool replaceAnimation =
+                ownsAnimation &&
+                IsHfxWaitAnimation(animation);
+            bool replaceBubble =
+                ownsBubble &&
+                IsShowingOwnWaitingBubble(character);
+
+            if (!replaceAnimation &&
+                !replaceBubble)
+            {
+                return;
+            }
+
+            for (int i = 0;
+                 i < save.m_entityComponentData.Count;
+                 i++)
+            {
+                object data =
+                    save.m_entityComponentData[i];
+
+                AnimModelComponentPersistentData animationState =
+                    data as AnimModelComponentPersistentData;
+
+                if (replaceAnimation &&
+                    animationState != null)
+                {
+                    save.m_entityComponentData[i] =
+                        CloneNeutralAnimationState(
+                            animationState);
+                    continue;
+                }
+
+                if (replaceBubble &&
+                    data is SpeechComponentPersistentData)
+                {
+                    // HFX only installs its own bubble while speech is idle,
+                    // so the save snapshot can safely contain no bubble here.
+                    save.m_entityComponentData[i] =
+                        new SpeechComponentPersistentData();
+                }
+            }
+        }
+
+        private static AnimModelComponentPersistentData
+            CloneNeutralAnimationState(
+                AnimModelComponentPersistentData state)
+        {
+            AnimModelComponentPersistentData clone =
+                new AnimModelComponentPersistentData();
+
+            clone.m_colorSkin =
+                state.m_colorSkin;
+            clone.m_colorHair =
+                state.m_colorHair;
+            clone.m_direction =
+                state.m_direction;
+            clone.m_gameDBAnimatedModelController =
+                state.m_gameDBAnimatedModelController;
+            clone.m_face =
+                state.m_face;
+            clone.m_defaultClothes =
+                state.m_defaultClothes;
+            clone.m_clothes =
+                state.m_clothes;
+            clone.m_animationQueue =
+                state.m_animationQueue == null
+                    ? null
+                    : new List<AnimationPlaybackInstance>(
+                        state.m_animationQueue);
+            clone.m_animationTime = 0f;
+            clone.m_dressLevel =
+                state.m_dressLevel;
+            clone.m_fadeState =
+                state.m_fadeState;
+            clone.m_currentFadeTime =
+                state.m_currentFadeTime;
+            clone.m_fadeTime =
+                state.m_fadeTime;
+            clone.m_fadeOpacity =
+                state.m_fadeOpacity;
+            clone.m_currentAnimationID =
+                "stand_idle";
+            clone.m_currentAnimationLooping =
+                false;
+            clone.m_currentAnimationLying =
+                false;
+
+            return clone;
         }
 
         internal static void ClearPersistedWaitingBubble(
+            Entity character,
             SpeechComponentPersistentData state)
         {
             if (state == null ||
@@ -1581,11 +2438,45 @@ namespace HospitalFixes.Patches
                 return;
             }
 
+            if (character != null)
+            {
+                PersistedWaitVisuals.Add(
+                    character);
+            }
+
             state.m_bubbleTextureIndex = -1;
             state.m_bubbleIconIndex = -1;
             state.m_bubbleIconAssetID = null;
             state.m_speechBubble = null;
             state.m_displayTime = -1f;
+        }
+
+        internal static void ClearPersistedWaitingAnimation(
+            Entity character)
+        {
+            if (character == null ||
+                !PersistedWaitVisuals.Remove(character))
+            {
+                return;
+            }
+
+            AnimModelComponent animation =
+                character
+                    .GetComponent<AnimModelComponent>();
+
+            if (animation == null ||
+                animation.m_state == null ||
+                !string.Equals(
+                    animation.m_state.m_currentAnimationID,
+                    WaitingAnimationId,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            animation.PlayAnimation(
+                "stand_idle",
+                looping: false);
         }
 
         internal static void ClearTransientState()
@@ -1634,12 +2525,18 @@ namespace HospitalFixes.Patches
             WaitAnimationOwners.Clear();
             BubbleOnlyOwners.Clear();
             RenderedBubbleOwners.Clear();
+            PendingWaitAnimationReleases.Clear();
+            PendingWaitAnimationReleaseBuffer.Clear();
+            PersistedWaitVisuals.Clear();
             ReservedProcedureObservations.Clear();
             LastProcedureStates.Clear();
             StaleProcedureStates.Clear();
             ActiveProcedureScripts.Clear();
+            ClearAllCollapseExternalWaitRepositionOwners();
+            StaleCollapseExternalWaitRepositionOwners.Clear();
             WaitOriginAnimations.Clear();
             PauseKinds.Clear();
+            ExternalWaitingStateRuntime.ClearAll();
             s_missingAssetWarningLogged = false;
 
             ReservedStaffWaitingBubbleRendererPatch.Reset();
@@ -1669,8 +2566,16 @@ namespace HospitalFixes.Patches
                 return doctor;
             }
 
+            BehaviorLabSpecialist lab =
+                character.GetComponent<BehaviorLabSpecialist>();
+
+            if (lab != null)
+            {
+                return lab;
+            }
+
             return character
-                .GetComponent<BehaviorLabSpecialist>();
+                .GetComponent<BehaviorPatient>();
         }
 
         private static bool IsReservedProcedureControlState(
@@ -1747,19 +2652,44 @@ namespace HospitalFixes.Patches
         private static string GetStaffType(
             Behavior staff)
         {
+            if (staff is BehaviorPatient)
+            {
+                return "Patient";
+            }
+
             if (staff is BehaviorDoctor)
             {
                 return "Doctor";
             }
 
-            return staff is BehaviorLabSpecialist
-                ? "LabSpecialist"
-                : "Nurse";
+            if (staff is BehaviorLabSpecialist)
+            {
+                return "LabSpecialist";
+            }
+
+            if (staff is BehaviorNurse)
+            {
+                return "Nurse";
+            }
+
+            return staff == null
+                ? "Unknown"
+                : staff.GetType().Name;
         }
 
         private static string GetControlState(
             Behavior staff)
         {
+            BehaviorPatient patient =
+                staff as BehaviorPatient;
+
+            if (patient != null &&
+                patient.m_state != null)
+            {
+                return patient.m_state.m_patientState
+                    .ToString();
+            }
+
             BehaviorNurse nurse =
                 staff as BehaviorNurse;
 
@@ -1901,7 +2831,7 @@ namespace HospitalFixes.Patches
                 {
                     s_missingAssetWarningLogged = true;
                     Plugin.Log.LogWarning(
-                        "[ClinicalStaffPause] HFX pause bubble asset is unavailable; " +
+                        "[WaitingVisuals] HFX pause bubble asset is unavailable; " +
                         "the stand_wait correction remains active.");
                 }
 
@@ -1915,13 +2845,41 @@ namespace HospitalFixes.Patches
             RenderedBubbleOwners.Remove(character);
             return true;
         }
+
+        internal static void RefreshOwnedBubbleRenderersAfterFloorChange()
+        {
+            if (BubbleOwners.Count == 0)
+            {
+                return;
+            }
+
+            foreach (Entity character
+                     in BubbleOwners)
+            {
+                if (character == null ||
+                    character.DEBUG_destroyed ||
+                    !IsShowingOwnWaitingBubble(character))
+                {
+                    continue;
+                }
+
+                // Vanilla floor switching changes render modes but does not
+                // dirty stationary characters. Force only HFX bubble owners
+                // through Vanilla CharacterRenderer.UpdateSpeechBubble() so
+                // the custom icon is restored when its floor becomes visible.
+                character.SetDirty(
+                    dirty: true);
+                RenderedBubbleOwners.Remove(
+                    character);
+            }
+        }
     }
 
-    // HFX's looping stand_wait is a visual placeholder only. Vanilla procedure
-    // scripts frequently use IsIdle()/IsLooping() as control-flow gates, and
-    // AnimModelComponent's own queue advances on IsIdle() && !IsLooping().
-    // Report HFX's exact owned wait as logically idle/non-looping so native
-    // scripts and queued animations can continue without delay.
+    // HFX's looping stand_wait is a visual placeholder only. Vanilla and
+    // producer workflows may use IsIdle()/IsLooping() as control-flow gates,
+    // and AnimModelComponent's own queue advances on IsIdle() && !IsLooping().
+    // Report HFX's exact owned wait as logically idle/non-looping so gameplay
+    // and queued animations can continue without delay.
     [HarmonyPatch(
         typeof(AnimModelComponent),
         nameof(AnimModelComponent.IsIdle))]
@@ -1961,6 +2919,19 @@ namespace HospitalFixes.Patches
 
             __result = false;
             return false;
+        }
+    }
+
+    [HarmonyPatch(
+        typeof(MapEditorController),
+        nameof(MapEditorController.OnFloorChanged))]
+    internal static class ReservedStaffWaitingFloorChangedPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix()
+        {
+            ReservedStaffWaitingVisuals
+                .RefreshOwnedBubbleRenderersAfterFloorChange();
         }
     }
 
@@ -2104,6 +3075,10 @@ namespace HospitalFixes.Patches
         private static void Postfix(
             BehaviorLabSpecialist __instance)
         {
+            ExternalWaitingStateRuntime
+                .RefreshLabSpecialistSampleDestinationWait(
+                    __instance);
+
             ReservedStaffWaitingVisuals
                 .HandleCurrentReservation(
                     __instance);
@@ -2168,6 +3143,11 @@ namespace HospitalFixes.Patches
             BehaviorLabSpecialist __instance,
             LabSpecialistState state)
         {
+            ExternalWaitingStateRuntime
+                .HandleLabSpecialistStateChanged(
+                    __instance,
+                    state);
+
             if (__instance == null ||
                 state ==
                     LabSpecialistState.OverridenReservedForProcedure ||
@@ -2196,6 +3176,10 @@ namespace HospitalFixes.Patches
             {
                 return;
             }
+
+            ReservedStaffWaitingVisuals
+                .ClearPersistedWaitingAnimation(
+                    __instance.m_entity);
 
             Behavior staff =
                 __instance.m_entity
@@ -2234,6 +3218,31 @@ namespace HospitalFixes.Patches
     }
 
     [HarmonyPatch]
+    internal static class ReservedStaffWaitingSaveNeutralizationPatch
+    {
+        private static MethodBase TargetMethod()
+        {
+            return AccessTools.Constructor(
+                typeof(EntitySave),
+                new Type[]
+                {
+                    typeof(Entity)
+                });
+        }
+
+        [HarmonyPostfix]
+        private static void Postfix(
+            EntitySave __instance,
+            Entity entity)
+        {
+            ReservedStaffWaitingVisuals
+                .NeutralizeOwnedVisualsInSave(
+                    entity,
+                    __instance);
+        }
+    }
+
+    [HarmonyPatch]
     internal static class ReservedStaffWaitingSpeechLoadCleanupPatch
     {
         private static MethodBase TargetMethod()
@@ -2249,10 +3258,15 @@ namespace HospitalFixes.Patches
 
         [HarmonyPostfix]
         private static void Postfix(
+            SpeechComponent __instance,
             SpeechComponentPersistentData state)
         {
             ReservedStaffWaitingVisuals
-                .ClearPersistedWaitingBubble(state);
+                .ClearPersistedWaitingBubble(
+                    __instance == null
+                        ? null
+                        : __instance.m_entity,
+                    state);
         }
     }
 }
