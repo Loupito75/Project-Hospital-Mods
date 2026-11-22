@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 482747,
-  "updatedUtc": "2026-11-22T07:08:28Z",
-  "expiresUtc": "2027-02-20T07:08:28Z",
+  "manifestRevision": 482748,
+  "updatedUtc": "2026-11-22T07:46:35Z",
+  "expiresUtc": "2027-02-20T07:46:35Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -154,14 +154,14 @@
       "guid": "loupito75.HospitalFlowOptimizer",
       "name": "Hospital Flow Optimizer",
       "author": "Loupito75",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "description": "Improves hospital flow by distributing doctors, rooms, laboratory work, staff needs and transport tasks more efficiently while preserving Project Hospital's normal medical and pathfinding rules.",
-      "whatsNew": "Smart Staff Needs meal selection fix, reduced staff-needs processing overhead",
+      "whatsNew": "Clinic waiting-room bottleneck warnings, better external lab workflow compatibility, improved HPO and HTC integration, reduced repeated selection work, Smart Transport Wait resume fix",
       "package": {
-        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalFlowOptimizer-v1.1.1/Loupito75.HospitalFlowOptimizer-v1.1.1.zip",
-        "sha256": "26b13d99ecfd2d6dec03c9e1599980fda0ffc1b95a74da2d13f02bc1dc37c164",
-        "packageBytes": 496707,
-        "maximumUnpackedBytes": 607784,
+        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalFlowOptimizer-v1.2.0/Loupito75.HospitalFlowOptimizer-v1.2.0.zip",
+        "sha256": "f7b0454b6182e19b8760feda0b6cc6963e9997a37543800256a263aa0394905f",
+        "packageBytes": 503045,
+        "maximumUnpackedBytes": 626288,
         "installDirectory": "Loupito75.HospitalFlowOptimizer",
         "archiveRoot": "Loupito75.HospitalFlowOptimizer",
         "pluginFile": "Loupito75.HospitalFlowOptimizer.dll",
@@ -174,9 +174,11 @@
           "Loupito75.HospitalFlowOptimizer.dll",
           "preview.png",
           "README_NEVER_MISS_AN_UPDATE.txt",
-          "Textures/UI/hfo_patient_wait_bubble.png"
+          "Textures/UI/L75_HFO_PATIENT_WAIT_BUBBLE.png"
         ],
-        "removeFiles": []
+        "removeFiles": [
+          "Textures/UI/hfo_patient_wait_bubble.png"
+        ]
       }
     },
     {
