@@ -628,6 +628,27 @@ def process_release_direct(catalog):
             package_bytes=package_bytes,
         )
 
+    previous_package = None
+    target_guid = package["guid"].lower()
+
+    for entry in catalog.get("mods", []):
+        if (
+            isinstance(entry, dict)
+            and isinstance(entry.get("guid"), str)
+            and entry["guid"].lower() == target_guid
+        ):
+            candidate = entry.get("package")
+
+            if isinstance(candidate, dict):
+                previous_package = candidate
+
+            break
+
+    TOOLS.apply_historical_file_ownership(
+        previous_package,
+        package,
+    )
+
     update_catalog_entry(
         catalog,
         direct_release_entry(
