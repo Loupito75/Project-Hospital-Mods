@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 482742,
-  "updatedUtc": "2026-11-21T09:25:27Z",
-  "expiresUtc": "2027-02-19T09:25:27Z",
+  "manifestRevision": 482743,
+  "updatedUtc": "2026-11-22T00:37:35Z",
+  "expiresUtc": "2027-02-20T00:37:35Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -526,14 +526,14 @@
       "guid": "loupito75.HospitalShiftHandover",
       "name": "Hospital Shift Handover",
       "author": "Loupito75",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "description": "Makes staff arrivals, shift changes and handovers more natural and realistic.",
-      "whatsNew": "Door-aware handover staging, safer doctor handovers, locker dressing enabled by default, locker dressing sounds and bubbles, handover wait bubble",
+      "whatsNew": "More natural late-relief waiting, employee-card shift statuses, optional HFX clothing-change visuals",
       "package": {
-        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalShiftHandover-v1.2.0/Loupito75.HospitalShiftHandover-v1.2.0.zip",
-        "sha256": "28b6fbd7c99b22056f2ab3abdc4ca1556f1d2a9a51d56eb60cfb82fe85242ff9",
-        "packageBytes": 409830,
-        "maximumUnpackedBytes": 483426,
+        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalShiftHandover-v1.3.0/Loupito75.HospitalShiftHandover-v1.3.0.zip",
+        "sha256": "79d8228d4522ea961ab5083c6c8e3815d13fb2bc6a45caae27d612a8079b48b8",
+        "packageBytes": 414762,
+        "maximumUnpackedBytes": 511275,
         "installDirectory": "Loupito75.HospitalShiftHandover",
         "archiveRoot": "Loupito75.HospitalShiftHandover",
         "pluginFile": "Loupito75.HospitalShiftHandover.dll",
@@ -546,7 +546,7 @@
           "Loupito75.HospitalShiftHandover.dll",
           "preview.png",
           "README_NEVER_MISS_AN_UPDATE.txt",
-          "Textures/UI/shift_handover_wait_bubble.png"
+          "Textures/UI/L75_HSH_SHIFT_HANDOVER_WAIT_BUBBLE.png"
         ],
         "removeFiles": []
       }
