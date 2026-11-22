@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "manifestRevision": 482745,
-  "updatedUtc": "2026-11-22T03:28:14Z",
-  "expiresUtc": "2027-02-20T03:28:14Z",
+  "manifestRevision": 482746,
+  "updatedUtc": "2026-11-22T05:19:34Z",
+  "expiresUtc": "2027-02-20T05:19:34Z",
   "mods": [
     {
       "guid": "loupito75.HospitalAlwaysLit",
@@ -555,14 +555,14 @@
       "guid": "loupito75.HospitalTrafficControl",
       "name": "Hospital Traffic Control",
       "author": "Loupito75",
-      "version": "1.5.3",
+      "version": "1.6.0",
       "description": "Improves character access, movement rules and traffic management inside the hospital.",
-      "whatsNew": "Fixed Bucket Cart staging/reselection bug, safer cross-floor visitor recovery, janitor and pathfinding performance improvements",
+      "whatsNew": "Safer clinical-room janitor cleaning, generic cleaning-protection provider API, versioned bathroom compatibility API, fewer false BIOHAZARD path bubbles",
       "package": {
-        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalTrafficControl-v1.5.3/Loupito75.HospitalTrafficControl-v1.5.3.zip",
-        "sha256": "589c042f57c125541c2f872ca11f9b58c5b439aa37b6aa7a9e4523caf29058d9",
-        "packageBytes": 465434,
-        "maximumUnpackedBytes": 637280,
+        "downloadUrl": "https://github.com/Loupito75/Project-Hospital-Mods/releases/download/HospitalTrafficControl-v1.6.0/Loupito75.HospitalTrafficControl-v1.6.0.zip",
+        "sha256": "e871db499be61213eeb10817d739749166392ce37e0ef5275f6d1ce7e4e4df79",
+        "packageBytes": 471228,
+        "maximumUnpackedBytes": 652128,
         "installDirectory": "Loupito75.HospitalTrafficControl",
         "archiveRoot": "Loupito75.HospitalTrafficControl",
         "pluginFile": "Loupito75.HospitalTrafficControl.dll",
