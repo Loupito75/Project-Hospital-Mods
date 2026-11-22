@@ -67,9 +67,8 @@ namespace HospitalFlowOptimizer.Patches
             "HospitalPorters.HospitalPortersApi";
         private const string HpoPluginGuid =
             "loupito75.HospitalPorters";
-        private const string LegacyPorterIdentityTypeName =
-            "HospitalPorters.PorterIdentity";
 
+        private delegate int VersionDelegate();
         private delegate bool EntityBoolDelegate(Entity entity);
         private delegate Entity[] EntityArrayDelegate(Entity entity);
         private delegate Entity[] EntityPairArrayDelegate(
@@ -79,15 +78,6 @@ namespace HospitalFlowOptimizer.Patches
             Entity first,
             Entity second);
 
-        private static Type ApiType;
-        private static MethodInfo GetPatientContinuationApiVersionMethod;
-        private static MethodInfo IsPorterMethod;
-        private static MethodInfo LegacyIsPorterMethod;
-        private static MethodInfo IsPatientContinuationWindowOpenMethod;
-        private static MethodInfo GetPatientContinuationCandidatesMethod;
-        private static MethodInfo GetPatientContinuationPreflightCandidatesMethod;
-        private static MethodInfo TryStartPatientContinuationMethod;
-        private static MethodInfo FinishPatientContinuationWindowMethod;
         private static EntityBoolDelegate IsPorterCallback;
         private static EntityBoolDelegate IsWindowOpenCallback;
         private static EntityArrayDelegate GetCandidatesCallback;
@@ -95,7 +85,9 @@ namespace HospitalFlowOptimizer.Patches
         private static EntityPairBoolDelegate TryStartCallback;
         private static EntityBoolDelegate FinishWindowCallback;
         private static int PatientApiVersion;
-        private static int ResolvedAssemblyCount = -1;
+        private static bool ResolutionComplete;
+        private static bool IntegrationDisabled;
+        private static bool FailureLogged;
 
         internal static int GetApiVersion()
         {
@@ -111,29 +103,15 @@ namespace HospitalFlowOptimizer.Patches
                 return false;
             }
 
-            MethodInfo method =
-                IsPorterMethod ??
-                LegacyIsPorterMethod;
-            if (method == null)
-            {
-                return false;
-            }
-
             try
             {
-                if (IsPorterCallback != null)
-                {
-                    return IsPorterCallback(porter);
-                }
-
-                object result =
-                    method.Invoke(
-                        null,
-                        new object[] { porter });
-                return result is bool && (bool)result;
+                return IsPorterCallback(porter);
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Patient continuation Porter identity API failed");
                 return false;
             }
         }
@@ -147,19 +125,13 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
-                if (IsWindowOpenCallback != null)
-                {
-                    return IsWindowOpenCallback(porter);
-                }
-
-                object result =
-                    IsPatientContinuationWindowOpenMethod.Invoke(
-                        null,
-                        new object[] { porter });
-                return result is bool && (bool)result;
+                return IsWindowOpenCallback(porter);
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Patient continuation window API failed");
                 return false;
             }
         }
@@ -174,15 +146,14 @@ namespace HospitalFlowOptimizer.Patches
             try
             {
                 Entity[] result =
-                    GetCandidatesCallback != null
-                        ? GetCandidatesCallback(porter)
-                        : GetPatientContinuationCandidatesMethod.Invoke(
-                            null,
-                            new object[] { porter }) as Entity[];
+                    GetCandidatesCallback(porter);
                 return result ?? new Entity[0];
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Patient continuation candidate API failed");
                 return new Entity[0];
             }
         }
@@ -195,7 +166,7 @@ namespace HospitalFlowOptimizer.Patches
                 sourcePatient == null ||
                 !Resolve() ||
                 PatientApiVersion < 2 ||
-                GetPatientContinuationPreflightCandidatesMethod == null)
+                GetPreflightCandidatesCallback == null)
             {
                 return new Entity[0];
             }
@@ -203,17 +174,16 @@ namespace HospitalFlowOptimizer.Patches
             try
             {
                 Entity[] result =
-                    GetPreflightCandidatesCallback != null
-                        ? GetPreflightCandidatesCallback(
-                            porter,
-                            sourcePatient)
-                        : GetPatientContinuationPreflightCandidatesMethod.Invoke(
-                            null,
-                            new object[] { porter, sourcePatient }) as Entity[];
+                    GetPreflightCandidatesCallback(
+                        porter,
+                        sourcePatient);
                 return result ?? new Entity[0];
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Patient continuation preflight API failed");
                 return new Entity[0];
             }
         }
@@ -231,21 +201,15 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
-                if (TryStartCallback != null)
-                {
-                    return TryStartCallback(
-                        porter,
-                        targetPatient);
-                }
-
-                object result =
-                    TryStartPatientContinuationMethod.Invoke(
-                        null,
-                        new object[] { porter, targetPatient });
-                return result is bool && (bool)result;
+                return TryStartCallback(
+                    porter,
+                    targetPatient);
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Patient continuation start API failed");
                 return false;
             }
         }
@@ -259,216 +223,253 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
-                if (FinishWindowCallback != null)
-                {
-                    return FinishWindowCallback(porter);
-                }
-
-                object result =
-                    FinishPatientContinuationWindowMethod.Invoke(
-                        null,
-                        new object[] { porter });
-                return result is bool && (bool)result;
+                return FinishWindowCallback(porter);
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Patient continuation finish API failed");
                 return false;
             }
         }
 
         private static bool Resolve()
         {
-            if (!Chainloader.PluginInfos.ContainsKey(HpoPluginGuid))
+            if (ResolutionComplete)
+            {
+                return !IntegrationDisabled &&
+                    IsPorterCallback != null &&
+                    IsWindowOpenCallback != null &&
+                    GetCandidatesCallback != null &&
+                    TryStartCallback != null &&
+                    FinishWindowCallback != null &&
+                    (PatientApiVersion < 2 ||
+                     GetPreflightCandidatesCallback != null);
+            }
+
+            ResolutionComplete = true;
+
+            BepInEx.PluginInfo pluginInfo;
+            if (!Chainloader.PluginInfos.TryGetValue(
+                    HpoPluginGuid,
+                    out pluginInfo) ||
+                pluginInfo == null ||
+                pluginInfo.Instance == null)
             {
                 return false;
             }
 
-            if (ApiType != null &&
-                GetPatientContinuationApiVersionMethod != null &&
-                (IsPorterMethod != null ||
-                 LegacyIsPorterMethod != null) &&
-                IsPatientContinuationWindowOpenMethod != null &&
-                GetPatientContinuationCandidatesMethod != null &&
-                TryStartPatientContinuationMethod != null &&
-                FinishPatientContinuationWindowMethod != null)
-            {
-                return true;
-            }
-
-            Assembly[] assemblies =
-                AppDomain.CurrentDomain.GetAssemblies();
-            if (assemblies == null ||
-                assemblies.Length == ResolvedAssemblyCount)
-            {
-                return false;
-            }
-
-            ResolvedAssemblyCount = assemblies.Length;
-            for (int i = 0; i < assemblies.Length; i++)
-            {
-                Type apiType =
-                    assemblies[i].GetType(
+            Type apiType =
+                pluginInfo.Instance
+                    .GetType()
+                    .Assembly
+                    .GetType(
                         ApiTypeName,
                         false);
-                if (apiType == null)
-                {
-                    continue;
-                }
+            if (apiType == null)
+            {
+                return false;
+            }
 
-                MethodInfo versionMethod =
-                    apiType.GetMethod(
-                        "GetPatientContinuationApiVersion",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo publicIsPorterMethod =
-                    apiType.GetMethod(
-                        "IsPorter",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo isWindowOpenMethod =
-                    apiType.GetMethod(
-                        "IsPatientContinuationWindowOpen",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo getCandidatesMethod =
-                    apiType.GetMethod(
-                        "GetPatientContinuationCandidates",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo getPreflightCandidatesMethod =
-                    apiType.GetMethod(
+            MethodInfo versionMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "GetPatientContinuationApiVersion",
+                    typeof(int),
+                    Type.EmptyTypes);
+            MethodInfo isPorterMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "IsPorter",
+                    typeof(bool),
+                    new Type[] { typeof(Entity) });
+            MethodInfo isWindowOpenMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "IsPatientContinuationWindowOpen",
+                    typeof(bool),
+                    new Type[] { typeof(Entity) });
+            MethodInfo getCandidatesMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "GetPatientContinuationCandidates",
+                    typeof(Entity[]),
+                    new Type[] { typeof(Entity) });
+            MethodInfo tryStartMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "TryStartPatientContinuation",
+                    typeof(bool),
+                    new Type[]
+                    {
+                        typeof(Entity),
+                        typeof(Entity)
+                    });
+            MethodInfo finishWindowMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "FinishPatientContinuationWindow",
+                    typeof(bool),
+                    new Type[] { typeof(Entity) });
+
+            if (versionMethod == null ||
+                isPorterMethod == null ||
+                isWindowOpenMethod == null ||
+                getCandidatesMethod == null ||
+                tryStartMethod == null ||
+                finishWindowMethod == null)
+            {
+                return false;
+            }
+
+            VersionDelegate versionCallback;
+            try
+            {
+                versionCallback =
+                    (VersionDelegate)Delegate.CreateDelegate(
+                        typeof(VersionDelegate),
+                        versionMethod);
+            }
+            catch
+            {
+                return false;
+            }
+
+            int version;
+            try
+            {
+                version = versionCallback();
+            }
+            catch (Exception exception)
+            {
+                Disable(
+                    exception,
+                    "HPO Patient continuation capability API failed");
+                return false;
+            }
+
+            if (version < 1)
+            {
+                return false;
+            }
+
+            MethodInfo getPreflightCandidatesMethod = null;
+            if (version >= 2)
+            {
+                getPreflightCandidatesMethod =
+                    GetExactPublicStaticMethod(
+                        apiType,
                         "GetPatientContinuationPreflightCandidates",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo tryStartMethod =
-                    apiType.GetMethod(
-                        "TryStartPatientContinuation",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo finishWindowMethod =
-                    apiType.GetMethod(
-                        "FinishPatientContinuationWindow",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-
-                int version;
-                try
-                {
-                    object versionResult =
-                        versionMethod == null
-                            ? null
-                            : versionMethod.Invoke(null, null);
-                    if (!(versionResult is int))
-                    {
-                        continue;
-                    }
-
-                    version = (int)versionResult;
-                    if (version < 1)
-                    {
-                        continue;
-                    }
-                }
-                catch
-                {
-                    continue;
-                }
-
-                MethodInfo legacyIsPorterMethod = null;
-                if (publicIsPorterMethod == null)
-                {
-                    Type legacyPorterIdentityType =
-                        assemblies[i].GetType(
-                            LegacyPorterIdentityTypeName,
-                            false);
-                    legacyIsPorterMethod =
-                        legacyPorterIdentityType == null
-                            ? null
-                            : legacyPorterIdentityType.GetMethod(
-                                "IsPorter",
-                                BindingFlags.NonPublic |
-                                BindingFlags.Static);
-                }
-
-                if (versionMethod == null ||
-                    (publicIsPorterMethod == null &&
-                     legacyIsPorterMethod == null) ||
-                    isWindowOpenMethod == null ||
-                    getCandidatesMethod == null ||
-                    tryStartMethod == null ||
-                    finishWindowMethod == null)
+                        typeof(Entity[]),
+                        new Type[]
+                        {
+                            typeof(Entity),
+                            typeof(Entity)
+                        });
+                if (getPreflightCandidatesMethod == null)
                 {
                     return false;
                 }
-
-                ApiType = apiType;
-                PatientApiVersion = version;
-                GetPatientContinuationApiVersionMethod =
-                    versionMethod;
-                IsPorterMethod =
-                    publicIsPorterMethod;
-                LegacyIsPorterMethod =
-                    legacyIsPorterMethod;
-                IsPatientContinuationWindowOpenMethod =
-                    isWindowOpenMethod;
-                GetPatientContinuationCandidatesMethod =
-                    getCandidatesMethod;
-                GetPatientContinuationPreflightCandidatesMethod =
-                    getPreflightCandidatesMethod;
-                TryStartPatientContinuationMethod =
-                    tryStartMethod;
-                FinishPatientContinuationWindowMethod =
-                    finishWindowMethod;
-
-                MethodInfo porterMethod =
-                    publicIsPorterMethod ??
-                    legacyIsPorterMethod;
-                try
-                {
-                    IsPorterCallback =
-                        (EntityBoolDelegate)Delegate.CreateDelegate(
-                            typeof(EntityBoolDelegate),
-                            porterMethod);
-                    IsWindowOpenCallback =
-                        (EntityBoolDelegate)Delegate.CreateDelegate(
-                            typeof(EntityBoolDelegate),
-                            isWindowOpenMethod);
-                    GetCandidatesCallback =
-                        (EntityArrayDelegate)Delegate.CreateDelegate(
-                            typeof(EntityArrayDelegate),
-                            getCandidatesMethod);
-                    GetPreflightCandidatesCallback =
-                        getPreflightCandidatesMethod == null
-                            ? null
-                            : (EntityPairArrayDelegate)Delegate.CreateDelegate(
-                                typeof(EntityPairArrayDelegate),
-                                getPreflightCandidatesMethod);
-                    TryStartCallback =
-                        (EntityPairBoolDelegate)Delegate.CreateDelegate(
-                            typeof(EntityPairBoolDelegate),
-                            tryStartMethod);
-                    FinishWindowCallback =
-                        (EntityBoolDelegate)Delegate.CreateDelegate(
-                            typeof(EntityBoolDelegate),
-                            finishWindowMethod);
-                }
-                catch
-                {
-                    // Reflection stays available as a compatibility fallback
-                    // if an older Hospital Porters build exposes a signature
-                    // that cannot be bound to these typed delegates.
-                    IsPorterCallback = null;
-                    IsWindowOpenCallback = null;
-                    GetCandidatesCallback = null;
-                    GetPreflightCandidatesCallback = null;
-                    TryStartCallback = null;
-                    FinishWindowCallback = null;
-                }
-
-                return true;
             }
 
-            return false;
+            try
+            {
+                IsPorterCallback =
+                    (EntityBoolDelegate)Delegate.CreateDelegate(
+                        typeof(EntityBoolDelegate),
+                        isPorterMethod);
+                IsWindowOpenCallback =
+                    (EntityBoolDelegate)Delegate.CreateDelegate(
+                        typeof(EntityBoolDelegate),
+                        isWindowOpenMethod);
+                GetCandidatesCallback =
+                    (EntityArrayDelegate)Delegate.CreateDelegate(
+                        typeof(EntityArrayDelegate),
+                        getCandidatesMethod);
+                GetPreflightCandidatesCallback =
+                    getPreflightCandidatesMethod == null
+                        ? null
+                        : (EntityPairArrayDelegate)Delegate.CreateDelegate(
+                            typeof(EntityPairArrayDelegate),
+                            getPreflightCandidatesMethod);
+                TryStartCallback =
+                    (EntityPairBoolDelegate)Delegate.CreateDelegate(
+                        typeof(EntityPairBoolDelegate),
+                        tryStartMethod);
+                FinishWindowCallback =
+                    (EntityBoolDelegate)Delegate.CreateDelegate(
+                        typeof(EntityBoolDelegate),
+                        finishWindowMethod);
+            }
+            catch
+            {
+                ClearCallbacks();
+                return false;
+            }
+
+            PatientApiVersion = version;
+            return true;
+        }
+
+        private static MethodInfo GetExactPublicStaticMethod(
+            Type apiType,
+            string methodName,
+            Type returnType,
+            Type[] parameterTypes)
+        {
+            MethodInfo method =
+                apiType.GetMethod(
+                    methodName,
+                    BindingFlags.Public |
+                    BindingFlags.Static,
+                    null,
+                    parameterTypes,
+                    null);
+
+            return method != null &&
+                method.ReturnType == returnType
+                    ? method
+                    : null;
+        }
+
+        private static void Disable(
+            Exception exception,
+            string message)
+        {
+            IntegrationDisabled = true;
+            ClearCallbacks();
+
+            if (FailureLogged || Plugin.Log == null)
+            {
+                return;
+            }
+
+            FailureLogged = true;
+            Exception root =
+                exception == null
+                    ? null
+                    : (exception.InnerException ?? exception);
+
+            Plugin.Log.LogWarning(
+                message +
+                "; HFO will keep its normal transport fallback for " +
+                "the rest of this session" +
+                (root == null
+                    ? "."
+                    : ": " +
+                      root.GetType().Name + ": " +
+                      root.Message));
+        }
+
+        private static void ClearCallbacks()
+        {
+            IsPorterCallback = null;
+            IsWindowOpenCallback = null;
+            GetCandidatesCallback = null;
+            GetPreflightCandidatesCallback = null;
+            TryStartCallback = null;
+            FinishWindowCallback = null;
         }
     }
 
@@ -852,6 +853,11 @@ namespace HospitalFlowOptimizer.Patches
                 return SmartTransportPressureRescueResult.Started;
             }
 
+            if (PendingRequests.Count == 0)
+            {
+                return SmartTransportPressureRescueResult.None;
+            }
+
             SmartTransportContinuationContext context =
                 TryCreateContext(source);
             if (context == null ||
@@ -1072,21 +1078,10 @@ namespace HospitalFlowOptimizer.Patches
         }
 
         internal static void UpdateHpoContinuation(
-            BehaviorNurse nurse)
+            Entity porter)
         {
             if (!FlowOptimizerConfig.SmartTransportContinuation ||
-                nurse == null)
-            {
-                return;
-            }
-
-            EmployeeComponent employee =
-                nurse.GetComponent<EmployeeComponent>();
-            Entity porter =
-                employee == null
-                    ? null
-                    : employee.m_entity;
-            if (porter == null ||
+                porter == null ||
                 !PendingHpoPorters.Contains(porter))
             {
                 return;
@@ -2436,14 +2431,34 @@ namespace HospitalFlowOptimizer.Patches
         nameof(BehaviorNurse.Update),
         new Type[] { typeof(float) })]
     [HarmonyAfter("Loupito75:HospitalPorters")]
-    internal static class SmartTransportContinuationHpoUpdatePatch
+    internal static class SmartTransportHpoContinuationUpdatePatch
     {
         [HarmonyPriority(Priority.Last)]
         private static void Postfix(
             BehaviorNurse __instance)
         {
+            if (__instance == null ||
+                (!FlowOptimizerConfig.SmartTransportContinuation &&
+                 !FlowOptimizerConfig.SmartTransportSampleContinuation))
+            {
+                return;
+            }
+
+            EmployeeComponent employee =
+                __instance.GetComponent<EmployeeComponent>();
+            Entity porter =
+                employee == null
+                    ? null
+                    : employee.m_entity;
+            if (porter == null)
+            {
+                return;
+            }
+
             SmartTransportContinuationRuntime
-                .UpdateHpoContinuation(__instance);
+                .UpdateHpoContinuation(porter);
+            SmartTransportSampleContinuationRuntime
+                .Update(porter);
         }
     }
 }

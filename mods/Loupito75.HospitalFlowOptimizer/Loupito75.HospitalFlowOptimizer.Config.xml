@@ -40,6 +40,18 @@
     <!-- @HMUC:set label="Clinical fit weight" control="slider" min="0" max="5" step="0.1" -->
     <!-- @HMUC:desc Weight given to clinical fit during scoring. -->
     <ClinicalFitWeight>0.0</ClinicalFitWeight>
+    <!-- true/false. Default: true. -->
+    <!-- @HMUC:set label="Waiting-room topology warning" control="checkbox" -->
+    <!-- @HMUC:desc Warns about persistent clinic waiting-room layout bottlenecks without moving patients or changing room topology. -->
+    <WaitingRoomTopologyWarning>true</WaitingRoomTopologyWarning>
+    <!-- 2-20 queued patients. Default: 3. -->
+    <!-- @HMUC:set label="Topology warning queue threshold" control="slider" min="2" max="20" step="1" -->
+    <!-- @HMUC:desc Minimum waiting-room queue size required before persistence time can accumulate. -->
+    <WaitingRoomTopologyQueueThreshold>3</WaitingRoomTopologyQueueThreshold>
+    <!-- 5-240 in-game minutes. Default: 30. -->
+    <!-- @HMUC:set label="Topology warning persistence" control="slider" min="5" max="240" step="5" -->
+    <!-- @HMUC:desc Time the same clinic bottleneck must remain observable before HFO sends the warning. -->
+    <WaitingRoomTopologyPersistenceMinutes>30</WaitingRoomTopologyPersistenceMinutes>
   </SmartClinicDoctor>
 
   <!-- @HMUC:desc Ranks immediately valid diagnostic rooms using their recent workload and route distance. -->

@@ -47,6 +47,10 @@ namespace HospitalFlowOptimizer.Patches
         internal int CandidateIndex;
         internal bool ShowingWaitingBubble;
         internal long LastPressureRescueSequence;
+        internal bool RetainedReusePrepared;
+        internal NurseState PreviousReuseNurseState;
+        internal StretcherComponentState PreviousReuseStretcherState;
+        internal float PreviousReuseStretcherTime;
         internal readonly HashSet<Entity> EvaluatedPressureRescueHpoTargets =
             new HashSet<Entity>();
     }
@@ -276,8 +280,70 @@ namespace HospitalFlowOptimizer.Patches
                 return false;
             }
 
+            if (stretcher.m_state == null ||
+                stretcher.m_state.m_stretcherState !=
+                    StretcherComponentState.ReleasingMovingCharacter)
+            {
+                LogFinalOutcome(
+                    context,
+                    "invalidated",
+                    "retained transport left the release state before reuse");
+                RemoveContext(context);
+                return true;
+            }
+
+            BehaviorNurse nurse =
+                context.Transporter.GetComponent<BehaviorNurse>();
+            if (nurse == null || nurse.m_state == null)
+            {
+                LogFinalOutcome(
+                    context,
+                    "invalidated",
+                    "retained transporter lost BehaviorNurse before reuse");
+                RemoveContext(context);
+                result = false;
+                return false;
+            }
+
+            if (context.PatientSide.m_state == null ||
+                context.PatientSide.m_state.m_error > 0 ||
+                (!context.PatientSide.HasTag("wheelchair_patient") &&
+                 (context.PatientSide.m_state.m_compositeParent == null ||
+                  context.PatientSide.m_state.m_compositeParent.GetEntity() == null)))
+            {
+                LogFinalOutcome(
+                    context,
+                    "invalidated",
+                    "retained transport equipment became invalid before reuse");
+                SmartTransportContinuationRuntime.SuppressNextRelease(stretcher);
+                RemoveContext(context);
+                result = false;
+                return false;
+            }
+
             context.Phase = SmartTransportWaitPhase.ReturningToPatient;
             MarkRetentionEnded(context);
+
+            // Vanilla SetDestination expects an idle StretcherComponent and,
+            // for a Nurse, emits GOING_TO_STRETCHER before it notices that the
+            // retained vehicle is already attached. Smart Transport Wait keeps
+            // both objects in their previous moving states on purpose, so
+            // present them as idle only for this synchronous native handoff.
+            // SetDestination itself immediately switches the stretcher to the
+            // next native state; on failure the postfix restores both states.
+            context.PreviousReuseNurseState =
+                nurse.m_state.m_nurseState;
+            context.PreviousReuseStretcherState =
+                stretcher.m_state.m_stretcherState;
+            context.PreviousReuseStretcherTime =
+                stretcher.m_state.m_timeInState;
+            context.RetainedReusePrepared = true;
+
+            nurse.m_state.m_nurseState = NurseState.Idle;
+            stretcher.m_state.m_stretcherState =
+                StretcherComponentState.Idle;
+            stretcher.m_state.m_timeInState = 0f;
+
             state = context;
             return true;
         }
@@ -287,10 +353,24 @@ namespace HospitalFlowOptimizer.Patches
             SmartTransportWaitContext context,
             bool result)
         {
-            if (stretcher == null || context == null || !result)
+            if (stretcher == null || context == null)
             {
                 return;
             }
+
+            if (!result)
+            {
+                RestoreFailedRetainedReuse(stretcher, context);
+                SmartTransportContinuationRuntime.SuppressNextRelease(stretcher);
+                LogFinalOutcome(
+                    context,
+                    "invalidated",
+                    "native retained-vehicle handoff failed; releasing to vanilla");
+                RemoveContext(context);
+                return;
+            }
+
+            context.RetainedReusePrepared = false;
 
             stretcher.m_state.m_originalStretcherPosition = context.OriginalStretcherPosition;
             stretcher.m_state.m_originalStretcherOrientation = context.OriginalStretcherOrientation;
@@ -310,6 +390,35 @@ namespace HospitalFlowOptimizer.Patches
                 "resumed",
                 "patient transport resumed with retained vehicle");
             RemoveContext(context);
+        }
+
+        private static void RestoreFailedRetainedReuse(
+            StretcherComponent stretcher,
+            SmartTransportWaitContext context)
+        {
+            if (stretcher == null ||
+                stretcher.m_state == null ||
+                context == null ||
+                !context.RetainedReusePrepared)
+            {
+                return;
+            }
+
+            BehaviorNurse nurse =
+                context.Transporter == null
+                    ? null
+                    : context.Transporter.GetComponent<BehaviorNurse>();
+            if (nurse != null && nurse.m_state != null)
+            {
+                nurse.m_state.m_nurseState =
+                    context.PreviousReuseNurseState;
+            }
+
+            stretcher.m_state.m_stretcherState =
+                context.PreviousReuseStretcherState;
+            stretcher.m_state.m_timeInState =
+                context.PreviousReuseStretcherTime;
+            context.RetainedReusePrepared = false;
         }
 
         private static bool TryPressureRescue(

@@ -35,6 +35,10 @@ namespace HospitalFlowOptimizer.Patches
         internal bool ForcedObservationRoom;
         internal bool SuppressedUntilRetry;
         internal bool VanillaFallbackReleased;
+        internal bool EquipmentStateCaptured;
+        internal ObservationEquipmentState EquipmentState;
+        internal List<string> BusyTags;
+        internal List<GameDBObject> BusyEquipmentTypes;
     }
 
     internal static class TraumaCenterProtectionRuntime
@@ -108,6 +112,12 @@ namespace HospitalFlowOptimizer.Patches
                     observationRoom,
                     out busyTags,
                     out busyEquipmentTypes);
+
+            state.EquipmentStateCaptured = true;
+            state.EquipmentState = equipmentState;
+            state.BusyTags = busyTags;
+            state.BusyEquipmentTypes =
+                busyEquipmentTypes;
 
             if (equipmentState ==
                 ObservationEquipmentState.MissingOrUnusable)
@@ -243,15 +253,15 @@ namespace HospitalFlowOptimizer.Patches
                 return;
             }
 
-            List<string> busyTags;
-            List<GameDBObject> busyEquipmentTypes;
+            List<string> busyTags =
+                callState.BusyTags;
+            List<GameDBObject> busyEquipmentTypes =
+                callState.BusyEquipmentTypes;
             ObservationEquipmentState equipmentState =
-                GetObservationEquipmentState(
-                    examination.Procedure,
-                    patient,
-                    observationRoom,
-                    out busyTags,
-                    out busyEquipmentTypes);
+                callState.EquipmentStateCaptured
+                    ? callState.EquipmentState
+                    : ObservationEquipmentState
+                        .MissingOrUnusable;
 
             if (equipmentState ==
                 ObservationEquipmentState.MissingOrUnusable)
@@ -607,9 +617,8 @@ namespace HospitalFlowOptimizer.Patches
                 out List<string> busyTags,
                 out List<GameDBObject> busyEquipmentTypes)
         {
-            busyTags = new List<string>();
-            busyEquipmentTypes =
-                new List<GameDBObject>();
+            busyTags = null;
+            busyEquipmentTypes = null;
 
             if (procedure == null ||
                 patient == null ||
@@ -633,6 +642,9 @@ namespace HospitalFlowOptimizer.Patches
                 return ObservationEquipmentState.MissingOrUnusable;
             }
 
+            string[] tags =
+                new string[1];
+
             for (int i = 0; i < required.Length; i++)
             {
                 RequiredEquipment item = required[i];
@@ -642,8 +654,8 @@ namespace HospitalFlowOptimizer.Patches
                     continue;
                 }
 
-                string[] tags =
-                    new string[] { item.Tag };
+                tags[0] =
+                    item.Tag;
 
                 TileObject free =
                     MapScriptInterface.Instance
@@ -680,6 +692,14 @@ namespace HospitalFlowOptimizer.Patches
                             .MissingOrUnusable;
                 }
 
+                if (busyTags == null)
+                {
+                    busyTags =
+                        new List<string>();
+                    busyEquipmentTypes =
+                        new List<GameDBObject>();
+                }
+
                 busyTags.Add(item.Tag);
                 if (busyEquipmentType != null &&
                     !busyEquipmentTypes.Contains(
@@ -690,9 +710,10 @@ namespace HospitalFlowOptimizer.Patches
                 }
             }
 
-            return busyTags.Count > 0
-                ? ObservationEquipmentState.Busy
-                : ObservationEquipmentState.Free;
+            return busyTags != null &&
+                busyTags.Count > 0
+                    ? ObservationEquipmentState.Busy
+                    : ObservationEquipmentState.Free;
         }
 
         private static void FindMatchingEquipmentState(
