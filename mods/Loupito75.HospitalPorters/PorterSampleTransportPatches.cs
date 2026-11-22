@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Text;
 using GLib;
 using HarmonyLib;
 using Lopital;
@@ -24,7 +25,10 @@ namespace HospitalPorters
         ReturningCart,
         RecoveringCartAfterCancel,
         WaitingForCartReturnSlot,
-        ReturningToStation
+        ReturningToStation,
+        // Appended to preserve persisted numeric values of all existing phases.
+        ReturningToCartForFridgeDeparture,
+        ApproachingDestinationLab
     }
 
     internal sealed class PorterSampleTransportJob
@@ -32,7 +36,16 @@ namespace HospitalPorters
         internal LabProcedure Procedure;
         internal readonly List<LabProcedure> CollectedProcedures =
             new List<LabProcedure>();
+        // Current physical delivery laboratory. During collection this starts
+        // as the first claimed procedure's m_statLab; once collection closes,
+        // HPO advances it through the remaining collected destinations.
         internal Room StatLab;
+        // Logical department used only for Porter assignment/tour ownership.
+        // It may intentionally differ from the physical source room department.
+        internal Department LogicalDepartment;
+        // Generic producer context captured at HPO claim time. Unlike the
+        // transient registry, this is HPO mission state and survives save/load.
+        internal bool IsExternalSamplePickupSource;
         internal TileObject Cart;
         internal Room CartHomeRoom;
         internal Vector2i CartHomeTile;
@@ -64,6 +77,10 @@ namespace HospitalPorters
         internal bool RecoveringParkedCartForSampleRoomWait;
         internal bool ShowingSampleRoomWaitingBubble;
         internal bool FridgeDepositSoundPlayed;
+        // Persisted business retry state; HFX ownership itself is runtime-only.
+        internal int DestinationFridgeWaitAttempts;
+        internal int NextDestinationFridgeRetryMinute;
+        internal bool DestinationFridgeWaitingDeclared;
         internal bool PostDeliveryReturn;
         internal bool ContinuationDeclined;
         // WalkComponent builds seated routes from the chair's physical tile,
@@ -127,6 +144,17 @@ namespace HospitalPorters
         internal bool Released;
     }
 
+    internal sealed class PorterSampleTourDiagnosticSummary
+    {
+        internal int ScopedSamplingFinished;
+        internal int UnavailableBeforeTourCheck;
+        internal int NoStatLab;
+        internal int SameStatLab;
+        internal int SameStatLabNearbyPotential;
+        internal int DifferentStatLab;
+        internal int DifferentStatLabNearbyPotential;
+    }
+
     internal static class PorterSampleTransportRuntime
     {
         private const int CartRestoreRetryMinutes = 2;
@@ -149,6 +177,10 @@ namespace HospitalPorters
         private const uint ForeignSampleHelpRollSalt = 3266489917u;
         private const uint PreBlockedRoomTimeoutSalt = 668265263u;
         private const uint SampleFallbackRetrySalt = 374761393u;
+        private const uint SampleDeliveryRoutingRollSalt = 1274126177u;
+        private const int SampleDeliveryHardWorkerChanceBonus = 10;
+        private const int SampleDeliverySlowChanceBonus = 10;
+        private const int SampleDeliveryFastChancePenalty = 10;
         private const int SamplePorterCapacityWindowMinutes = 24 * 60;
         private const int SamplePorterCapacityFallbackThreshold = 3;
 
@@ -181,6 +213,13 @@ namespace HospitalPorters
             NativeLabSampleBundles =
                 new Dictionary<BehaviorLabSpecialist, LabProcedure>();
 
+        // Observation-only cache for Vanilla Lab Specialist deliveries that
+        // HPO does not own. A miss falls back to the original character scan;
+        // hits are revalidated against m_currentLabProcedure before reuse.
+        private static readonly Dictionary<LabProcedure, BehaviorLabSpecialist>
+            NativeLabDeliveryOwners =
+                new Dictionary<LabProcedure, BehaviorLabSpecialist>();
+
         private static readonly Dictionary<PorterSampleBundleKey, PorterSampleFallbackWait>
             FallbackWaits =
                 new Dictionary<PorterSampleBundleKey, PorterSampleFallbackWait>();
@@ -198,6 +237,11 @@ namespace HospitalPorters
         private static readonly HashSet<Department>
             SamplePorterCapacityNotifications =
                 new HashSet<Department>();
+
+        // One actionable contention popup per destination lab and game day.
+        private static readonly Dictionary<Room, int>
+            DestinationFridgeContentionNotificationDays =
+                new Dictionary<Room, int>();
 
         // Independent of the standard pre-assignment fallback retries.
         // 1 = the first Porter wait expired and one more HPO job may be assigned.
@@ -240,14 +284,18 @@ namespace HospitalPorters
 
         internal static void Reset()
         {
+            ClearExternalWaitingVisuals();
+            ExternalSamplePickupRuntime.Reset();
             Jobs.Clear();
             AttachedOrphanCarts.Clear();
             NextOrphanedCartRecoveryTimes.Clear();
             NativeLabSampleBundles.Clear();
+            NativeLabDeliveryOwners.Clear();
             FallbackWaits.Clear();
             ReleasedFallbacks.Clear();
             SamplePorterCapacityFallbackEvents.Clear();
             SamplePorterCapacityNotifications.Clear();
+            DestinationFridgeContentionNotificationDays.Clear();
             RoomWaitRetryCounts.Clear();
             RoomWaitRetryAvailableMinutes.Clear();
             RoomWaitReleasedToLab.Clear();
@@ -257,9 +305,49 @@ namespace HospitalPorters
             PreBlockedRoomWaitDecisions.Clear();
         }
 
+        internal static void ClearExternalWaitingVisuals()
+        {
+            foreach (KeyValuePair<Entity, PorterSampleTransportJob> pair
+                in Jobs)
+            {
+                ClearDestinationFridgeWait(
+                    pair.Key,
+                    pair.Value,
+                    false);
+            }
+        }
+
         internal static bool IsBusy(Entity porter)
         {
             return porter != null && Jobs.ContainsKey(porter);
+        }
+
+        internal static bool TryGetStatusContext(
+            Entity porter,
+            out PorterSampleTransportPhase phase,
+            out Room sourceRoom,
+            out Room statLab)
+        {
+            phase = PorterSampleTransportPhase.GoingToCart;
+            sourceRoom = null;
+            statLab = null;
+
+            if (porter == null)
+            {
+                return false;
+            }
+
+            PorterSampleTransportJob job;
+            if (!Jobs.TryGetValue(porter, out job) ||
+                job == null)
+            {
+                return false;
+            }
+
+            phase = job.Phase;
+            sourceRoom = GetSampleSourceRoom(job.Procedure);
+            statLab = job.StatLab;
+            return true;
         }
 
         internal static bool IsShowingSampleRoomWaitingBubble(
@@ -556,11 +644,17 @@ namespace HospitalPorters
                 procedure.m_state.m_statLab == null
                     ? null
                     : procedure.m_state.m_statLab.GetEntity();
+            Department logicalDepartment =
+                GetProcedureDepartment(procedure);
+            bool isExternalSamplePickupSource =
+                ExternalSamplePickupRuntime.IsAvailable(
+                    procedure);
             if (nurse == null ||
                 use == null ||
                 walk == null ||
                 source == null ||
-                statLab == null)
+                statLab == null ||
+                logicalDepartment == null)
             {
                 return false;
             }
@@ -575,7 +669,10 @@ namespace HospitalPorters
             }
 
             bool blocked =
-                IsSamplePickupRoomBlocked(procedure);
+                IsSamplePickupRoomBlocked(
+                    procedure,
+                    GetSampleSourceRoom(procedure),
+                    isExternalSamplePickupSource);
             Vector2i parkingTile =
                 Vector2i.ZERO_VECTOR;
 
@@ -616,6 +713,9 @@ namespace HospitalPorters
             job.Procedure = procedure;
             job.CollectedProcedures.Clear();
             job.StatLab = statLab;
+            job.LogicalDepartment = logicalDepartment;
+            job.IsExternalSamplePickupSource =
+                isExternalSamplePickupSource;
             job.NativeTimeout = false;
             job.PostDeliveryReturn = false;
             job.ContinuationDeclined = false;
@@ -1217,7 +1317,7 @@ namespace HospitalPorters
                 hospitalizedAtDelivery
                     ? "vanilla-or-untracked"
                     : "patient self-delivery";
-            if (IsProcedureClaimed(procedure))
+            if (IsProcedureExplicitlyClaimed(procedure))
             {
                 handler = "HPO Porter";
             }
@@ -1226,7 +1326,10 @@ namespace HospitalPorters
                 foreach (KeyValuePair<BehaviorLabSpecialist, LabProcedure> pair in
                     NativeLabSampleBundles)
                 {
-                    if (AreSameSampleBundle(pair.Value, procedure))
+                    if (IsNativeLabOwnLabBundle(
+                            pair.Key,
+                            pair.Value,
+                            procedure))
                     {
                         handler = "native Lab Specialist";
                         break;
@@ -1436,6 +1539,18 @@ namespace HospitalPorters
                 return false;
             }
 
+            Room homeLab =
+                GetLabSpecialistHomeLab(lab);
+            if (homeLab == null ||
+                GetProcedureStatLab(procedure) != homeLab)
+            {
+                // HPO restores only the exact-lab bundle state it owns.
+                // A Vanilla Lab Specialist may still be in a same-department
+                // cross-home pickup; that remains Vanilla ownership and is
+                // deliberately not reconstructed as HPO state.
+                return false;
+            }
+
             NativeLabSampleBundles[lab] =
                 procedure;
             return true;
@@ -1566,9 +1681,27 @@ namespace HospitalPorters
                     job.CartHomeFloorIndex;
             }
 
+            // The registry itself is intentionally transient. New HPO saves
+            // persist only the claimed mission's generic external-source
+            // context; older saves may still recover it if the producer has
+            // already republished a SamplingFinished sample after loading.
+            job.IsExternalSamplePickupSource =
+                job.IsExternalSamplePickupSource ||
+                ExternalSamplePickupRuntime.IsAvailable(
+                    job.Procedure);
+
             Jobs[porter] = job;
             AttachedOrphanCarts.Remove(porter);
             NextOrphanedCartRecoveryTimes.Remove(porter);
+
+            if (job.Phase ==
+                    PorterSampleTransportPhase.WaitingForFridge)
+            {
+                SetDestinationFridgeWaiting(
+                    porter,
+                    job,
+                    true);
+            }
 
             // WaitingForStandUpBeforeCart is intentionally transient. Rebuild
             // it from vanilla's persisted seat state so a save made during a
@@ -1751,6 +1884,19 @@ namespace HospitalPorters
                 ClearFallbackTracking(procedure);
                 return true;
             }
+            if (ExternalSamplePickupRuntime.IsAvailable(
+                    procedure))
+            {
+                // Externally attested samples get one immediate HPO claim
+                // opportunity only. A failed claim must not enter the
+                // hospitalized-sample retry suppression: the producer/Vanilla
+                // Lab Specialist remains the immediate fallback owner.
+                ClearFallbackTrackingIfOwnedByProcedure(
+                    procedure);
+                return TryAssignAvailablePorter(
+                    procedure);
+            }
+
             if (!IsHospitalizedSampleWaiting(procedure))
             {
                 // SelectNextLabProcedureStep also revisits older idle lab
@@ -1961,6 +2107,14 @@ namespace HospitalPorters
 
         internal static void CleanupFallbackTracking(LabProcedure procedure)
         {
+            if (procedure != null &&
+                (procedure.m_state == null ||
+                 procedure.m_state.m_labProcedureState !=
+                    LabProcedureState.SampleBeingDelivered))
+            {
+                NativeLabDeliveryOwners.Remove(procedure);
+            }
+
             if (procedure == null || procedure.m_state == null ||
                 procedure.m_state.m_labProcedureState != LabProcedureState.SamplingFinished)
             {
@@ -2001,7 +2155,7 @@ namespace HospitalPorters
             if (IsRoomWaitReleasedToLab(procedure) ||
                 IsFallbackReleasedForBundle(procedure) ||
                 IsOrdinaryFallbackCoolingDown(procedure) ||
-                !IsHospitalizedSampleWaiting(procedure))
+                !IsPorterSampleWaiting(procedure))
             {
                 return false;
             }
@@ -2089,7 +2243,7 @@ namespace HospitalPorters
                     : patient.GetComponent<HospitalizationComponent>();
             if (hospitalization == null ||
                 !hospitalization.IsHospitalized() ||
-                IsProcedureClaimed(procedure) ||
+                IsProcedureExplicitlyClaimed(procedure) ||
                 IsHandledByLabSpecialist(procedure))
             {
                 return;
@@ -2145,15 +2299,8 @@ namespace HospitalPorters
                 return false;
             }
 
-            if (procedure.m_state.m_statLab == null ||
-                procedure.m_state.m_statLab.GetEntity() == null)
-            {
-                procedure.FindRoom(onlyFree: false);
-            }
-
-            Room statLab = procedure.m_state.m_statLab == null
-                ? null
-                : procedure.m_state.m_statLab.GetEntity();
+            Room statLab =
+                GetPorterTargetStatLab(procedure);
             if (statLab == null ||
                 statLab.m_roomPersistentData.m_roomType == null ||
                 !statLab.m_roomPersistentData.m_roomType.Entry.HasTag("stat_lab"))
@@ -2356,7 +2503,7 @@ namespace HospitalPorters
             for (int i = 0; i < procedures.Count; i++)
             {
                 LabProcedure procedure = procedures[i];
-                if (!IsHospitalizedSampleWaiting(procedure) ||
+                if (!IsPorterSampleWaiting(procedure) ||
                     GetProcedureDepartment(procedure) != workloadDepartment ||
                     IsProcedureClaimed(procedure) ||
                     IsRoomWaitReleasedToLab(procedure) ||
@@ -2831,6 +2978,26 @@ namespace HospitalPorters
                 SamplePorterCapacityNotifications);
         }
 
+        internal static List<KeyValuePair<Room, int>>
+            GetDestinationFridgeContentionNotificationsSnapshot()
+        {
+            return new List<KeyValuePair<Room, int>>(
+                DestinationFridgeContentionNotificationDays);
+        }
+
+        internal static bool RestoreDestinationFridgeContentionNotification(
+            Room room,
+            int day)
+        {
+            if (room == null || day < 0)
+            {
+                return false;
+            }
+
+            DestinationFridgeContentionNotificationDays[room] = day;
+            return true;
+        }
+
         internal static bool RestoreSamplePorterCapacityFallbackEvent(
             Department department,
             int gameMinute)
@@ -3090,7 +3257,7 @@ namespace HospitalPorters
                     procedure.m_state == null ||
                     procedure.m_state.m_labProcedureState !=
                         LabProcedureState.SamplingFinished ||
-                    !IsHospitalizedSampleWaiting(procedure))
+                    !IsPorterSampleWaiting(procedure))
                 {
                     continue;
                 }
@@ -3122,18 +3289,13 @@ namespace HospitalPorters
                     }
                 }
 
-                // Preserve vanilla/HPO's fallback to patient department when
-                // the equipment has no room or no owning department.
+                // Preserve the physical room lookup for bundle/occupancy work,
+                // while an external attestation uses the patient's clinical
+                // department as the logical Porter workload department.
                 Department sourceDepartment =
-                    sourceRoom == null ||
-                    sourceRoom.m_roomPersistentData == null ||
-                    sourceRoom.m_roomPersistentData.m_department == null
-                        ? null
-                        : sourceRoom.m_roomPersistentData.m_department.GetEntity();
-                if (sourceDepartment == null)
-                {
-                    sourceDepartment = GetPatientDepartment(procedure);
-                }
+                    GetProcedureDepartment(
+                        procedure,
+                        sourceRoom);
                 if (sourceDepartment == null)
                 {
                     continue;
@@ -3492,6 +3654,60 @@ namespace HospitalPorters
                 firstRoom == secondRoom;
         }
 
+        private static Room GetLabSpecialistHomeLab(
+            BehaviorLabSpecialist lab)
+        {
+            EmployeeComponent employee =
+                lab == null
+                    ? null
+                    : lab.GetComponent<EmployeeComponent>();
+            return employee == null ||
+                employee.m_state == null ||
+                employee.m_state.m_homeRoom == null
+                    ? null
+                    : employee.m_state.m_homeRoom.GetEntity();
+        }
+
+        private static Room GetProcedureStatLab(
+            LabProcedure procedure)
+        {
+            return procedure == null ||
+                procedure.m_state == null ||
+                procedure.m_state.m_statLab == null
+                    ? null
+                    : procedure.m_state.m_statLab.GetEntity();
+        }
+
+        private static bool IsNativeLabOwnLabBundle(
+            BehaviorLabSpecialist lab,
+            LabProcedure primary,
+            LabProcedure candidate)
+        {
+            if (lab == null ||
+                primary == null ||
+                candidate == null ||
+                !AreSameSampleBundle(
+                    primary,
+                    candidate))
+            {
+                return false;
+            }
+
+            Room homeLab =
+                GetLabSpecialistHomeLab(lab);
+            if (homeLab == null)
+            {
+                return false;
+            }
+
+            // HPO owns only exact physical-lab bundle tracking. Vanilla may
+            // currently expose hospitalized same-department work to another
+            // Lab Specialist, but HPO must not turn that Vanilla behavior into
+            // a private admissibility rule. A generic Vanilla fix can then
+            // tighten Lab Specialist eligibility without any HPO dependency.
+            return GetProcedureStatLab(primary) == homeLab &&
+                GetProcedureStatLab(candidate) == homeLab;
+        }
 
         // The target patient/room are shared only during one synchronous claim
         // query; no result is cached between updates or save/load transitions.
@@ -3560,6 +3776,65 @@ namespace HospitalPorters
                 candidateRoom == context.Room;
         }
 
+        private static bool IsCurrentBundleClaimPhase(
+            PorterSampleTransportPhase phase)
+        {
+            return phase ==
+                    PorterSampleTransportPhase.GoingToCart ||
+                phase ==
+                    PorterSampleTransportPhase.GoingToSampleParking ||
+                phase ==
+                    PorterSampleTransportPhase.GoingToSample ||
+                phase ==
+                    PorterSampleTransportPhase.TakingSample;
+        }
+
+        private static bool IsProcedureExplicitlyClaimedByJob(
+            PorterSampleTransportJob job,
+            LabProcedure procedure)
+        {
+            if (job == null ||
+                procedure == null)
+            {
+                return false;
+            }
+
+            return job.Procedure == procedure ||
+                job.CollectedProcedures.Contains(
+                    procedure);
+        }
+
+        private static bool IsProcedureClaimedByJob(
+            PorterSampleTransportJob job,
+            LabProcedure procedure)
+        {
+            if (IsProcedureExplicitlyClaimedByJob(
+                    job,
+                    procedure))
+            {
+                return true;
+            }
+
+            if (job == null ||
+                !IsCurrentBundleClaimPhase(job.Phase) ||
+                job.Procedure == null)
+            {
+                return false;
+            }
+
+            // Before the physical pickup is complete, reserve the whole
+            // apparent patient/source-room bundle so another carrier cannot
+            // race the same sample. Once CollectCurrentSampleBundle has
+            // frozen the loaded procedures, ownership becomes exact: later
+            // samples from the same patient and room are separate work.
+            SampleBundleMatchContext match =
+                new SampleBundleMatchContext();
+            return AreSameSampleBundleWithCachedTarget(
+                job.Procedure,
+                procedure,
+                ref match);
+        }
+
         private static bool IsProcedureClaimedByOtherJob(
             LabProcedure procedure,
             PorterSampleTransportJob currentJob)
@@ -3569,7 +3844,6 @@ namespace HospitalPorters
                 return false;
             }
 
-            SampleBundleMatchContext match = new SampleBundleMatchContext();
             foreach (KeyValuePair<Entity, PorterSampleTransportJob> pair in Jobs)
             {
                 PorterSampleTransportJob job =
@@ -3580,25 +3854,11 @@ namespace HospitalPorters
                     continue;
                 }
 
-                if (AreSameSampleBundleWithCachedTarget(
-                        job.Procedure,
-                        procedure,
-                        ref match))
+                if (IsProcedureClaimedByJob(
+                        job,
+                        procedure))
                 {
                     return true;
-                }
-
-                for (int i = 0;
-                    i < job.CollectedProcedures.Count;
-                    i++)
-                {
-                    if (AreSameSampleBundleWithCachedTarget(
-                        job.CollectedProcedures[i],
-                        procedure,
-                        ref match))
-                    {
-                        return true;
-                    }
                 }
             }
 
@@ -3724,10 +3984,20 @@ namespace HospitalPorters
                 added++;
             }
 
-            if (added > 0)
+            if (added > 0 &&
+                PorterTransportConfig.EnableDiagnostics)
             {
                 Room room =
                     GetSampleSourceRoom(primary);
+                int destinationLabCount;
+                int unassignedDestinations;
+                string destinationLabs =
+                    GetSampleBundleDestinationLabDiagnostic(
+                        job,
+                        primary,
+                        out destinationLabCount,
+                        out unassignedDestinations);
+
                 PorterDiagnostics.Log(
                     "sample bundle collected: patient=" +
                     GetPatientName(primary) +
@@ -3741,7 +4011,14 @@ namespace HospitalPorters
                             .m_roomType.Entry.DatabaseID.ToString()) +
                     "; procedures=" +
                     added +
-                    "; physicalSamples=1.");
+                    "; physicalSamples=1" +
+                    "; destinationLabs=" +
+                    destinationLabCount +
+                    "; unassignedDestinations=" +
+                    unassignedDestinations +
+                    "; labs=" +
+                    destinationLabs +
+                    ".");
             }
 
             return added;
@@ -3784,7 +4061,8 @@ namespace HospitalPorters
                 NativeLabSampleBundles)
             {
                 if (pair.Key != lab &&
-                    AreSameSampleBundle(
+                    IsNativeLabOwnLabBundle(
+                        pair.Key,
                         pair.Value,
                         procedure))
                 {
@@ -3808,6 +4086,28 @@ namespace HospitalPorters
                 return;
             }
 
+            Room homeLab =
+                GetLabSpecialistHomeLab(lab);
+            if (homeLab == null ||
+                GetProcedureStatLab(primary) != homeLab)
+            {
+                // Do not mirror Vanilla's hospitalized same-department
+                // cross-home eligibility in HPO. The native specialist keeps
+                // full Vanilla ownership of that pickup; HPO only tracks and
+                // bundles samples when the selected physical m_statLab is the
+                // specialist's own home laboratory.
+                PorterDiagnostics.Log(
+                    "native lab sample pickup left to Vanilla: patient=" +
+                    GetPatientName(primary) +
+                    "; homeLab=" +
+                    GetRoomDiagnostic(homeLab) +
+                    "; statLab=" +
+                    GetRoomDiagnostic(
+                        GetProcedureStatLab(primary)) +
+                    "; reason=cross-home-or-unresolved.");
+                return;
+            }
+
             if (IsFallbackReleasedForBundle(primary))
             {
                 RecordSamplePorterCapacityFallback(primary);
@@ -3826,7 +4126,8 @@ namespace HospitalPorters
                 LabProcedure candidate =
                     LabProcedureManager.Instance
                         .m_labProcedures[i];
-                if (!AreSameSampleBundle(
+                if (!IsNativeLabOwnLabBundle(
+                        lab,
                         primary,
                         candidate) ||
                     candidate == null ||
@@ -3891,6 +4192,9 @@ namespace HospitalPorters
                     ? "NONE"
                     : room.m_roomPersistentData
                         .m_roomType.Entry.DatabaseID.ToString()) +
+                "; homeLab=" +
+                GetRoomDiagnostic(
+                    GetLabSpecialistHomeLab(lab)) +
                 "; procedures=" +
                 procedures +
                 "; physicalSamples=1.");
@@ -3939,7 +4243,8 @@ namespace HospitalPorters
                     LabProcedure candidate =
                         LabProcedureManager.Instance
                             .m_labProcedures[i];
-                    if (!AreSameSampleBundle(
+                    if (!IsNativeLabOwnLabBundle(
+                            lab,
                             primary,
                             candidate) ||
                         candidate == null ||
@@ -3971,6 +4276,9 @@ namespace HospitalPorters
                 primary.GetEntityID() +
                 "; roomWaitReleasedToLab=" +
                 wasReleasedFromOutsideWait +
+                "; homeLab=" +
+                GetRoomDiagnostic(
+                    GetLabSpecialistHomeLab(lab)) +
                 "; procedures=" +
                 delivered +
                 "; physicalSamples=1.");
@@ -4002,9 +4310,6 @@ namespace HospitalPorters
                 return;
             }
 
-            NativeLabSampleBundles.Remove(
-                lab);
-
             int requeued = 0;
             if (LabProcedureManager.Instance != null &&
                 LabProcedureManager.Instance.m_labProcedures != null)
@@ -4018,7 +4323,8 @@ namespace HospitalPorters
                     LabProcedure candidate =
                         LabProcedureManager.Instance
                             .m_labProcedures[i];
-                    if (!AreSameSampleBundle(
+                    if (!IsNativeLabOwnLabBundle(
+                            lab,
                             primary,
                             candidate) ||
                         candidate == null ||
@@ -4038,6 +4344,9 @@ namespace HospitalPorters
                 }
             }
 
+            NativeLabSampleBundles.Remove(
+                lab);
+
             PorterDiagnostics.Log(
                 "native lab sample bundle released: patient=" +
                 GetPatientName(primary) +
@@ -4056,14 +4365,13 @@ namespace HospitalPorters
                 return false;
             }
 
-            SampleBundleMatchContext match = new SampleBundleMatchContext();
             foreach (KeyValuePair<BehaviorLabSpecialist, LabProcedure> pair in
                 NativeLabSampleBundles)
             {
-                if (AreSameSampleBundleWithCachedTarget(
+                if (IsNativeLabOwnLabBundle(
+                        pair.Key,
                         pair.Value,
-                        procedure,
-                        ref match))
+                        procedure))
                 {
                     return true;
                 }
@@ -5204,6 +5512,7 @@ namespace HospitalPorters
             }
 
             job.Procedure = null;
+            job.IsExternalSamplePickupSource = false;
             job.HasSampleApproachTarget = false;
             job.HasSampleRoomWaitTarget = false;
             ResetSampleRoomWaitTimeout(job);
@@ -5250,9 +5559,7 @@ namespace HospitalPorters
 
             if (job.Cart == null)
             {
-                job.Phase =
-                    PorterSampleTransportPhase.WaitingForFridge;
-                TryGoToFridge(
+                BeginPendingSampleDeliveries(
                     porter,
                     nurse,
                     job);
@@ -5271,9 +5578,7 @@ namespace HospitalPorters
                     return;
                 }
 
-                job.Phase =
-                    PorterSampleTransportPhase.WaitingForFridge;
-                TryGoToFridge(
+                BeginPendingSampleDeliveries(
                     porter,
                     nurse,
                     job);
@@ -5433,8 +5738,7 @@ namespace HospitalPorters
             }
 
             bool blocked =
-                IsSamplePickupRoomBlocked(
-                    job.Procedure);
+                IsSamplePickupRoomBlocked(job);
             if (!blocked)
             {
                 HideSampleRoomWaitingBubble(porter, job);
@@ -5841,9 +6145,50 @@ namespace HospitalPorters
         }
 
         private static bool IsSamplePickupRoomBlocked(
+            PorterSampleTransportJob job)
+        {
+            if (job == null)
+            {
+                return false;
+            }
+
+            return IsSamplePickupRoomBlocked(
+                job.Procedure,
+                GetSampleSourceRoom(job.Procedure),
+                job.IsExternalSamplePickupSource);
+        }
+
+        private static bool IsSamplePickupRoomBlocked(
             LabProcedure procedure,
             Room room)
         {
+            return IsSamplePickupRoomBlocked(
+                procedure,
+                room,
+                ExternalSamplePickupRuntime
+                    .IsAvailable(procedure));
+        }
+
+        private static bool IsSamplePickupRoomBlocked(
+            LabProcedure procedure,
+            Room room,
+            bool isExternalSamplePickupSource)
+        {
+            // The producer explicitly attests that this physical sample is
+            // available. HPO skips its room-wide occupancy heuristic only;
+            // source User/Owner, reservation, route and final claim checks
+            // remain authoritative.
+            if (isExternalSamplePickupSource)
+            {
+                ClearPreBlockedRoomWaitDecision(procedure);
+                UpdateSamplePickupRoomDiagnostic(
+                    procedure,
+                    room,
+                    blocked: false,
+                    reason: "external-sample-attested");
+                return false;
+            }
+
             if (room == null ||
                 room.m_roomPersistentData == null ||
                 room.m_roomPersistentData.m_roomType == null ||
@@ -6301,8 +6646,27 @@ namespace HospitalPorters
         private static Department GetProcedureDepartment(
             LabProcedure procedure)
         {
-            Room sourceRoom =
-                GetSampleSourceRoom(procedure);
+            return GetProcedureDepartment(
+                procedure,
+                GetSampleSourceRoom(procedure));
+        }
+
+        private static Department GetProcedureDepartment(
+            LabProcedure procedure,
+            Room sourceRoom)
+        {
+            Department patientDepartment =
+                GetPatientDepartment(procedure);
+
+            if (ExternalSamplePickupRuntime.IsAvailable(
+                    procedure))
+            {
+                // External Sample pickup is keyed to the patient's clinical
+                // department. A producer's physical storage room may belong
+                // to a technical department, so HPO must not substitute it.
+                return patientDepartment;
+            }
+
             Department sourceDepartment =
                 sourceRoom == null ||
                 sourceRoom.m_roomPersistentData == null ||
@@ -6311,7 +6675,286 @@ namespace HospitalPorters
                     : sourceRoom.m_roomPersistentData.m_department.GetEntity();
 
             return sourceDepartment ??
-                GetPatientDepartment(procedure);
+                patientDepartment;
+        }
+
+        private static Room GetPorterTargetStatLab(
+            LabProcedure procedure)
+        {
+            if (procedure == null ||
+                procedure.m_state == null)
+            {
+                return null;
+            }
+
+            // The Vanilla/HFO-selected m_statLab is authoritative for
+            // Porter delivery. HPO never substitutes another laboratory merely
+            // because it belongs to the same department. Any broader native
+            // Lab Specialist eligibility remains outside Porter ownership.
+            Room statLab =
+                procedure.m_state.m_statLab == null
+                    ? null
+                    : procedure.m_state.m_statLab.GetEntity();
+            if (statLab != null)
+            {
+                return statLab;
+            }
+
+            // An external pickup declaration does not select a laboratory.
+            // HPO may consume and revalidate an already selected destination,
+            // but must not invent one through its ordinary FindRoom fallback
+            // while the producer still owns the pre-claim workflow.
+            if (ExternalSamplePickupRuntime.IsAvailable(
+                    procedure))
+            {
+                return null;
+            }
+
+            procedure.FindRoom(onlyFree: false);
+            return procedure.m_state.m_statLab == null
+                ? null
+                : procedure.m_state.m_statLab.GetEntity();
+        }
+
+        private static string GetSampleBundleDestinationLabDiagnostic(
+            PorterSampleTransportJob job,
+            LabProcedure primary,
+            out int destinationLabCount,
+            out int unassignedDestinations)
+        {
+            destinationLabCount = 0;
+            unassignedDestinations = 0;
+
+            if (job == null ||
+                primary == null ||
+                job.CollectedProcedures == null)
+            {
+                return "[]";
+            }
+
+            Dictionary<Room, int> counts =
+                new Dictionary<Room, int>();
+            List<Room> order =
+                new List<Room>();
+
+            for (int i = 0;
+                i < job.CollectedProcedures.Count;
+                i++)
+            {
+                LabProcedure procedure =
+                    job.CollectedProcedures[i];
+                if (procedure == null ||
+                    procedure.m_state == null ||
+                    !AreSameSampleBundle(
+                        primary,
+                        procedure))
+                {
+                    continue;
+                }
+
+                Room statLab =
+                    procedure.m_state.m_statLab == null
+                        ? null
+                        : procedure.m_state.m_statLab.GetEntity();
+                if (statLab == null)
+                {
+                    unassignedDestinations++;
+                    continue;
+                }
+
+                int count;
+                if (!counts.TryGetValue(
+                        statLab,
+                        out count))
+                {
+                    counts[statLab] = 1;
+                    order.Add(statLab);
+                }
+                else
+                {
+                    counts[statLab] = count + 1;
+                }
+            }
+
+            destinationLabCount = order.Count;
+            string[] entries =
+                new string[order.Count];
+
+            for (int i = 0;
+                i < order.Count;
+                i++)
+            {
+                Room statLab = order[i];
+                entries[i] =
+                    statLab.GetEntityID().ToString() +
+                    "/" +
+                    GetRoomTypeDiagnosticId(statLab) +
+                    "@F" +
+                    statLab.GetFloorIndex() +
+                    "=" +
+                    counts[statLab];
+            }
+
+            return "[" +
+                string.Join(",", entries) +
+                "]";
+        }
+
+        private static void LogSampleTourOpportunitySummary(
+            Entity porter,
+            PorterSampleTransportJob job)
+        {
+            if (!PorterTransportConfig.EnableDiagnostics ||
+                porter == null ||
+                job == null ||
+                job.StatLab == null ||
+                LabProcedureManager.Instance == null ||
+                LabProcedureManager.Instance.m_labProcedures == null)
+            {
+                return;
+            }
+
+            EmployeeComponent employee =
+                porter.GetComponent<EmployeeComponent>();
+            Department homeDepartment =
+                employee == null ||
+                employee.m_state == null ||
+                employee.m_state.m_department == null
+                    ? null
+                    : employee.m_state.m_department.GetEntity();
+            Department assistedDepartment =
+                homeDepartment == null
+                    ? null
+                    : GetInitialTourAssistedDepartment(
+                        job,
+                        homeDepartment);
+            WalkComponent walk =
+                porter.GetComponent<WalkComponent>();
+
+            PorterSampleTourDiagnosticSummary summary =
+                new PorterSampleTourDiagnosticSummary();
+
+            List<LabProcedure> procedures =
+                LabProcedureManager.Instance.m_labProcedures;
+            for (int i = 0;
+                i < procedures.Count;
+                i++)
+            {
+                LabProcedure procedure =
+                    procedures[i];
+                if (procedure == null ||
+                    procedure.m_state == null ||
+                    procedure.m_state.m_labProcedureState !=
+                        LabProcedureState.SamplingFinished)
+                {
+                    continue;
+                }
+
+                Department procedureDepartment =
+                    GetProcedureDepartment(procedure);
+                bool departmentInScope =
+                    procedureDepartment != null &&
+                    (procedureDepartment == homeDepartment ||
+                     (assistedDepartment != null &&
+                      procedureDepartment == assistedDepartment));
+                if (!departmentInScope)
+                {
+                    continue;
+                }
+
+                summary.ScopedSamplingFinished++;
+
+                if (procedure == job.Procedure ||
+                    IsProcedureClaimed(procedure) ||
+                    IsRoomWaitRetryCoolingDown(procedure) ||
+                    !IsPorterSampleWaiting(procedure))
+                {
+                    summary.UnavailableBeforeTourCheck++;
+                    continue;
+                }
+
+                Room statLab =
+                    procedure.m_state.m_statLab == null
+                        ? null
+                        : procedure.m_state.m_statLab.GetEntity();
+                if (statLab == null)
+                {
+                    summary.NoStatLab++;
+                    continue;
+                }
+
+                TileObject source =
+                    procedure.m_state.m_usedEquipment == null
+                        ? null
+                        : procedure.m_state.m_usedEquipment.GetEntity();
+                bool sourceFree =
+                    source != null &&
+                    source.User == null &&
+                    source.Owner == null;
+                bool nearbyPotential = false;
+
+                if (sourceFree &&
+                    walk != null &&
+                    GridMap.GetInstance() != null &&
+                    source.GetFloorIndex() ==
+                        walk.GetFloorIndex())
+                {
+                    float pickupDistance =
+                        GetSamplePickupRouteDistance(
+                            walk,
+                            source);
+                    nearbyPotential =
+                        pickupDistance >= 0f &&
+                        pickupDistance <=
+                            PorterTransportConfig
+                                .SampleTourSearchDistance;
+                }
+
+                if (statLab != job.StatLab)
+                {
+                    summary.DifferentStatLab++;
+                    if (nearbyPotential)
+                    {
+                        summary
+                            .DifferentStatLabNearbyPotential++;
+                    }
+                    continue;
+                }
+
+                summary.SameStatLab++;
+                if (nearbyPotential)
+                {
+                    summary.SameStatLabNearbyPotential++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "sample tour opportunity summary: porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; jobLabId=" +
+                job.StatLab.GetEntityID() +
+                "; jobLabType=" +
+                GetRoomTypeDiagnosticId(job.StatLab) +
+                "; jobLabFloor=" +
+                job.StatLab.GetFloorIndex() +
+                "; scopedSamplingFinished=" +
+                summary.ScopedSamplingFinished +
+                "; unavailableBeforeTourCheck=" +
+                summary.UnavailableBeforeTourCheck +
+                "; noStatLab=" +
+                summary.NoStatLab +
+                "; sameStatLab=" +
+                summary.SameStatLab +
+                "; sameStatLabNearbyPotential=" +
+                summary.SameStatLabNearbyPotential +
+                "; differentStatLab=" +
+                summary.DifferentStatLab +
+                "; differentStatLabNearbyPotential=" +
+                summary.DifferentStatLabNearbyPotential +
+                "; searchDistance=" +
+                PorterTransportConfig
+                    .SampleTourSearchDistance +
+                "; note=nearbyPotential means free source, same floor and STAFF route within search distance; room-block and detour checks are intentionally not replayed by diagnostics.");
         }
 
         private static bool TryContinueSampleTour(
@@ -6360,6 +7003,10 @@ namespace HospitalPorters
                     out next,
                     out routeDistance))
             {
+                LogSampleTourOpportunitySummary(
+                    porter,
+                    job);
+
                 PorterDiagnostics.Log(
                     "sample tour stop: porter=" +
                     (porter.Name ?? string.Empty).Trim() +
@@ -6387,6 +7034,10 @@ namespace HospitalPorters
                 return false;
             }
 
+            bool isExternalSamplePickupSource =
+                ExternalSamplePickupRuntime.IsAvailable(
+                    next);
+
             use.ReserveObject(source);
             if (source.User != porter)
             {
@@ -6404,7 +7055,23 @@ namespace HospitalPorters
                 return false;
             }
 
+            if (!EnsureCartAttachedForDeparture(
+                    porter,
+                    job))
+            {
+                use.Interrupt();
+                ClearCartParkingTarget(job);
+                return false;
+            }
+
+            ClearDestinationFridgeWait(
+                porter,
+                job,
+                true);
+
             job.Procedure = next;
+            job.IsExternalSamplePickupSource =
+                isExternalSamplePickupSource;
             job.Phase =
                 PorterSampleTransportPhase.GoingToSampleParking;
             SetSampleApproachTarget(
@@ -6467,9 +7134,11 @@ namespace HospitalPorters
                 return false;
             }
 
-            // One synchronous tour selection: the Porter, destination lab
-            // and fridge routes are the same for all candidate samples.
-            // NaN means not calculated; no state survives this selection.
+            // One synchronous tour selection. job.StatLab remains the first
+            // physical delivery stop while collection is open, so the existing
+            // detour guard stays relative to that first stop even when a new
+            // bundle has a different m_statLab. NaN means the direct route to
+            // that first delivery stop has not been calculated in this search.
             //
             // Once the first physical pickup is complete, do not make another
             // foreign-help roll. Preserve local work first, then only continue
@@ -6516,10 +7185,18 @@ namespace HospitalPorters
                 return null;
             }
 
-            // CollectedProcedures is appended in pickup order and that order
-            // is preserved by the public V2 save payload. The first surviving
-            // procedure therefore identifies the first physical bundle after
-            // save/load without adding a new persistence field.
+            // New jobs persist the logical department captured at claim time.
+            // It remains authoritative after pickup when the transient external
+            // availability declaration has correctly disappeared.
+            if (job.LogicalDepartment != null)
+            {
+                return job.LogicalDepartment == homeDepartment
+                    ? null
+                    : job.LogicalDepartment;
+            }
+
+            // Legacy HPO saves have no logical-department field. Preserve the
+            // previous pickup-order reconstruction for those jobs.
             for (int i = 0;
                 i < job.CollectedProcedures.Count;
                 i++)
@@ -6617,23 +7294,17 @@ namespace HospitalPorters
                 procedure == job.Procedure ||
                 IsProcedureClaimed(procedure) ||
                 IsRoomWaitRetryCoolingDown(procedure) ||
-                !IsHospitalizedSampleWaiting(procedure))
+                !IsPorterSampleWaiting(procedure))
             {
                 return false;
             }
 
-            if (procedure.m_state.m_statLab == null ||
-                procedure.m_state.m_statLab.GetEntity() == null)
-            {
-                procedure.FindRoom(onlyFree: false);
-            }
-
+            // A collected bundle may target a different laboratory. The
+            // procedure's own m_statLab remains authoritative and will become
+            // a later physical delivery stop after collection has closed.
             Room statLab =
-                procedure.m_state.m_statLab == null
-                    ? null
-                    : procedure.m_state.m_statLab.GetEntity();
-            if (statLab == null ||
-                statLab != job.StatLab)
+                GetPorterTargetStatLab(procedure);
+            if (statLab == null)
             {
                 return false;
             }
@@ -7234,7 +7905,7 @@ namespace HospitalPorters
             if ((!porterAvailabilityAlreadyValidated &&
                  !IsAvailablePorter(porter, procedure)) ||
                 (!sampleWaitingAlreadyValidated &&
-                 !IsHospitalizedSampleWaiting(procedure)) ||
+                 !IsPorterSampleWaiting(procedure)) ||
                 IsRoomWaitReleasedToLab(procedure) ||
                 IsRoomWaitRetryCoolingDown(procedure) ||
                 IsProcedureClaimed(procedure) ||
@@ -7280,14 +7951,8 @@ namespace HospitalPorters
             // inexpensive sample/employee/source checks, lab validation
             // and reachability. Scanning every patient in every department
             // for an invalid or unreachable procedure is wasted work.
-            if (procedure.m_state.m_statLab == null ||
-                procedure.m_state.m_statLab.GetEntity() == null)
-            {
-                procedure.FindRoom(onlyFree: false);
-            }
-            Room statLab = procedure.m_state.m_statLab == null
-                ? null
-                : procedure.m_state.m_statLab.GetEntity();
+            Room statLab =
+                GetPorterTargetStatLab(procedure);
             if (statLab == null ||
                 statLab.m_roomPersistentData.m_roomType == null ||
                 !statLab.m_roomPersistentData.m_roomType.Entry.HasTag("stat_lab"))
@@ -7497,6 +8162,14 @@ namespace HospitalPorters
             return hospitalization != null && hospitalization.IsHospitalized();
         }
 
+        private static bool IsPorterSampleWaiting(
+            LabProcedure procedure)
+        {
+            return IsHospitalizedSampleWaiting(procedure) ||
+                ExternalSamplePickupRuntime.IsAvailable(
+                    procedure);
+        }
+
         private static bool StartJob(
             Entity porter,
             BehaviorNurse nurse,
@@ -7544,6 +8217,10 @@ namespace HospitalPorters
                 return false;
             }
 
+            bool isExternalSamplePickupSource =
+                ExternalSamplePickupRuntime.IsAvailable(
+                    procedure);
+
             TileObject cart;
             Room cartHomeRoom;
             bool hasCart =
@@ -7579,6 +8256,9 @@ namespace HospitalPorters
                 {
                     Procedure = procedure,
                     StatLab = statLab,
+                    LogicalDepartment = targetDepartment,
+                    IsExternalSamplePickupSource =
+                        isExternalSamplePickupSource,
                     Cart = cart,
                     CartHomeRoom = cartHomeRoom,
                     CartHomeTile =
@@ -7671,7 +8351,7 @@ namespace HospitalPorters
                     source.GetFloorIndex());
 
                 if (allowPreBlockedRoom &&
-                    IsSamplePickupRoomBlocked(procedure))
+                    IsSamplePickupRoomBlocked(job))
                 {
                     // Do not enter an occupied room, even without a cart.
                     HandleBlockedSampleRoomApproach(
@@ -7885,8 +8565,59 @@ namespace HospitalPorters
 
             if (state == LabProcedureState.DeliveredToStatLab)
             {
-                DeliverCollectedProcedures(job);
-                CompleteJob(porter, nurse, job, timedOut: true);
+                LogUnexpectedDeliveredRecoveryTrigger(
+                    porter,
+                    job);
+
+                int pending =
+                    CountPendingDeliveryProcedures(job);
+                if (pending > 0)
+                {
+                    UseComponent recoveryUse =
+                        porter.GetComponent<UseComponent>();
+                    if (recoveryUse != null &&
+                        (recoveryUse.m_state.m_reservedObject != null ||
+                         recoveryUse.IsUsing()))
+                    {
+                        recoveryUse.Interrupt();
+                    }
+
+                    WalkComponent recoveryWalk =
+                        porter.GetComponent<WalkComponent>();
+                    if (recoveryWalk != null &&
+                        recoveryWalk.IsBusy())
+                    {
+                        recoveryWalk.Stop();
+                    }
+
+                    PorterDiagnostics.Log(
+                        "sample delivered-state recovery continuing pending deliveries: porter=" +
+                        (porter.Name ?? string.Empty).Trim() +
+                        "; pendingProcedures=" +
+                        pending +
+                        "; previousPhase=" +
+                        job.Phase +
+                        ".");
+
+                    BeginPendingSampleDeliveries(
+                        porter,
+                        nurse,
+                        job);
+                    return;
+                }
+
+                PorterDiagnostics.Log(
+                    "sample delivered-state recovery completed job: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; pendingProcedures=0; previousPhase=" +
+                    job.Phase +
+                    ".");
+
+                CompleteJob(
+                    porter,
+                    nurse,
+                    job,
+                    timedOut: true);
                 return;
             }
 
@@ -7903,6 +8634,18 @@ namespace HospitalPorters
                     break;
                 case PorterSampleTransportPhase.ReturningToCartAfterSample:
                     UpdateReturningToCartAfterSample(porter, nurse, job);
+                    break;
+                case PorterSampleTransportPhase.ReturningToCartForFridgeDeparture:
+                    UpdateReturningToCartForFridgeDeparture(
+                        porter,
+                        nurse,
+                        job);
+                    break;
+                case PorterSampleTransportPhase.ApproachingDestinationLab:
+                    UpdateApproachingDestinationLab(
+                        porter,
+                        nurse,
+                        job);
                     break;
                 case PorterSampleTransportPhase.WaitingForFridge:
                     TryGoToFridge(porter, nurse, job);
@@ -8004,7 +8747,7 @@ namespace HospitalPorters
             // If the room is still blocked, the Porter must not idle
             // indefinitely at the cart. Attach it and approach outside.
             bool blockedBeforeApproach =
-                IsSamplePickupRoomBlocked(job.Procedure);
+                IsSamplePickupRoomBlocked(job);
 
             Vector2i parkingTile = Vector2i.ZERO_VECTOR;
             if (!blockedBeforeApproach &&
@@ -8270,7 +9013,7 @@ namespace HospitalPorters
                 return;
             }
 
-            if (IsSamplePickupRoomBlocked(job.Procedure))
+            if (IsSamplePickupRoomBlocked(job))
             {
                 TileObject source =
                     job.Procedure == null ||
@@ -8331,9 +9074,10 @@ namespace HospitalPorters
 
             if (job.Cart == null)
             {
-                job.Phase =
-                    PorterSampleTransportPhase.WaitingForFridge;
-                TryGoToFridge(porter, nurse, job);
+                BeginPendingSampleDeliveries(
+                    porter,
+                    nurse,
+                    job);
                 return;
             }
 
@@ -8388,23 +9132,594 @@ namespace HospitalPorters
                 return;
             }
 
-            if (!PorterSampleCartRuntime.TryAttachCart(
-                    porter,
-                    job.Cart,
-                    job.CartHomeRoom))
-            {
-                CancelJob(porter, nurse, job, revertSample: true);
-                return;
-            }
-
             if (TryContinueSampleTour(porter, nurse, job))
             {
                 return;
             }
 
+            // Collection is closed. Select the next destination from the
+            // already-loaded laboratories before reserving its refrigerator.
+            BeginPendingSampleDeliveries(
+                porter,
+                nurse,
+                job);
+        }
+
+        private static bool EnsureCartAttachedForDeparture(
+            Entity porter,
+            PorterSampleTransportJob job)
+        {
+            if (job == null || job.Cart == null)
+            {
+                return true;
+            }
+
+            TileObject cart = job.Cart;
+            if (cart.m_state == null ||
+                cart.User != porter)
+            {
+                return false;
+            }
+
+            if (cart.m_state.m_moving &&
+                cart.IsAttachedToCharacter())
+            {
+                return true;
+            }
+
+            return !cart.m_state.m_moving &&
+                PorterSampleCartRuntime.TryAttachCart(
+                    porter,
+                    cart,
+                    job.CartHomeRoom);
+        }
+
+        private static TileObject[] GetDestinationFridgeWaitInteractionObjects(
+            Entity porter,
+            PorterSampleTransportJob job)
+        {
+            if (porter == null ||
+                job == null)
+            {
+                return null;
+            }
+
+            TileObject source =
+                job.Procedure == null ||
+                job.Procedure.m_state == null ||
+                job.Procedure.m_state.m_usedEquipment == null
+                    ? null
+                    : job.Procedure.m_state.m_usedEquipment.GetEntity();
+
+            TileObject parkedCart =
+                job.Cart != null &&
+                job.Cart.m_state != null &&
+                !job.Cart.m_state.m_moving &&
+                !job.Cart.IsAttachedToCharacter() &&
+                job.Cart.User == porter
+                    ? job.Cart
+                    : null;
+
+            if (source == null)
+            {
+                return parkedCart == null
+                    ? null
+                    : new TileObject[] { parkedCart };
+            }
+
+            if (parkedCart == null ||
+                parkedCart == source)
+            {
+                return new TileObject[] { source };
+            }
+
+            return new TileObject[]
+            {
+                source,
+                parkedCart
+            };
+        }
+
+        private static bool SetDestinationFridgeWaiting(
+            Entity porter,
+            PorterSampleTransportJob job,
+            bool waiting)
+        {
+            return SetDestinationFridgeWaiting(
+                porter,
+                job,
+                waiting,
+                null,
+                false);
+        }
+
+        private static bool SetDestinationFridgeWaiting(
+            Entity porter,
+            PorterSampleTransportJob job,
+            bool waiting,
+            TileObject unavailableEquipment,
+            bool showEquipmentShortagePopup)
+        {
+            if (porter == null ||
+                job == null)
+            {
+                return false;
+            }
+
+            bool stateChanged =
+                job.DestinationFridgeWaitingDeclared != waiting;
+            if (!stateChanged &&
+                !(waiting && showEquipmentShortagePopup))
+            {
+                return false;
+            }
+
+            TileObject[] interactionObjects =
+                waiting
+                    ? GetDestinationFridgeWaitInteractionObjects(
+                        porter,
+                        job)
+                    : null;
+
+            if (stateChanged)
+            {
+                job.DestinationFridgeWaitingDeclared = waiting;
+            }
+
+            return HfxWaitingVisualInterop.SetSampleDestinationFridgeWaiting(
+                porter,
+                waiting,
+                interactionObjects,
+                waiting
+                    ? unavailableEquipment
+                    : null,
+                waiting &&
+                    showEquipmentShortagePopup);
+        }
+
+        private static void ClearDestinationFridgeWait(
+            Entity porter,
+            PorterSampleTransportJob job,
+            bool resetRetryState)
+        {
+            if (job == null)
+            {
+                return;
+            }
+
+            SetDestinationFridgeWaiting(
+                porter,
+                job,
+                false);
+
+            if (resetRetryState)
+            {
+                job.DestinationFridgeWaitAttempts = 0;
+                job.NextDestinationFridgeRetryMinute = 0;
+            }
+        }
+
+        private static void ParkAttachedCartForDestinationFridgeWait(
+            Entity porter,
+            PorterSampleTransportJob job)
+        {
+            if (porter == null ||
+                job == null ||
+                job.Cart == null ||
+                job.Cart.m_state == null ||
+                !job.Cart.m_state.m_moving ||
+                !job.Cart.IsAttachedToCharacter())
+            {
+                return;
+            }
+
+            WalkComponent walk =
+                porter.GetComponent<WalkComponent>();
+            if (walk == null)
+            {
+                return;
+            }
+
+            if (walk.IsBusy())
+            {
+                walk.Stop();
+            }
+
+            ClearCartParkingTarget(job);
+            if (!PorterSampleCartRuntime.TryParkCartAtCurrentTile(
+                    porter,
+                    job))
+            {
+                PorterDiagnostics.Log(
+                    "sample destination fridge wait could not park attached cart: porter=" +
+                    (porter.Name ?? string.Empty).Trim() +
+                    "; tile=" +
+                    walk.GetCurrentTile() +
+                    "; floor=" +
+                    walk.GetFloorIndex() +
+                    ".");
+            }
+        }
+
+        private static bool IsDestinationFridgeContention(
+            Room statLab,
+            out TileObject contextFridge)
+        {
+            contextFridge = null;
+            if (statLab == null ||
+                MapScriptInterface.Instance == null)
+            {
+                return false;
+            }
+
+            List<TileObject> fridges =
+                MapScriptInterface.Instance.FindAllObjectWithTags(
+                    statLab,
+                    new string[] { "medical_fridge" },
+                    AccessRights.STAFF);
+            if (fridges == null || fridges.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < fridges.Count; i++)
+            {
+                TileObject fridge = fridges[i];
+                if (fridge == null ||
+                    !fridge.IsValid() ||
+                    fridge.IsBroken())
+                {
+                    continue;
+                }
+
+                if (contextFridge == null)
+                {
+                    contextFridge = fridge;
+                }
+
+                if (fridge.User == null &&
+                    fridge.Owner == null)
+                {
+                    return false;
+                }
+            }
+
+            return contextFridge != null;
+        }
+
+        private static bool CanRequestDestinationFridgeContentionPopup(
+            Room statLab)
+        {
+            if (!PorterTransportConfig.ShowEquipmentShortagePopup ||
+                statLab == null ||
+                DayTime.Instance == null)
+            {
+                return false;
+            }
+
+            int notifiedDay;
+            return !DestinationFridgeContentionNotificationDays.TryGetValue(
+                    statLab,
+                    out notifiedDay) ||
+                notifiedDay != DayTime.Instance.GetDay();
+        }
+
+        private static void MarkDestinationFridgeContentionPopupRequested(
+            Room statLab)
+        {
+            if (statLab == null ||
+                DayTime.Instance == null)
+            {
+                return;
+            }
+
+            int day = DayTime.Instance.GetDay();
+            DestinationFridgeContentionNotificationDays[statLab] =
+                day;
+
+            PorterDiagnostics.Log(
+                "sample destination fridge contention popup requested from HFX: lab=" +
+                (statLab.m_roomPersistentData == null ||
+                 statLab.m_roomPersistentData.m_roomType == null ||
+                 statLab.m_roomPersistentData.m_roomType.Entry == null
+                    ? "UNKNOWN"
+                    : statLab.m_roomPersistentData
+                        .m_roomType.Entry.DatabaseID.ToString()) +
+                "; equipment=OBJECT_STAT_LAB_FRIDGE" +
+                "; day=" + day +
+                ".");
+        }
+
+        private static void ScheduleDestinationFridgeRetry(
+            Entity porter,
+            PorterSampleTransportJob job,
+            Room statLab)
+        {
+            if (job == null)
+            {
+                return;
+            }
+
+            ParkAttachedCartForDestinationFridgeWait(
+                porter,
+                job);
+
+            int now =
+                GetSampleFallbackClockMinute();
+            job.DestinationFridgeWaitAttempts++;
+            job.NextDestinationFridgeRetryMinute =
+                DayTime.Instance == null
+                    ? 0
+                    : now +
+                        PorterTransportConfig
+                            .SampleDestinationFridgeRetryMinutes;
+
+            TileObject contextFridge;
+            bool contention =
+                IsDestinationFridgeContention(
+                    statLab,
+                    out contextFridge);
+            bool requestPopup =
+                contention &&
+                contextFridge != null &&
+                job.DestinationFridgeWaitAttempts >=
+                    PorterTransportConfig
+                        .SampleDestinationFridgeContentionAttempts &&
+                CanRequestDestinationFridgeContentionPopup(
+                    statLab);
+
+            bool popupRequestDispatched =
+                SetDestinationFridgeWaiting(
+                    porter,
+                    job,
+                    true,
+                    contextFridge,
+                    requestPopup);
+
+            if (requestPopup &&
+                popupRequestDispatched)
+            {
+                MarkDestinationFridgeContentionPopupRequested(
+                    statLab);
+            }
+
+            PorterDiagnostics.Log(
+                "sample destination fridge wait: porter=" +
+                (porter == null
+                    ? "UNKNOWN"
+                    : (porter.Name ?? string.Empty).Trim()) +
+                "; attempts=" +
+                job.DestinationFridgeWaitAttempts +
+                "; nextRetryMinute=" +
+                job.NextDestinationFridgeRetryMinute +
+                "; retryMinutes=" +
+                PorterTransportConfig
+                    .SampleDestinationFridgeRetryMinutes +
+                "; contention=" +
+                contention +
+                "; cartParked=" +
+                (job.Cart == null ||
+                 (!job.Cart.m_state.m_moving &&
+                  !job.Cart.IsAttachedToCharacter())) +
+                ".");
+        }
+
+        private static bool IsPorterInDestinationLab(
+            PorterSampleTransportJob job,
+            WalkComponent walk)
+        {
+            return job != null &&
+                job.StatLab != null &&
+                walk != null &&
+                MapScriptInterface.Instance != null &&
+                MapScriptInterface.Instance.GetRoomAt(
+                    walk.GetCurrentTile(),
+                    walk.GetFloorIndex()) ==
+                    job.StatLab;
+        }
+
+        private static bool TryStartDestinationLabApproach(
+            Entity porter,
+            PorterSampleTransportJob job)
+        {
+            WalkComponent walk =
+                porter == null
+                    ? null
+                    : porter.GetComponent<WalkComponent>();
+            if (porter == null ||
+                job == null ||
+                job.Cart == null ||
+                job.StatLab == null ||
+                walk == null ||
+                MapScriptInterface.Instance == null)
+            {
+                return false;
+            }
+
+            List<TileObject> fridges =
+                MapScriptInterface.Instance.FindAllObjectWithTags(
+                    job.StatLab,
+                    new string[] { "medical_fridge" },
+                    AccessRights.STAFF);
+            if (fridges == null || fridges.Count == 0)
+            {
+                return false;
+            }
+
+            // This is only a soft HPO cart-parking claim. Never acquire the
+            // Vanilla fridge User while the Porter is still travelling.
+            ClearDestinationFridgeWait(
+                porter,
+                job,
+                false);
+
+            TileObject anchor = null;
+            Vector2i stagingTile =
+                Vector2i.ZERO_VECTOR;
+            for (int i = 0; i < fridges.Count; i++)
+            {
+                TileObject candidate =
+                    fridges[i];
+                if (candidate == null ||
+                    !candidate.IsValid() ||
+                    candidate.IsBroken())
+                {
+                    continue;
+                }
+
+                if (PorterSampleCartRuntime.TryGetInteractionParkingTile(
+                        porter,
+                        job,
+                        candidate,
+                        out stagingTile))
+                {
+                    anchor = candidate;
+                    break;
+                }
+            }
+
+            if (anchor == null ||
+                stagingTile == Vector2i.ZERO_VECTOR)
+            {
+                ClearCartParkingTarget(job);
+                return false;
+            }
+
+            walk.SetDestination(
+                stagingTile,
+                job.StatLab.GetFloorIndex());
+            job.Phase =
+                PorterSampleTransportPhase.ApproachingDestinationLab;
+
+            Entity anchorUser =
+                anchor.User;
+            PorterDiagnostics.Log(
+                "sample destination lab approach started: porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; labId=" +
+                job.StatLab.GetEntityID() +
+                "; labType=" +
+                GetRoomTypeDiagnosticId(job.StatLab) +
+                "; labFloor=" +
+                job.StatLab.GetFloorIndex() +
+                "; stagingTarget=" +
+                stagingTile +
+                "; anchorFridgeUser=" +
+                (anchorUser == null
+                    ? "NONE"
+                    : anchorUser.GetType().Name + ":" +
+                      (anchorUser.Name ?? string.Empty).Trim()) +
+                "; fridgeReserved=false.");
+
+            return true;
+        }
+
+        private static void UpdateApproachingDestinationLab(
+            Entity porter,
+            BehaviorNurse nurse,
+            PorterSampleTransportJob job)
+        {
+            WalkComponent walk =
+                porter == null
+                    ? null
+                    : porter.GetComponent<WalkComponent>();
+            if (porter == null ||
+                job == null ||
+                job.StatLab == null ||
+                walk == null ||
+                MapScriptInterface.Instance == null)
+            {
+                CancelJob(
+                    porter,
+                    nurse,
+                    job,
+                    revertSample: true);
+                return;
+            }
+
+            if (walk.IsBusy())
+            {
+                return;
+            }
+
+            if (!IsPorterInDestinationLab(
+                    job,
+                    walk))
+            {
+                job.RouteRecoveryAttempts++;
+                if (job.RouteRecoveryAttempts >= 3 ||
+                    !EnsureCartAttachedForDeparture(
+                        porter,
+                        job) ||
+                    !TryStartDestinationLabApproach(
+                        porter,
+                        job))
+                {
+                    CancelJob(
+                        porter,
+                        nurse,
+                        job,
+                        revertSample: true);
+                }
+                return;
+            }
+
+            job.RouteRecoveryAttempts = 0;
+            ClearCartParkingTarget(job);
             job.Phase =
                 PorterSampleTransportPhase.WaitingForFridge;
-            TryGoToFridge(porter, nurse, job);
+            job.NextDestinationFridgeRetryMinute = 0;
+
+            PorterDiagnostics.Log(
+                "sample destination lab approach completed: porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; labId=" +
+                job.StatLab.GetEntityID() +
+                "; labType=" +
+                GetRoomTypeDiagnosticId(job.StatLab) +
+                "; floor=" +
+                walk.GetFloorIndex() +
+                "; fridgeReserved=false.");
+
+            TryGoToFridge(
+                porter,
+                nurse,
+                job);
+        }
+
+        private static bool IsDestinationFridgeWaitCartParkedLocally(
+            Entity porter,
+            PorterSampleTransportJob job)
+        {
+            TileObject cart =
+                job == null
+                    ? null
+                    : job.Cart;
+            return porter != null &&
+                job != null &&
+                job.StatLab != null &&
+                cart != null &&
+                cart.m_state != null &&
+                cart.User == porter &&
+                !cart.m_state.m_moving &&
+                !cart.IsAttachedToCharacter() &&
+                MapScriptInterface.Instance != null &&
+                MapScriptInterface.Instance.GetRoomAt(
+                    cart.m_state.m_position,
+                    cart.GetFloorIndex()) ==
+                    job.StatLab;
+        }
+
+        private static bool HasAvailableDestinationFridge(
+            Room statLab)
+        {
+            TileObject contextFridge;
+            bool contention =
+                IsDestinationFridgeContention(
+                    statLab,
+                    out contextFridge);
+            return !contention &&
+                contextFridge != null;
         }
 
         private static void TryGoToFridge(
@@ -8415,31 +9730,204 @@ namespace HospitalPorters
             Room statLab = job == null
                 ? null
                 : job.StatLab;
-            WalkComponent walk = porter.GetComponent<WalkComponent>();
-            UseComponent use = porter.GetComponent<UseComponent>();
-            if (statLab == null || walk == null || use == null)
+            WalkComponent walk = porter == null
+                ? null
+                : porter.GetComponent<WalkComponent>();
+            UseComponent use = porter == null
+                ? null
+                : porter.GetComponent<UseComponent>();
+            if (statLab == null ||
+                walk == null ||
+                use == null ||
+                MapScriptInterface.Instance == null)
             {
                 CancelJob(porter, nurse, job, revertSample: true);
                 return;
             }
 
-            TileObject fridge = MapScriptInterface.Instance.FindClosestFreeObjectWithTag(
-                porter,
-                null,
-                walk.GetCurrentTile(),
-                statLab,
-                "medical_fridge",
-                AccessRights.STAFF);
+            if (walk.IsBusy())
+            {
+                return;
+            }
+
+            int now =
+                GetSampleFallbackClockMinute();
+            if (DayTime.Instance != null &&
+                job.NextDestinationFridgeRetryMinute > now)
+            {
+                SetDestinationFridgeWaiting(
+                    porter,
+                    job,
+                    true);
+                return;
+            }
+
+            if (job.DestinationFridgeWaitingDeclared)
+            {
+                if (job.Cart != null &&
+                    IsDestinationFridgeWaitCartParkedLocally(
+                        porter,
+                        job) &&
+                    !HasAvailableDestinationFridge(
+                        statLab))
+                {
+                    PorterDiagnostics.Log(
+                        "sample destination fridge retry kept local parked cart: porter=" +
+                        (porter.Name ?? string.Empty).Trim() +
+                        "; labId=" +
+                        statLab.GetEntityID() +
+                        "; labType=" +
+                        GetRoomTypeDiagnosticId(statLab) +
+                        "; cartPosition=" +
+                        job.Cart.m_state.m_position +
+                        "; cartFloor=" +
+                        job.Cart.GetFloorIndex() +
+                        "; nextAction=retry-without-cart-recovery.");
+
+                    ScheduleDestinationFridgeRetry(
+                        porter,
+                        job,
+                        statLab);
+                    return;
+                }
+
+                // A free fridge is only a read-only signal to leave HFX
+                // staging. HPO still revalidates and reserves after the cart
+                // has been recovered and the Porter is back in the lab.
+                ClearDestinationFridgeWait(
+                    porter,
+                    job,
+                    false);
+            }
+
+            if (job.Cart != null)
+            {
+                bool cartAttached =
+                    job.Cart.m_state != null &&
+                    job.Cart.m_state.m_moving &&
+                    job.Cart.IsAttachedToCharacter() &&
+                    job.Cart.User == porter;
+                if (!cartAttached)
+                {
+                    Vector2i cartUseTile =
+                        ToTile(job.Cart.GetDefaultUsePosition());
+                    if (walk.GetFloorIndex() !=
+                            job.Cart.GetFloorIndex() ||
+                        walk.GetCurrentTile() !=
+                            cartUseTile)
+                    {
+                        if (!PorterSampleCartRuntime.TryWalkToParkedCart(
+                                porter,
+                                job))
+                        {
+                            CancelJob(
+                                porter,
+                                nurse,
+                                job,
+                                revertSample: true);
+                            return;
+                        }
+
+                        job.Phase =
+                            PorterSampleTransportPhase
+                                .ReturningToCartForFridgeDeparture;
+                        return;
+                    }
+
+                    if (!EnsureCartAttachedForDeparture(
+                            porter,
+                            job))
+                    {
+                        CancelJob(
+                            porter,
+                            nurse,
+                            job,
+                            revertSample: true);
+                        return;
+                    }
+                }
+
+                if (!IsPorterInDestinationLab(
+                        job,
+                        walk))
+                {
+                    if (TryStartDestinationLabApproach(
+                            porter,
+                            job))
+                    {
+                        return;
+                    }
+
+                    PorterDiagnostics.Log(
+                        "sample destination lab approach unavailable: porter=" +
+                        (porter.Name ?? string.Empty).Trim() +
+                        "; labId=" +
+                        statLab.GetEntityID() +
+                        "; labType=" +
+                        GetRoomTypeDiagnosticId(statLab) +
+                        "; cartAttached=true; fridgeReserved=false; action=requeue.");
+                    CancelJob(
+                        porter,
+                        nurse,
+                        job,
+                        revertSample: true);
+                    return;
+                }
+            }
+
+            TileObject fridge =
+                MapScriptInterface.Instance.FindClosestFreeObjectWithTag(
+                    porter,
+                    null,
+                    walk.GetCurrentTile(),
+                    statLab,
+                    "medical_fridge",
+                    AccessRights.STAFF);
             if (fridge == null)
             {
+                ScheduleDestinationFridgeRetry(
+                    porter,
+                    job,
+                    statLab);
                 return;
             }
 
             use.ReserveObject(fridge);
             if (fridge.User != porter)
             {
+                ScheduleDestinationFridgeRetry(
+                    porter,
+                    job,
+                    statLab);
                 return;
             }
+
+            PorterDiagnostics.Log(
+                "sample destination fridge reserved: porter=" +
+                (porter.Name ?? string.Empty).Trim() +
+                "; labId=" +
+                statLab.GetEntityID() +
+                "; labType=" +
+                GetRoomTypeDiagnosticId(statLab) +
+                "; fridgePosition=" +
+                fridge.m_state.m_position +
+                "; fridgeFloor=" +
+                fridge.GetFloorIndex() +
+                "; porterTile=" +
+                walk.GetCurrentTile() +
+                "; porterFloor=" +
+                walk.GetFloorIndex() +
+                "; cartAttached=" +
+                (job.Cart != null &&
+                 job.Cart.m_state != null &&
+                 job.Cart.m_state.m_moving &&
+                 job.Cart.IsAttachedToCharacter()) +
+                ".");
+
+            ClearDestinationFridgeWait(
+                porter,
+                job,
+                true);
 
             if (job.Cart == null)
             {
@@ -8451,6 +9939,64 @@ namespace HospitalPorters
                 return;
             }
 
+            if (!TryStartReservedFridgeDeparture(
+                    porter,
+                    job,
+                    fridge))
+            {
+                CancelJob(
+                    porter,
+                    nurse,
+                    job,
+                    revertSample: true);
+            }
+        }
+
+        private static TileObject GetReservedDestinationFridge(
+            Entity porter,
+            PorterSampleTransportJob job,
+            UseComponent use)
+        {
+            TileObject fridge =
+                use == null ||
+                use.m_state == null ||
+                use.m_state.m_reservedObject == null
+                    ? null
+                    : use.m_state.m_reservedObject.GetEntity();
+
+            if (porter == null ||
+                job == null ||
+                job.StatLab == null ||
+                fridge == null ||
+                fridge.User != porter ||
+                !fridge.HasTag("medical_fridge") ||
+                !fridge.IsValid() ||
+                fridge.IsBroken() ||
+                MapScriptInterface.Instance == null ||
+                MapScriptInterface.Instance.GetRoomAt(
+                    fridge.m_state.m_position,
+                    fridge.GetFloorIndex()) !=
+                        job.StatLab)
+            {
+                return null;
+            }
+
+            return fridge;
+        }
+
+        private static bool TryStartReservedFridgeDeparture(
+            Entity porter,
+            PorterSampleTransportJob job,
+            TileObject fridge)
+        {
+            if (porter == null ||
+                job == null ||
+                job.Cart == null ||
+                fridge == null)
+            {
+                return false;
+            }
+
             Vector2i parkingTile;
             if (!PorterSampleCartRuntime.TryGetInteractionParkingTile(
                     porter,
@@ -8458,8 +10004,21 @@ namespace HospitalPorters
                     fridge,
                     out parkingTile))
             {
-                CancelJob(porter, nurse, job, revertSample: true);
-                return;
+                return false;
+            }
+
+            if (!EnsureCartAttachedForDeparture(
+                    porter,
+                    job))
+            {
+                return false;
+            }
+
+            WalkComponent walk =
+                porter.GetComponent<WalkComponent>();
+            if (walk == null)
+            {
+                return false;
             }
 
             walk.SetDestination(
@@ -8467,6 +10026,99 @@ namespace HospitalPorters
                 fridge.GetFloorIndex());
             job.Phase =
                 PorterSampleTransportPhase.GoingToFridgeParking;
+            return true;
+        }
+
+        private static void UpdateReturningToCartForFridgeDeparture(
+            Entity porter,
+            BehaviorNurse nurse,
+            PorterSampleTransportJob job)
+        {
+            WalkComponent walk =
+                porter == null
+                    ? null
+                    : porter.GetComponent<WalkComponent>();
+            UseComponent use =
+                porter == null
+                    ? null
+                    : porter.GetComponent<UseComponent>();
+            if (walk == null ||
+                use == null ||
+                job == null ||
+                job.Cart == null)
+            {
+                CancelJob(
+                    porter,
+                    nurse,
+                    job,
+                    revertSample: true);
+                return;
+            }
+
+            // New jobs use this phase without a fridge reservation, only to
+            // recover a parked cart. Older saves may still carry the legacy
+            // pre-1.3.2.22 fridge reservation; preserve it until the cart
+            // route has actually completed.
+            if (walk.IsBusy())
+            {
+                return;
+            }
+
+            Vector2i cartUseTile =
+                ToTile(job.Cart.GetDefaultUsePosition());
+            if (!EnsureReachedDestination(
+                    porter,
+                    walk,
+                    job,
+                    cartUseTile,
+                    job.Cart.GetFloorIndex(),
+                    "destination-fridge-cart-repickup"))
+            {
+                if (job.RouteRecoveryAttempts >= 3)
+                {
+                    CancelJob(
+                        porter,
+                        nurse,
+                        job,
+                        revertSample: true);
+                }
+                return;
+            }
+
+            TileObject fridge =
+                GetReservedDestinationFridge(
+                    porter,
+                    job,
+                    use);
+            if (fridge == null)
+            {
+                if (use.m_state != null &&
+                    use.m_state.m_reservedObject != null)
+                {
+                    use.Interrupt();
+                }
+
+                job.Phase =
+                    PorterSampleTransportPhase.WaitingForFridge;
+                job.NextDestinationFridgeRetryMinute = 0;
+                TryGoToFridge(
+                    porter,
+                    nurse,
+                    job);
+                return;
+            }
+
+            if (!TryStartReservedFridgeDeparture(
+                    porter,
+                    job,
+                    fridge))
+            {
+                CancelJob(
+                    porter,
+                    nurse,
+                    job,
+                    revertSample: true);
+            }
         }
 
         private static void UpdateGoingToFridgeParking(
@@ -8643,10 +10295,22 @@ namespace HospitalPorters
 
             if (job.Cart == null)
             {
+                int deliveredAtCurrentLab =
+                    DeliverCollectedProceduresForCurrentLab(
+                        job);
+                if (TryContinueDeliveryAfterCurrentLab(
+                        porter,
+                        nurse,
+                        job,
+                        deliveredAtCurrentLab))
+                {
+                    return;
+                }
+
                 int deliveredSamples =
                     CountCollectedSampleBundles(job);
                 int deliveredProcedures =
-                    DeliverCollectedProcedures(job);
+                    CountDeliveredCollectedProcedures(job);
                 PorterExperience.AwardWorkExperience(
                     porter,
                     deliveredSamples);
@@ -8657,9 +10321,9 @@ namespace HospitalPorters
                     deliveredSamples +
                     "; procedures=" +
                     deliveredProcedures +
-                    "; labFloor=" +
+                    "; finalLabFloor=" +
                     job.StatLab.GetFloorIndex() +
-                    "; cart=false.");
+                    "; cart=false; multiLab=true.");
 
                 CompleteJob(
                     porter,
@@ -8729,10 +10393,22 @@ namespace HospitalPorters
                 return;
             }
 
+            int deliveredAtCurrentLab =
+                DeliverCollectedProceduresForCurrentLab(
+                    job);
+            if (TryContinueDeliveryAfterCurrentLab(
+                    porter,
+                    nurse,
+                    job,
+                    deliveredAtCurrentLab))
+            {
+                return;
+            }
+
             int deliveredSamples =
                 CountCollectedSampleBundles(job);
             int deliveredProcedures =
-                DeliverCollectedProcedures(job);
+                CountDeliveredCollectedProcedures(job);
             PorterExperience.AwardWorkExperience(
                 porter,
                 deliveredSamples);
@@ -8743,9 +10419,9 @@ namespace HospitalPorters
                 deliveredSamples +
                 "; procedures=" +
                 deliveredProcedures +
-                "; labFloor=" +
+                "; finalLabFloor=" +
                 job.StatLab.GetFloorIndex() +
-                ".");
+                "; multiLab=true.");
 
             CompleteJob(porter, nurse, job, timedOut: false);
         }
@@ -8897,6 +10573,8 @@ namespace HospitalPorters
             if (job.CartRestoreRetryCount == 1 ||
                 job.CartRestoreRetryCount % 5 == 0)
             {
+                if (PorterDiagnostics.Enabled)
+            {
                 PorterDiagnostics.Log(
                     "cart return slot wait: porter=" +
                     (porter == null
@@ -8921,6 +10599,7 @@ namespace HospitalPorters
                     PorterSampleCartRuntime.GetSafeReturnPlacementDiagnostic(
                         job) +
                     ".");
+            }
             }
         }
 
@@ -9517,7 +11196,589 @@ namespace HospitalPorters
                 job.NativeTimeout);
         }
 
-        private static int DeliverCollectedProcedures(PorterSampleTransportJob job)
+
+        private static int DeliverCollectedProceduresForCurrentLab(
+            PorterSampleTransportJob job)
+        {
+            if (job == null ||
+                job.StatLab == null)
+            {
+                return 0;
+            }
+
+            int delivered = 0;
+            for (int i = 0;
+                i < job.CollectedProcedures.Count;
+                i++)
+            {
+                LabProcedure procedure =
+                    job.CollectedProcedures[i];
+                if (procedure == null ||
+                    procedure.m_state == null ||
+                    procedure.m_state.m_labProcedureState !=
+                        LabProcedureState.SampleBeingDelivered ||
+                    procedure.m_state.m_statLab == null ||
+                    procedure.m_state.m_statLab.GetEntity() !=
+                        job.StatLab)
+                {
+                    continue;
+                }
+
+                procedure.SwitchState(
+                    LabProcedureState.DeliveredToStatLab);
+                ClearFallbackTracking(procedure);
+                delivered++;
+            }
+
+            if (job.Procedure != null &&
+                job.Procedure.m_state != null &&
+                job.Procedure.m_state.m_labProcedureState ==
+                    LabProcedureState.SampleBeingDelivered &&
+                job.Procedure.m_state.m_statLab != null &&
+                job.Procedure.m_state.m_statLab.GetEntity() ==
+                    job.StatLab &&
+                !job.CollectedProcedures.Contains(
+                    job.Procedure))
+            {
+                job.Procedure.SwitchState(
+                    LabProcedureState.DeliveredToStatLab);
+                ClearFallbackTracking(job.Procedure);
+                delivered++;
+            }
+
+            return delivered;
+        }
+
+        private static bool TryGetPendingDeliveryCandidates(
+            PorterSampleTransportJob job,
+            out List<LabProcedure> representatives)
+        {
+            representatives = new List<LabProcedure>();
+            if (job == null)
+            {
+                return false;
+            }
+
+            for (int i = 0;
+                i < job.CollectedProcedures.Count;
+                i++)
+            {
+                LabProcedure procedure =
+                    job.CollectedProcedures[i];
+                if (procedure == null ||
+                    procedure.m_state == null ||
+                    procedure.m_state.m_labProcedureState !=
+                        LabProcedureState.SampleBeingDelivered ||
+                    procedure.m_state.m_statLab == null)
+                {
+                    continue;
+                }
+
+                Room lab =
+                    procedure.m_state.m_statLab.GetEntity();
+                if (lab == null)
+                {
+                    continue;
+                }
+
+                bool alreadyRepresented = false;
+                for (int j = 0;
+                    j < representatives.Count;
+                    j++)
+                {
+                    LabProcedure existing =
+                        representatives[j];
+                    Room existingLab =
+                        existing == null ||
+                        existing.m_state == null ||
+                        existing.m_state.m_statLab == null
+                            ? null
+                            : existing.m_state.m_statLab.GetEntity();
+                    if (existingLab == lab)
+                    {
+                        alreadyRepresented = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyRepresented)
+                {
+                    representatives.Add(procedure);
+                }
+            }
+
+            if (job.Procedure != null &&
+                job.Procedure.m_state != null &&
+                job.Procedure.m_state.m_labProcedureState ==
+                    LabProcedureState.SampleBeingDelivered &&
+                job.Procedure.m_state.m_statLab != null)
+            {
+                Room lab =
+                    job.Procedure.m_state.m_statLab.GetEntity();
+                if (lab != null)
+                {
+                    bool alreadyRepresented = false;
+                    for (int i = 0;
+                        i < representatives.Count;
+                        i++)
+                    {
+                        LabProcedure existing =
+                            representatives[i];
+                        Room existingLab =
+                            existing == null ||
+                            existing.m_state == null ||
+                            existing.m_state.m_statLab == null
+                                ? null
+                                : existing.m_state.m_statLab.GetEntity();
+                        if (existingLab == lab)
+                        {
+                            alreadyRepresented = true;
+                            break;
+                        }
+                    }
+
+                    if (!alreadyRepresented)
+                    {
+                        representatives.Add(job.Procedure);
+                    }
+                }
+            }
+
+            return representatives.Count > 0;
+        }
+
+        private static float GetPendingLabRouteScore(
+            Entity porter,
+            Room statLab)
+        {
+            WalkComponent walk =
+                porter == null
+                    ? null
+                    : porter.GetComponent<WalkComponent>();
+            Department department =
+                statLab == null ||
+                statLab.m_roomPersistentData == null ||
+                statLab.m_roomPersistentData.m_department == null
+                    ? null
+                    : statLab.m_roomPersistentData
+                        .m_department.GetEntity();
+            if (walk == null ||
+                statLab == null ||
+                department == null ||
+                department.m_departmentPersistentData == null ||
+                department.m_departmentPersistentData.m_objects == null ||
+                MapScriptInterface.Instance == null ||
+                GridMap.GetInstance() == null)
+            {
+                return float.MaxValue;
+            }
+
+            float bestScore = float.MaxValue;
+            foreach (EntityIDPointer<TileObject> pointer in
+                department.m_departmentPersistentData.m_objects)
+            {
+                TileObject fridge = pointer.GetEntity();
+                if (fridge == null ||
+                    !fridge.HasTag("medical_fridge") ||
+                    !fridge.IsValid() ||
+                    fridge.IsBroken() ||
+                    MapScriptInterface.Instance.GetRoomAt(
+                        fridge.m_state.m_position,
+                        fridge.GetFloorIndex()) != statLab)
+                {
+                    continue;
+                }
+
+                Vector2i useTile =
+                    ToTile(fridge.GetDefaultUsePosition());
+                float nativeDistance =
+                    GridMap.GetInstance().GetDistance(
+                        walk.GetFloorIndex(),
+                        walk.GetCurrentTile(),
+                        fridge.GetFloorIndex(),
+                        useTile,
+                        AccessRights.STAFF);
+                if (nativeDistance < 0f)
+                {
+                    continue;
+                }
+
+                float score =
+                    nativeDistance +
+                    Math.Abs(
+                        walk.GetFloorIndex() -
+                        fridge.GetFloorIndex()) *
+                    PorterTransportConfig
+                        .SampleDeliveryFloorChangeWeight;
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                }
+            }
+
+            return bestScore;
+        }
+
+        private static int GetSampleDeliveryOptimizationChance(
+            Entity porter,
+            out bool hardWorker,
+            out bool slow,
+            out bool fast)
+        {
+            hardWorker = false;
+            slow = false;
+            fast = false;
+
+            int configured =
+                PorterTransportConfig
+                    .SampleDeliveryRouteOptimizationChance;
+            if (configured <= 0 ||
+                configured >= 100 ||
+                porter == null)
+            {
+                return configured;
+            }
+
+            PerkComponent perks =
+                porter.GetComponent<PerkComponent>();
+            if (perks == null ||
+                perks.m_perkSet == null)
+            {
+                return configured;
+            }
+
+            hardWorker =
+                perks.m_perkSet.HasPerk(
+                    "PERK_HARD_WORKER");
+            slow =
+                perks.m_perkSet.HasPerk(
+                    "PERK_SLOW");
+            fast =
+                perks.m_perkSet.HasPerk(
+                    "PERK_FAST");
+
+            int chance = configured;
+            if (hardWorker)
+            {
+                chance +=
+                    SampleDeliveryHardWorkerChanceBonus;
+            }
+            if (slow)
+            {
+                chance +=
+                    SampleDeliverySlowChanceBonus;
+            }
+            if (fast)
+            {
+                chance -=
+                    SampleDeliveryFastChancePenalty;
+            }
+
+            if (chance < 0)
+            {
+                chance = 0;
+            }
+            else if (chance > 100)
+            {
+                chance = 100;
+            }
+
+            return chance;
+        }
+
+        private static int GetStableSampleDeliveryRoutingRoll(
+            Entity porter,
+            PorterSampleTransportJob job,
+            List<LabProcedure> representatives)
+        {
+            uint hash = 2166136261u;
+            hash = StableHashStep(
+                hash,
+                porter == null
+                    ? 0u
+                    : porter.GetEntityID());
+            hash = StableHashStep(
+                hash,
+                job == null ||
+                job.StatLab == null
+                    ? 0u
+                    : job.StatLab.GetEntityID());
+
+            for (int i = 0;
+                representatives != null &&
+                i < representatives.Count;
+                i++)
+            {
+                LabProcedure representative =
+                    representatives[i];
+                Room lab =
+                    representative == null ||
+                    representative.m_state == null ||
+                    representative.m_state.m_statLab == null
+                        ? null
+                        : representative.m_state.m_statLab.GetEntity();
+                hash = StableHashStep(
+                    hash,
+                    lab == null
+                        ? 0u
+                        : lab.GetEntityID());
+            }
+
+            hash = StableHashStep(
+                hash,
+                SampleDeliveryRoutingRollSalt);
+            return (int)(hash % 100u);
+        }
+
+        private static bool TrySelectNextPendingDelivery(
+            Entity porter,
+            PorterSampleTransportJob job,
+            out Room statLab,
+            out LabProcedure representative)
+        {
+            statLab = null;
+            representative = null;
+
+            List<LabProcedure> representatives;
+            if (!TryGetPendingDeliveryCandidates(
+                    job,
+                    out representatives))
+            {
+                return false;
+            }
+
+            LabProcedure legacyRepresentative =
+                representatives[0];
+            Room legacyLab =
+                legacyRepresentative.m_state
+                    .m_statLab.GetEntity();
+
+            if (representatives.Count == 1)
+            {
+                statLab = legacyLab;
+                representative = legacyRepresentative;
+                return statLab != null;
+            }
+
+            Room bestLab = null;
+            LabProcedure bestRepresentative = null;
+            float bestScore = float.MaxValue;
+            float legacyScore = float.MaxValue;
+
+            for (int i = 0;
+                i < representatives.Count;
+                i++)
+            {
+                LabProcedure candidate =
+                    representatives[i];
+                Room candidateLab =
+                    candidate == null ||
+                    candidate.m_state == null ||
+                    candidate.m_state.m_statLab == null
+                        ? null
+                        : candidate.m_state.m_statLab.GetEntity();
+                if (candidateLab == null)
+                {
+                    continue;
+                }
+
+                float score =
+                    GetPendingLabRouteScore(
+                        porter,
+                        candidateLab);
+                if (candidateLab == legacyLab)
+                {
+                    legacyScore = score;
+                }
+
+                if (score < bestScore ||
+                    (score == bestScore &&
+                     bestLab != null &&
+                     candidateLab.GetEntityID() <
+                        bestLab.GetEntityID()))
+                {
+                    bestScore = score;
+                    bestLab = candidateLab;
+                    bestRepresentative = candidate;
+                }
+            }
+
+            if (bestLab == null ||
+                bestRepresentative == null ||
+                bestScore == float.MaxValue)
+            {
+                statLab = legacyLab;
+                representative = legacyRepresentative;
+                return statLab != null;
+            }
+
+            bool hardWorker;
+            bool slow;
+            bool fast;
+            int optimizationChance =
+                GetSampleDeliveryOptimizationChance(
+                    porter,
+                    out hardWorker,
+                    out slow,
+                    out fast);
+            int roll =
+                GetStableSampleDeliveryRoutingRoll(
+                    porter,
+                    job,
+                    representatives);
+
+            statLab = bestLab;
+            representative = bestRepresentative;
+            bool humanVariation = false;
+
+            if (roll >= optimizationChance &&
+                legacyLab != null &&
+                legacyLab != bestLab &&
+                legacyScore < float.MaxValue &&
+                legacyScore <=
+                    bestScore +
+                    PorterTransportConfig
+                        .SampleDeliveryHumanVariationMaxExtraScore)
+            {
+                statLab = legacyLab;
+                representative = legacyRepresentative;
+                humanVariation = true;
+            }
+
+            PorterDiagnostics.Log(
+                "sample delivery route selected: porter=" +
+                (porter == null
+                    ? "UNKNOWN"
+                    : (porter.Name ?? string.Empty).Trim()) +
+                "; candidates=" +
+                representatives.Count +
+                "; selectedLabId=" +
+                (statLab == null
+                    ? 0u
+                    : statLab.GetEntityID()) +
+                "; selectedFloor=" +
+                (statLab == null
+                    ? -1
+                    : statLab.GetFloorIndex()) +
+                "; bestLabId=" +
+                bestLab.GetEntityID() +
+                "; bestScore=" +
+                bestScore.ToString("0.0") +
+                "; legacyLabId=" +
+                (legacyLab == null
+                    ? 0u
+                    : legacyLab.GetEntityID()) +
+                "; legacyScore=" +
+                (legacyScore == float.MaxValue
+                    ? "UNREACHABLE"
+                    : legacyScore.ToString("0.0")) +
+                "; optimizationChance=" +
+                optimizationChance +
+                "; roll=" +
+                roll +
+                "; humanVariation=" +
+                humanVariation +
+                "; hardWorker=" +
+                hardWorker +
+                "; slow=" +
+                slow +
+                "; fast=" +
+                fast +
+                "; floorChangeWeight=" +
+                PorterTransportConfig
+                    .SampleDeliveryFloorChangeWeight +
+                "; maxVariationExtraScore=" +
+                PorterTransportConfig
+                    .SampleDeliveryHumanVariationMaxExtraScore +
+                ".");
+
+            return statLab != null &&
+                representative != null;
+        }
+
+        private static bool BeginPendingSampleDeliveries(
+            Entity porter,
+            BehaviorNurse nurse,
+            PorterSampleTransportJob job)
+        {
+            Room nextLab;
+            LabProcedure representative;
+            if (!TrySelectNextPendingDelivery(
+                    porter,
+                    job,
+                    out nextLab,
+                    out representative))
+            {
+                Plugin.Log?.LogWarning(
+                    "Porter sample delivery has pending procedures without a valid destination lab; remaining samples will be requeued.");
+                CancelJob(
+                    porter,
+                    nurse,
+                    job,
+                    revertSample: true);
+                return false;
+            }
+
+            ClearDestinationFridgeWait(
+                porter,
+                job,
+                true);
+            ClearCartParkingTarget(job);
+            job.StatLab = nextLab;
+            job.Procedure = representative;
+            job.IsExternalSamplePickupSource = false;
+            job.FridgeDepositSoundPlayed = false;
+            job.RouteRecoveryAttempts = 0;
+            job.NextDestinationFridgeRetryMinute = 0;
+            job.Phase =
+                PorterSampleTransportPhase.WaitingForFridge;
+
+            TryGoToFridge(
+                porter,
+                nurse,
+                job);
+            return true;
+        }
+
+        private static int CountPendingDeliveryProcedures(
+            PorterSampleTransportJob job)
+        {
+            if (job == null)
+            {
+                return 0;
+            }
+
+            int pending = 0;
+            for (int i = 0;
+                i < job.CollectedProcedures.Count;
+                i++)
+            {
+                LabProcedure procedure =
+                    job.CollectedProcedures[i];
+                if (procedure != null &&
+                    procedure.m_state != null &&
+                    procedure.m_state.m_labProcedureState ==
+                        LabProcedureState.SampleBeingDelivered)
+                {
+                    pending++;
+                }
+            }
+
+            if (job.Procedure != null &&
+                job.Procedure.m_state != null &&
+                job.Procedure.m_state.m_labProcedureState ==
+                    LabProcedureState.SampleBeingDelivered &&
+                !job.CollectedProcedures.Contains(
+                    job.Procedure))
+            {
+                pending++;
+            }
+
+            return pending;
+        }
+
+        private static int CountDeliveredCollectedProcedures(
+            PorterSampleTransportJob job)
         {
             if (job == null)
             {
@@ -9525,32 +11786,342 @@ namespace HospitalPorters
             }
 
             int delivered = 0;
-            for (int i = 0; i < job.CollectedProcedures.Count; i++)
+            for (int i = 0;
+                i < job.CollectedProcedures.Count;
+                i++)
             {
-                LabProcedure procedure = job.CollectedProcedures[i];
-                if (procedure == null ||
-                    procedure.m_state == null ||
-                    procedure.m_state.m_labProcedureState != LabProcedureState.SampleBeingDelivered)
+                LabProcedure procedure =
+                    job.CollectedProcedures[i];
+                if (procedure != null &&
+                    procedure.m_state != null &&
+                    procedure.m_state.m_labProcedureState ==
+                        LabProcedureState.DeliveredToStatLab)
                 {
-                    continue;
+                    delivered++;
                 }
-
-                procedure.SwitchState(LabProcedureState.DeliveredToStatLab);
-                ClearFallbackTracking(procedure);
-                delivered++;
             }
 
             if (job.Procedure != null &&
                 job.Procedure.m_state != null &&
-                job.Procedure.m_state.m_labProcedureState == LabProcedureState.SampleBeingDelivered &&
-                !job.CollectedProcedures.Contains(job.Procedure))
+                job.Procedure.m_state.m_labProcedureState ==
+                    LabProcedureState.DeliveredToStatLab &&
+                !job.CollectedProcedures.Contains(
+                    job.Procedure))
             {
-                job.Procedure.SwitchState(LabProcedureState.DeliveredToStatLab);
-                ClearFallbackTracking(job.Procedure);
                 delivered++;
             }
 
             return delivered;
+        }
+
+        private static bool TryGetNextPendingDelivery(
+            Entity porter,
+            PorterSampleTransportJob job,
+            out Room statLab,
+            out LabProcedure representative)
+        {
+            return TrySelectNextPendingDelivery(
+                porter,
+                job,
+                out statLab,
+                out representative);
+        }
+
+        private static bool TryContinueDeliveryAfterCurrentLab(
+            Entity porter,
+            BehaviorNurse nurse,
+            PorterSampleTransportJob job,
+            int deliveredAtCurrentLab)
+        {
+            if (job == null)
+            {
+                return false;
+            }
+
+            Room completedLab = job.StatLab;
+            int pending =
+                CountPendingDeliveryProcedures(job);
+
+            PorterDiagnostics.Log(
+                "sample lab delivery completed: porter=" +
+                (porter == null
+                    ? "UNKNOWN"
+                    : (porter.Name ?? string.Empty).Trim()) +
+                "; labId=" +
+                (completedLab == null
+                    ? 0u
+                    : completedLab.GetEntityID()) +
+                "; labType=" +
+                GetRoomTypeDiagnosticId(completedLab) +
+                "; deliveredProcedures=" +
+                deliveredAtCurrentLab +
+                "; pendingProcedures=" +
+                pending +
+                ".");
+
+            if (pending <= 0)
+            {
+                return false;
+            }
+
+            Room nextLab;
+            LabProcedure representative;
+            if (!TryGetNextPendingDelivery(
+                    porter,
+                    job,
+                    out nextLab,
+                    out representative))
+            {
+                Plugin.Log?.LogWarning(
+                    "Porter sample multi-lab delivery has undelivered procedures without a valid destination lab; remaining samples will be requeued.");
+                CancelJob(
+                    porter,
+                    nurse,
+                    job,
+                    revertSample: true);
+                return true;
+            }
+
+            // Collection is now closed. From this point until every pending
+            // laboratory has been visited, the job can only enter delivery
+            // phases; TryContinueSampleTour is never called between deposits.
+            ClearDestinationFridgeWait(
+                porter,
+                job,
+                true);
+            ClearCartParkingTarget(job);
+            job.StatLab = nextLab;
+            job.Procedure = representative;
+            job.IsExternalSamplePickupSource = false;
+            job.FridgeDepositSoundPlayed = false;
+            job.RouteRecoveryAttempts = 0;
+            job.NextDestinationFridgeRetryMinute = 0;
+            job.Phase =
+                PorterSampleTransportPhase.WaitingForFridge;
+
+            PorterDiagnostics.Log(
+                "sample multi-lab next delivery: porter=" +
+                (porter == null
+                    ? "UNKNOWN"
+                    : (porter.Name ?? string.Empty).Trim()) +
+                "; procedureId=" +
+                representative.GetEntityID() +
+                "; labId=" +
+                nextLab.GetEntityID() +
+                "; labType=" +
+                GetRoomTypeDiagnosticId(nextLab) +
+                "; labFloor=" +
+                nextLab.GetFloorIndex() +
+                "; pendingProcedures=" +
+                pending +
+                "; collectionLocked=true.");
+
+            TryGoToFridge(
+                porter,
+                nurse,
+                job);
+            return true;
+        }
+
+        private static void LogUnexpectedDeliveredRecoveryTrigger(
+            Entity porter,
+            PorterSampleTransportJob job)
+        {
+            if (!PorterTransportConfig.EnableDiagnostics ||
+                job == null)
+            {
+                return;
+            }
+
+            LabProcedure current = job.Procedure;
+            TileObject source =
+                current == null ||
+                current.m_state == null ||
+                current.m_state.m_usedEquipment == null
+                    ? null
+                    : current.m_state.m_usedEquipment.GetEntity();
+            Entity sourceUser =
+                source == null
+                    ? null
+                    : source.User;
+            WalkComponent walk =
+                porter == null
+                    ? null
+                    : porter.GetComponent<WalkComponent>();
+            UseComponent use =
+                porter == null
+                    ? null
+                    : porter.GetComponent<UseComponent>();
+            TileObject reserved =
+                use == null ||
+                use.m_state == null ||
+                use.m_state.m_reservedObject == null
+                    ? null
+                    : use.m_state.m_reservedObject.GetEntity();
+            TileObject active =
+                use == null ||
+                use.m_state == null ||
+                use.m_state.m_object == null
+                    ? null
+                    : use.m_state.m_object.GetEntity();
+
+            PorterDiagnostics.Log(
+                "sample unexpected delivered recovery trigger: porter=" +
+                (porter == null
+                    ? "UNKNOWN"
+                    : (porter.Name ?? string.Empty).Trim()) +
+                "; phase=" +
+                job.Phase +
+                "; currentProcedureId=" +
+                GetProcedureDiagnosticId(current) +
+                "; currentProcedureState=" +
+                GetProcedureDiagnosticState(current) +
+                "; currentProcedureLab=" +
+                GetProcedureLabDiagnostic(current) +
+                "; jobLab=" +
+                GetRoomDiagnostic(job.StatLab) +
+                "; currentSource=" +
+                GetTileObjectDiagnostic(source) +
+                "; currentSourceUser=" +
+                (sourceUser == null
+                    ? "NONE"
+                    : (sourceUser.Name ?? string.Empty).Trim()) +
+                "; porterTile=" +
+                (walk == null
+                    ? "NONE"
+                    : walk.GetCurrentTile().ToString()) +
+                "; porterFloor=" +
+                (walk == null
+                    ? -1
+                    : walk.GetFloorIndex()) +
+                "; reservedUse=" +
+                GetTileObjectDiagnostic(reserved) +
+                "; activeUse=" +
+                GetTileObjectDiagnostic(active) +
+                "; cart=" +
+                GetTileObjectDiagnostic(job.Cart) +
+                "; cartAttached=" +
+                (job.Cart != null &&
+                 porter != null &&
+                 job.Cart.User == porter) +
+                "; collectedCount=" +
+                job.CollectedProcedures.Count +
+                "; procedures=" +
+                GetJobProcedureStateDiagnostic(job) +
+                "; note=current job procedure was already DeliveredToStatLab before HPO transport update; recovery will preserve explicit pending procedures and reselect their next destination.");
+        }
+
+        private static string GetJobProcedureStateDiagnostic(
+            PorterSampleTransportJob job)
+        {
+            if (job == null)
+            {
+                return "NONE";
+            }
+
+            StringBuilder builder = new StringBuilder();
+            AppendProcedureStateDiagnostic(
+                builder,
+                job.Procedure,
+                "current");
+
+            for (int i = 0;
+                i < job.CollectedProcedures.Count;
+                i++)
+            {
+                LabProcedure procedure =
+                    job.CollectedProcedures[i];
+                if (procedure == job.Procedure)
+                {
+                    continue;
+                }
+
+                AppendProcedureStateDiagnostic(
+                    builder,
+                    procedure,
+                    "collected");
+            }
+
+            return builder.Length == 0
+                ? "NONE"
+                : builder.ToString();
+        }
+
+        private static void AppendProcedureStateDiagnostic(
+            StringBuilder builder,
+            LabProcedure procedure,
+            string role)
+        {
+            if (builder == null)
+            {
+                return;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.Append("|");
+            }
+
+            builder.Append(role);
+            builder.Append(":");
+            builder.Append(GetProcedureDiagnosticId(procedure));
+            builder.Append(":");
+            builder.Append(GetProcedureDiagnosticState(procedure));
+            builder.Append(":");
+            builder.Append(GetProcedureLabDiagnostic(procedure));
+        }
+
+        private static string GetProcedureDiagnosticId(
+            LabProcedure procedure)
+        {
+            return procedure == null
+                ? "NONE"
+                : procedure.GetEntityID().ToString();
+        }
+
+        private static string GetProcedureDiagnosticState(
+            LabProcedure procedure)
+        {
+            return procedure == null ||
+                procedure.m_state == null
+                    ? "NONE"
+                    : procedure.m_state.m_labProcedureState.ToString();
+        }
+
+        private static string GetProcedureLabDiagnostic(
+            LabProcedure procedure)
+        {
+            Room room =
+                procedure == null ||
+                procedure.m_state == null ||
+                procedure.m_state.m_statLab == null
+                    ? null
+                    : procedure.m_state.m_statLab.GetEntity();
+            return GetRoomDiagnostic(room);
+        }
+
+        private static string GetRoomDiagnostic(
+            Room room)
+        {
+            return room == null
+                ? "NONE"
+                : room.GetEntityID() +
+                    "/" +
+                    GetRoomTypeDiagnosticId(room) +
+                    "@F" +
+                    room.GetFloorIndex();
+        }
+
+        private static string GetTileObjectDiagnostic(
+            TileObject tileObject)
+        {
+            return tileObject == null
+                ? "NONE"
+                : tileObject.GetEntityID() +
+                    "/" +
+                    tileObject.m_state.m_position +
+                    "@F" +
+                    tileObject.GetFloorIndex();
         }
 
         private static void CompleteJob(
@@ -9559,6 +12130,10 @@ namespace HospitalPorters
             PorterSampleTransportJob job,
             bool timedOut)
         {
+            ClearDestinationFridgeWait(
+                porter,
+                job,
+                true);
             HideSampleRoomWaitingBubble(porter, job);
             SpeechComponent speech = porter.GetComponent<SpeechComponent>();
             if (speech != null)
@@ -9582,6 +12157,7 @@ namespace HospitalPorters
             job.ContinuationDeclined = false;
             job.NativeTimeout = timedOut;
             job.Procedure = null;
+            job.IsExternalSamplePickupSource = false;
             job.CollectedProcedures.Clear();
             job.HasSampleApproachTarget = false;
             job.HasSampleRoomWaitTarget = false;
@@ -9622,6 +12198,10 @@ namespace HospitalPorters
             PorterSampleTransportJob job,
             bool timedOut)
         {
+            ClearDestinationFridgeWait(
+                porter,
+                job,
+                true);
             HideSampleRoomWaitingBubble(porter, job);
             ClearCartParkingTarget(job);
             if (job != null)
@@ -9645,6 +12225,10 @@ namespace HospitalPorters
             PorterSampleTransportJob job,
             bool revertSample)
         {
+            ClearDestinationFridgeWait(
+                porter,
+                job,
+                true);
             HideSampleRoomWaitingBubble(porter, job);
             ClearCartParkingTarget(job);
             if (job != null)
@@ -10022,50 +12606,138 @@ namespace HospitalPorters
                 ".");
         }
 
-        private static bool IsProcedureClaimed(LabProcedure procedure)
+        internal static bool IsProcedureExplicitlyClaimed(
+            LabProcedure procedure)
         {
-            if (procedure == null || Jobs.Count == 0)
+            if (procedure == null ||
+                Jobs.Count == 0)
             {
                 return false;
             }
 
-            SampleBundleMatchContext match = new SampleBundleMatchContext();
             foreach (KeyValuePair<Entity, PorterSampleTransportJob> pair in Jobs)
             {
-                PorterSampleTransportJob job =
-                    pair.Value;
-                if (job == null)
+                if (IsProcedureExplicitlyClaimedByJob(
+                        pair.Value,
+                        procedure))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsProcedureClaimed(
+            LabProcedure procedure)
+        {
+            if (procedure == null ||
+                Jobs.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (KeyValuePair<Entity, PorterSampleTransportJob> pair in Jobs)
+            {
+                if (IsProcedureClaimedByJob(
+                        pair.Value,
+                        procedure))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool TryFilterVanillaPatientWideDelivery(
+            ProcedureComponent procedureComponent)
+        {
+            if (procedureComponent == null ||
+                procedureComponent.m_state == null ||
+                procedureComponent.m_state.m_procedureQueue == null ||
+                procedureComponent.m_state.m_procedureQueue
+                    .m_labProcedures == null)
+            {
+                return false;
+            }
+
+            List<EntityIDPointer<LabProcedure>> procedures =
+                procedureComponent.m_state.m_procedureQueue
+                    .m_labProcedures;
+
+            bool hasExplicitPorterDelivery = false;
+            for (int i = 0; i < procedures.Count; i++)
+            {
+                LabProcedure procedure =
+                    procedures[i].GetEntity();
+                if (procedure != null &&
+                    procedure.m_state != null &&
+                    procedure.m_state.m_labProcedureState ==
+                        LabProcedureState.SampleBeingDelivered &&
+                    IsProcedureExplicitlyClaimed(
+                        procedure))
+                {
+                    hasExplicitPorterDelivery = true;
+                    break;
+                }
+            }
+
+            if (!hasExplicitPorterDelivery)
+            {
+                return false;
+            }
+
+            // Vanilla's method marks every SampleBeingDelivered procedure
+            // in the patient's queue as delivered when one Lab Specialist
+            // stores a sample. Preserve that behavior for unowned work, but
+            // never let it consume procedures explicitly carried by HPO.
+            procedureComponent.CheckLabProcedures();
+
+            int delivered = 0;
+            int protectedByPorter = 0;
+            for (int i = 0;
+                i <
+                    procedureComponent.m_state.m_procedureQueue
+                        .m_labProcedures.Count;
+                i++)
+            {
+                LabProcedure procedure =
+                    procedureComponent.m_state.m_procedureQueue
+                        .m_labProcedures[i].GetEntity();
+                if (procedure == null ||
+                    procedure.m_state == null ||
+                    procedure.m_state.m_labProcedureState !=
+                        LabProcedureState.SampleBeingDelivered)
                 {
                     continue;
                 }
 
-                if (AreSameSampleBundleWithCachedTarget(
-                        job.Procedure,
-                        procedure,
-                        ref match))
+                if (IsProcedureExplicitlyClaimed(
+                        procedure))
                 {
-                    return true;
+                    protectedByPorter++;
+                    continue;
                 }
 
-                for (int i = 0;
-                    i < job.CollectedProcedures.Count;
-                    i++)
-                {
-                    if (AreSameSampleBundleWithCachedTarget(
-                        job.CollectedProcedures[i],
-                        procedure,
-                        ref match))
-                    {
-                        return true;
-                    }
-                }
+                procedure.SwitchState(
+                    LabProcedureState.DeliveredToStatLab);
+                delivered++;
             }
-            return false;
+
+            PorterDiagnostics.Log(
+                "sample vanilla patient-wide delivery filtered: delivered=" +
+                delivered +
+                "; protectedByPorter=" +
+                protectedByPorter +
+                ".");
+
+            return true;
         }
 
         internal static float GetDeliveryTimeoutHours(LabProcedure procedure)
         {
-            return IsProcedureClaimed(procedure) ||
+            return IsProcedureExplicitlyClaimed(procedure) ||
                 IsSampleBundleHandledByLabSpecialist(
                     procedure)
                 ? float.MaxValue
@@ -10080,6 +12752,22 @@ namespace HospitalPorters
                 return true;
             }
 
+            BehaviorLabSpecialist cachedLab;
+            if (procedure != null &&
+                NativeLabDeliveryOwners.TryGetValue(
+                    procedure,
+                    out cachedLab))
+            {
+                if (IsLabSpecialistHandlingProcedure(
+                        cachedLab,
+                        procedure))
+                {
+                    return true;
+                }
+
+                NativeLabDeliveryOwners.Remove(procedure);
+            }
+
             if (Hospital.Instance == null ||
                 Hospital.Instance.m_characters == null)
             {
@@ -10092,14 +12780,27 @@ namespace HospitalPorters
                     character == null
                         ? null
                         : character.GetComponent<BehaviorLabSpecialist>();
-                if (lab != null &&
-                    lab.m_state.m_currentLabProcedure != null &&
-                    lab.m_state.m_currentLabProcedure.GetEntity() == procedure)
+                if (!IsLabSpecialistHandlingProcedure(
+                        lab,
+                        procedure))
                 {
-                    return true;
+                    continue;
                 }
+
+                NativeLabDeliveryOwners[procedure] = lab;
+                return true;
             }
             return false;
+        }
+
+        private static bool IsLabSpecialistHandlingProcedure(
+            BehaviorLabSpecialist lab,
+            LabProcedure procedure)
+        {
+            return lab != null &&
+                lab.m_state != null &&
+                lab.m_state.m_currentLabProcedure != null &&
+                lab.m_state.m_currentLabProcedure.GetEntity() == procedure;
         }
 
         private static void PlaySampleInteractionSound(
@@ -10383,6 +13084,21 @@ namespace HospitalPorters
     }
 
     [HarmonyPatch(
+        typeof(ProcedureComponent),
+        nameof(ProcedureComponent.SwitchLabProceduresToDeliveredToStatLab),
+        new Type[] { })]
+    internal static class PorterPatientWideLabDeliveryProtectionPatch
+    {
+        private static bool Prefix(
+            ProcedureComponent __instance)
+        {
+            return !PorterSampleTransportRuntime
+                .TryFilterVanillaPatientWideDelivery(
+                    __instance);
+        }
+    }
+
+    [HarmonyPatch(
         typeof(BehaviorLabSpecialist),
         "UpdateStateSampleFromPatientStored",
         new Type[] { })]
@@ -10468,6 +13184,9 @@ namespace HospitalPorters
                         __instance,
                         "SwitchState");
             }
+
+            ExternalSamplePickupRuntime.CleanupIfInvalid(
+                __instance);
         }
     }
 
@@ -10515,6 +13234,7 @@ namespace HospitalPorters
             }
 
             PorterSampleTransportRuntime.CleanupFallbackTracking(__instance);
+            ExternalSamplePickupRuntime.CleanupIfInvalid(__instance);
         }
 
         private static IEnumerable<CodeInstruction> Transpiler(

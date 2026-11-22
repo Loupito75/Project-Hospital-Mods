@@ -10,10 +10,10 @@
     <GenerateFullPaths>false</GenerateFullPaths>
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
-    <Version>1.3.2</Version>
-    <AssemblyVersion>1.3.2</AssemblyVersion>
-    <FileVersion>1.3.2</FileVersion>
-    <InformationalVersion>1.3.2</InformationalVersion>
+    <Version>1.3.3</Version>
+    <AssemblyVersion>1.3.3</AssemblyVersion>
+    <FileVersion>1.3.3</FileVersion>
+    <InformationalVersion>1.3.3</InformationalVersion>
     <Authors>Loupito75</Authors>
     <Company>Loupito75</Company>
     <Product>Hospital Porters</Product>
@@ -39,6 +39,8 @@
     <Compile Include="PorterPatientHelp.cs" />
     <Compile Include="PorterPatientContinuationPatches.cs" />
     <Compile Include="PorterSampleTransportPatches.cs" />
+    <Compile Include="ExternalSamplePickupRuntime.cs" />
+    <Compile Include="HfxWaitingVisualInterop.cs" />
     <Compile Include="HospitalPortersApi.cs" />
     <Compile Include="PorterSampleCartPatches.cs" />
     <Compile Include="PorterSampleCartAnimation.cs" />

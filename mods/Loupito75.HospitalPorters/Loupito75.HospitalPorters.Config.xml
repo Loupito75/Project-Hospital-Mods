@@ -65,6 +65,36 @@
       <SampleTourSearchDistance>20</SampleTourSearchDistance>
     </Tours>
 
+    <!-- @HMUC:desc Controls local routing between destination laboratories already loaded in the active Sample mission. -->
+    <DeliveryRouting>
+      <!-- @HMUC:set label="Optimized laboratory routing chance" control="slider" min="0" max="100" step="5" unit="%" -->
+      <!-- @HMUC:desc Base chance that a Porter chooses the best weighted next laboratory. The decision is stable for that delivery step, so save/load does not reroll it. Hard worker and slow Porters are slightly more methodical; fast Porters accept a little more variation. -->
+      <OptimizationChance>85</OptimizationChance>
+
+      <!-- @HMUC:set label="Floor change weight" control="slider" min="0" max="500" step="10" -->
+      <!-- @HMUC:desc Extra routing score added per floor difference on top of the real STAFF path distance. Higher values make Porters finish nearby laboratories on the current floor before changing floors. -->
+      <FloorChangeWeight>100</FloorChangeWeight>
+
+      <!-- @HMUC:set label="Maximum human routing detour" control="slider" min="0" max="500" step="5" -->
+      <!-- @HMUC:desc Maximum extra routing score allowed when the stable human-variation roll keeps the legacy collected-order destination instead of the best weighted destination. This prevents occasional variation from becoming an extreme hospital-wide zigzag. -->
+      <HumanVariationMaxExtraScore>35</HumanVariationMaxExtraScore>
+    </DeliveryRouting>
+
+    <!-- @HMUC:desc Controls HPO destination-refrigerator retry timing and the optional Hospital Fixes shortage popup request. -->
+    <DestinationFridgeWait>
+      <!-- @HMUC:set label="Destination fridge retry minutes" control="slider" min="1" max="60" step="1" -->
+      <!-- @HMUC:desc In-game minutes between HPO destination refrigerator availability checks. This retry timing is independent of Hospital Fixes. -->
+      <RetryMinutes>2</RetryMinutes>
+
+      <!-- @HMUC:set label="Destination fridge contention attempts" control="slider" min="1" max="10" step="1" -->
+      <!-- @HMUC:desc Number of failed destination-refrigerator checks before HPO may request the optional laboratory-equipment-shortage popup from Hospital Fixes. Porter retry timing and transport behavior remain independent of Hospital Fixes. -->
+      <ContentionAttempts>2</ContentionAttempts>
+
+      <!-- @HMUC:set label="Show equipment shortage popup" control="checkbox" -->
+      <!-- @HMUC:desc Allows HPO to request the optional laboratory-equipment-shortage popup after the contention threshold is reached. Actual display requires a compatible Hospital Fixes External Waiting v2 popup overload; retries, staging and transport behavior are unchanged when disabled. -->
+      <ShowEquipmentShortagePopup>true</ShowEquipmentShortagePopup>
+    </DestinationFridgeWait>
+
     <!-- @HMUC:desc Controls Porter behavior when a short-procedure sample source room is occupied. -->
     <OccupiedRooms>
       <!-- @HMUC:set label="Occupied-room sample timeout" control="slider" min="0" max="240" step="5" -->

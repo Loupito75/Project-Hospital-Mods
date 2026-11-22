@@ -2,9 +2,14 @@ namespace HospitalPorters
 {
     internal static class PorterDiagnostics
     {
+        internal static bool Enabled
+        {
+            get { return PorterTransportConfig.EnableDiagnostics; }
+        }
+
         internal static void Log(string message)
         {
-            if (!PorterTransportConfig.EnableDiagnostics ||
+            if (!Enabled ||
                 string.IsNullOrEmpty(message))
             {
                 return;

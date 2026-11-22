@@ -198,11 +198,9 @@ namespace HospitalPorters
     [HarmonyPatch(typeof(BehaviorNurse), nameof(BehaviorNurse.GetWorkspaceRoomTag))]
     internal static class PorterWorkspaceRoomTagPatch
     {
-        private static readonly FieldInfo EntityField = AccessTools.Field(typeof(BehaviorNurse), "m_entity");
-
         private static void Postfix(BehaviorNurse __instance, ref string __result)
         {
-            Entity entity = EntityField?.GetValue(__instance) as Entity;
+            Entity entity = __instance == null ? null : __instance.m_entity;
             if (!PorterIdentity.IsPorter(entity))
             {
                 return;
@@ -222,8 +220,6 @@ namespace HospitalPorters
         })]
     internal static class PorterFindClosestWorkspacePatch
     {
-        private static readonly FieldInfo EntityField = AccessTools.Field(typeof(EmployeeComponent), "m_entity");
-
         private static bool Prefix(
             Vector2i position,
             int floorIndex,
@@ -233,7 +229,7 @@ namespace HospitalPorters
             EmployeeComponent employeeComponent,
             ref TileObject __result)
         {
-            Entity entity = EntityField?.GetValue(employeeComponent) as Entity;
+            Entity entity = employeeComponent == null ? null : employeeComponent.m_entity;
             if (!PorterIdentity.IsPorter(entity) || roomTag != PorterIds.PorterWorkspaceTag)
             {
                 return true;
@@ -255,9 +251,6 @@ namespace HospitalPorters
         new Type[] { typeof(GameDBEmployeeRole) })]
     internal static class PorterRoleOccupationPatch
     {
-        private static readonly FieldInfo EntityField =
-            AccessTools.Field(typeof(EmployeeComponent), "m_entity");
-
         private static bool Prefix(
             EmployeeComponent __instance,
             GameDBEmployeeRole employeeRole,
@@ -268,12 +261,7 @@ namespace HospitalPorters
                 return true;
             }
 
-            if (object.ReferenceEquals(EntityField, null))
-            {
-                return true;
-            }
-
-            Entity entity = EntityField.GetValue(__instance) as Entity;
+            Entity entity = __instance == null ? null : __instance.m_entity;
             __result = PorterIdentity.IsPorter(entity);
             return false;
         }
@@ -285,14 +273,12 @@ namespace HospitalPorters
         new Type[] { typeof(GameDBEmployeeRole) })]
     internal static class PorterRoleWorkspacePatch
     {
-        private static readonly FieldInfo EntityField = AccessTools.Field(typeof(EmployeeComponent), "m_entity");
-
         private static bool Prefix(
             EmployeeComponent __instance,
             GameDBEmployeeRole employeeRole,
             ref bool __result)
         {
-            Entity entity = EntityField?.GetValue(__instance) as Entity;
+            Entity entity = __instance == null ? null : __instance.m_entity;
             if (!PorterIdentity.IsPorter(entity) || !PorterIds.IsPorterRole(employeeRole))
             {
                 return true;

@@ -120,9 +120,6 @@ namespace HospitalPorters
             internal bool AwaitingNativeReplay;
         }
 
-        private static readonly FieldInfo StretcherEntityField =
-            AccessTools.Field(typeof(StretcherComponent), "m_entity");
-
         private static readonly Dictionary<Entity, ReturnJob> Jobs =
             new Dictionary<Entity, ReturnJob>();
 
@@ -339,9 +336,9 @@ namespace HospitalPorters
 
             ReturnJob job = new ReturnJob();
             job.Porter = porter;
-            job.SourcePatient = StretcherEntityField == null
+            job.SourcePatient = source == null
                 ? null
-                : StretcherEntityField.GetValue(source) as Entity;
+                : source.m_entity;
             job.Phase = ReturnPhase.ReturningEquipment;
             job.PatientSide = patientSide;
             job.MovingSide = movingSide;
@@ -1108,9 +1105,11 @@ namespace HospitalPorters
             MovementType movement,
             ref Entity movingCharacter,
             ref Vehicle requestedVehicle,
-            out PorterPatientContinuationConsumeState state)
+            out PorterPatientContinuationConsumeState state,
+            out bool deferredForFloorChange)
         {
             state = null;
+            deferredForFloorChange = false;
 
             PendingPatientContinuation pending;
             if (patient == null ||
@@ -1138,8 +1137,33 @@ namespace HospitalPorters
             }
 
             ReturnJob job;
-            if (!TryGetPendingContinuationJob(pending, out job) ||
-                !CanContinueRequest(
+            if (!TryGetPendingContinuationJob(pending, out job))
+            {
+                RemovePendingContinuation(pending);
+                return false;
+            }
+
+            // A native WalkComponent.SetDestination while ChangingFloor
+            // moves attached objects to the OLD elevator waypoint floor,
+            // then switches the Porter to the newly requested floor.
+            // Keep this accepted continuation pending until Vanilla
+            // finishes the floor transition. The hospitalization caller
+            // will retry SetDestination; no vehicle or Porter is released.
+            if (job.Phase == ReturnPhase.ReturningEquipment)
+            {
+                WalkComponent returningWalk =
+                    pending.Porter.GetComponent<WalkComponent>();
+                if (returningWalk != null &&
+                    returningWalk.m_state != null &&
+                    returningWalk.m_state.m_walkState ==
+                        WalkState.ChangingFloor)
+                {
+                    deferredForFloorChange = true;
+                    return false;
+                }
+            }
+
+            if (!CanContinueRequest(
                     job,
                     patient,
                     destination,
@@ -1716,9 +1740,9 @@ namespace HospitalPorters
             }
 
             Entity targetPatient =
-                StretcherEntityField == null
+                target == null
                     ? null
-                    : StretcherEntityField.GetValue(target) as Entity;
+                    : target.m_entity;
             return targetPatient == continuation.Patient &&
                 PorterIdentity.IsPorter(continuation.Porter) &&
                 continuation.PatientSide.IsAttachedToCharacter() &&
@@ -1741,10 +1765,9 @@ namespace HospitalPorters
             }
 
             Entity sourcePatient =
-                source == null ||
-                StretcherEntityField == null
+                source == null
                     ? null
-                    : StretcherEntityField.GetValue(source) as Entity;
+                    : source.m_entity;
             if (sourcePatient == null ||
                 sourcePatient == continuation.Patient)
             {

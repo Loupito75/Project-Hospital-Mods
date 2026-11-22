@@ -18,6 +18,12 @@ namespace HospitalPorters
         private const int DefaultPatientFallbackRetryMinutes = 2;
         private const int DefaultSampleTourMaxSamples = 5;
         private const int DefaultSampleTourSearchDistance = 20;
+        private const int DefaultSampleDeliveryRouteOptimizationChance = 85;
+        private const int DefaultSampleDeliveryFloorChangeWeight = 100;
+        private const int DefaultSampleDeliveryHumanVariationMaxExtraScore = 35;
+        private const int DefaultSampleDestinationFridgeRetryMinutes = 2;
+        private const int DefaultSampleDestinationFridgeContentionAttempts = 2;
+        private const bool DefaultShowEquipmentShortagePopup = true;
         private const int DefaultSampleOccupiedRoomTimeoutMinutes = 40;
         private const int DefaultSampleOccupiedRoomTimeoutRandomnessMinutes = 5;
         private const int DefaultSampleOccupiedRoomPreAssignmentWaitChance = 30;
@@ -42,6 +48,12 @@ namespace HospitalPorters
         internal static int PatientFallbackRetryMinutes { get; private set; }
         internal static int SampleTourMaxSamples { get; private set; }
         internal static int SampleTourSearchDistance { get; private set; }
+        internal static int SampleDeliveryRouteOptimizationChance { get; private set; }
+        internal static int SampleDeliveryFloorChangeWeight { get; private set; }
+        internal static int SampleDeliveryHumanVariationMaxExtraScore { get; private set; }
+        internal static int SampleDestinationFridgeRetryMinutes { get; private set; }
+        internal static int SampleDestinationFridgeContentionAttempts { get; private set; }
+        internal static bool ShowEquipmentShortagePopup { get; private set; }
         internal static int SampleOccupiedRoomTimeoutMinutes { get; private set; }
         internal static int SampleOccupiedRoomTimeoutRandomnessMinutes { get; private set; }
         internal static int SampleOccupiedRoomPreAssignmentWaitChance { get; private set; }
@@ -170,6 +182,14 @@ namespace HospitalPorters
                     GetRequiredSection(sampleTransport, "Fallback");
                 XmlElement sampleTours =
                     GetRequiredSection(sampleTransport, "Tours");
+                XmlElement sampleDeliveryRouting =
+                    GetOptionalSection(
+                        sampleTransport,
+                        "DeliveryRouting");
+                XmlElement sampleDestinationFridgeWait =
+                    GetOptionalSection(
+                        sampleTransport,
+                        "DestinationFridgeWait");
                 XmlElement sampleOccupiedRooms =
                     GetRequiredSection(
                         sampleTransport,
@@ -178,9 +198,13 @@ namespace HospitalPorters
                     GetRequiredSection(
                         sampleTransport,
                         "CrossDepartmentHelp");
-
-                ValidateChildren(
+                ValidateChildrenWithOptionalSections(
                     sampleTransport,
+                    new string[]
+                    {
+                        "DeliveryRouting",
+                        "DestinationFridgeWait"
+                    },
                     "Fallback",
                     "Tours",
                     "OccupiedRooms",
@@ -194,6 +218,22 @@ namespace HospitalPorters
                     sampleTours,
                     "SampleTourMaxSamples",
                     "SampleTourSearchDistance");
+                if (sampleDeliveryRouting != null)
+                {
+                    ValidateChildren(
+                        sampleDeliveryRouting,
+                        "OptimizationChance",
+                        "FloorChangeWeight",
+                        "HumanVariationMaxExtraScore");
+                }
+                if (sampleDestinationFridgeWait != null)
+                {
+                    ValidateChildrenWithOptional(
+                        sampleDestinationFridgeWait,
+                        "ShowEquipmentShortagePopup",
+                        "RetryMinutes",
+                        "ContentionAttempts");
+                }
                 ValidateChildren(
                     sampleOccupiedRooms,
                     "SampleOccupiedRoomTimeoutMinutes",
@@ -208,7 +248,6 @@ namespace HospitalPorters
                     "SampleCrossDepartmentStationFloorBonus",
                     "SampleCrossDepartmentCurrentFloorBonus",
                     "SampleCrossDepartmentWaitingBonus");
-
                 SampleFallbackRetries = ReadInt(
                     sampleFallback,
                     "SampleFallbackRetries",
@@ -234,6 +273,44 @@ namespace HospitalPorters
                     "SampleTourSearchDistance",
                     1,
                     200);
+                if (sampleDeliveryRouting != null)
+                {
+                    SampleDeliveryRouteOptimizationChance =
+                        ReadInt(
+                            sampleDeliveryRouting,
+                            "OptimizationChance",
+                            0,
+                            100);
+                    SampleDeliveryFloorChangeWeight =
+                        ReadInt(
+                            sampleDeliveryRouting,
+                            "FloorChangeWeight",
+                            0,
+                            500);
+                    SampleDeliveryHumanVariationMaxExtraScore =
+                        ReadInt(
+                            sampleDeliveryRouting,
+                            "HumanVariationMaxExtraScore",
+                            0,
+                            500);
+                }
+                if (sampleDestinationFridgeWait != null)
+                {
+                    SampleDestinationFridgeRetryMinutes = ReadInt(
+                        sampleDestinationFridgeWait,
+                        "RetryMinutes",
+                        1,
+                        60);
+                    SampleDestinationFridgeContentionAttempts = ReadInt(
+                        sampleDestinationFridgeWait,
+                        "ContentionAttempts",
+                        1,
+                        10);
+                    ShowEquipmentShortagePopup = ReadOptionalBool(
+                        sampleDestinationFridgeWait,
+                        "ShowEquipmentShortagePopup",
+                        DefaultShowEquipmentShortagePopup);
+                }
                 SampleOccupiedRoomTimeoutMinutes = ReadInt(
                     sampleOccupiedRooms,
                     "SampleOccupiedRoomTimeoutMinutes",
@@ -329,6 +406,18 @@ namespace HospitalPorters
                 DefaultPatientFallbackRetryMinutes;
             SampleTourMaxSamples = DefaultSampleTourMaxSamples;
             SampleTourSearchDistance = DefaultSampleTourSearchDistance;
+            SampleDeliveryRouteOptimizationChance =
+                DefaultSampleDeliveryRouteOptimizationChance;
+            SampleDeliveryFloorChangeWeight =
+                DefaultSampleDeliveryFloorChangeWeight;
+            SampleDeliveryHumanVariationMaxExtraScore =
+                DefaultSampleDeliveryHumanVariationMaxExtraScore;
+            SampleDestinationFridgeRetryMinutes =
+                DefaultSampleDestinationFridgeRetryMinutes;
+            SampleDestinationFridgeContentionAttempts =
+                DefaultSampleDestinationFridgeContentionAttempts;
+            ShowEquipmentShortagePopup =
+                DefaultShowEquipmentShortagePopup;
             SampleOccupiedRoomTimeoutMinutes =
                 DefaultSampleOccupiedRoomTimeoutMinutes;
             SampleOccupiedRoomTimeoutRandomnessMinutes =
@@ -401,6 +490,92 @@ namespace HospitalPorters
             return result;
         }
 
+        private static XmlElement GetOptionalSection(
+            XmlElement parent,
+            string name)
+        {
+            XmlElement result = null;
+            for (int i = 0; i < parent.ChildNodes.Count; i++)
+            {
+                XmlElement element =
+                    parent.ChildNodes[i] as XmlElement;
+                if (element == null ||
+                    element.Name != name)
+                {
+                    continue;
+                }
+
+                if (result != null)
+                {
+                    throw new FormatException(
+                        "Duplicate <" + name + "> section.");
+                }
+
+                if (element.Attributes.Count != 0)
+                {
+                    throw new FormatException(
+                        "<" + name + "> must not have attributes.");
+                }
+
+                result = element;
+            }
+
+            return result;
+        }
+
+        private static void ValidateChildrenWithOptionalSections(
+            XmlElement parent,
+            string[] optionalNames,
+            params string[] requiredNames)
+        {
+            Dictionary<string, bool> allowed =
+                new Dictionary<string, bool>(
+                    StringComparer.Ordinal);
+
+            for (int i = 0; i < requiredNames.Length; i++)
+            {
+                allowed.Add(requiredNames[i], false);
+            }
+            for (int i = 0; i < optionalNames.Length; i++)
+            {
+                allowed.Add(optionalNames[i], false);
+            }
+
+            for (int i = 0; i < parent.ChildNodes.Count; i++)
+            {
+                XmlNode node = parent.ChildNodes[i];
+                if (node.NodeType == XmlNodeType.Comment ||
+                    node.NodeType == XmlNodeType.Whitespace ||
+                    node.NodeType == XmlNodeType.SignificantWhitespace)
+                {
+                    continue;
+                }
+
+                XmlElement element = node as XmlElement;
+                if (element == null ||
+                    element.Attributes.Count != 0 ||
+                    !allowed.ContainsKey(element.Name) ||
+                    allowed[element.Name])
+                {
+                    throw new FormatException(
+                        "The <" + parent.Name +
+                        "> section contains an unknown or duplicate element.");
+                }
+
+                allowed[element.Name] = true;
+            }
+
+            for (int i = 0; i < requiredNames.Length; i++)
+            {
+                if (!allowed[requiredNames[i]])
+                {
+                    throw new FormatException(
+                        "Missing <" + requiredNames[i] +
+                        "> in <" + parent.Name + ">.");
+                }
+            }
+        }
+
         private static void ValidateChildren(
             XmlElement parent,
             params string[] allowedNames)
@@ -443,6 +618,55 @@ namespace HospitalPorters
                 {
                     throw new FormatException(
                         "Missing <" + entry.Key +
+                        "> in <" + parent.Name + ">.");
+                }
+            }
+        }
+
+        private static void ValidateChildrenWithOptional(
+            XmlElement parent,
+            string optionalName,
+            params string[] requiredNames)
+        {
+            Dictionary<string, bool> allowed =
+                new Dictionary<string, bool>(
+                    StringComparer.Ordinal);
+            for (int i = 0; i < requiredNames.Length; i++)
+            {
+                allowed.Add(requiredNames[i], false);
+            }
+            allowed.Add(optionalName, false);
+
+            for (int i = 0; i < parent.ChildNodes.Count; i++)
+            {
+                XmlNode node = parent.ChildNodes[i];
+                if (node.NodeType == XmlNodeType.Comment ||
+                    node.NodeType == XmlNodeType.Whitespace ||
+                    node.NodeType == XmlNodeType.SignificantWhitespace)
+                {
+                    continue;
+                }
+
+                XmlElement element = node as XmlElement;
+                if (element == null ||
+                    element.Attributes.Count != 0 ||
+                    !allowed.ContainsKey(element.Name) ||
+                    allowed[element.Name])
+                {
+                    throw new FormatException(
+                        "The <" + parent.Name +
+                        "> section contains an unknown or duplicate element.");
+                }
+
+                allowed[element.Name] = true;
+            }
+
+            for (int i = 0; i < requiredNames.Length; i++)
+            {
+                if (!allowed[requiredNames[i]])
+                {
+                    throw new FormatException(
+                        "Missing <" + requiredNames[i] +
                         "> in <" + parent.Name + ">.");
                 }
             }
@@ -498,6 +722,54 @@ namespace HospitalPorters
             return value;
         }
 
+        private static bool ReadOptionalBool(
+            XmlElement parent,
+            string name,
+            bool defaultValue)
+        {
+            XmlElement element = null;
+            for (int i = 0; i < parent.ChildNodes.Count; i++)
+            {
+                XmlElement child =
+                    parent.ChildNodes[i] as XmlElement;
+                if (child != null &&
+                    child.Name == name)
+                {
+                    element = child;
+                    break;
+                }
+            }
+
+            if (element == null)
+            {
+                return defaultValue;
+            }
+
+            for (int i = 0; i < element.ChildNodes.Count; i++)
+            {
+                XmlNode node = element.ChildNodes[i];
+                if (node.NodeType != XmlNodeType.Text &&
+                    node.NodeType != XmlNodeType.Whitespace &&
+                    node.NodeType != XmlNodeType.SignificantWhitespace &&
+                    node.NodeType != XmlNodeType.Comment)
+                {
+                    throw new FormatException(
+                        name + " must contain only a scalar value.");
+                }
+            }
+
+            bool value;
+            if (!bool.TryParse(
+                    element.InnerText.Trim(),
+                    out value))
+            {
+                throw new FormatException(
+                    name + " must be true or false.");
+            }
+
+            return value;
+        }
+
         private static bool ReadBool(
             XmlElement parent,
             string name)
@@ -536,6 +808,18 @@ namespace HospitalPorters
                 SampleTourMaxSamples +
                 "; sampleTourSearchDistance=" +
                 SampleTourSearchDistance +
+                "; sampleDeliveryOptimizationChance=" +
+                SampleDeliveryRouteOptimizationChance +
+                "; sampleDeliveryFloorChangeWeight=" +
+                SampleDeliveryFloorChangeWeight +
+                "; sampleDeliveryHumanVariationMaxExtraScore=" +
+                SampleDeliveryHumanVariationMaxExtraScore +
+                "; sampleDestinationFridgeRetryMinutes=" +
+                SampleDestinationFridgeRetryMinutes +
+                "; sampleDestinationFridgeContentionAttempts=" +
+                SampleDestinationFridgeContentionAttempts +
+                "; showEquipmentShortagePopup=" +
+                ShowEquipmentShortagePopup +
                 "; sampleOccupiedRoomTimeoutMinutes=" +
                 SampleOccupiedRoomTimeoutMinutes +
                 "; sampleOccupiedRoomTimeoutRandomnessMinutes=" +

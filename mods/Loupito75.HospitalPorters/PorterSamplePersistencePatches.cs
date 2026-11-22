@@ -27,6 +27,8 @@ namespace HospitalPorters
             "HPO_SAMPLE_PORTER_CAPACITY_HISTORY_V1";
         private const string SamplePorterCapacityReportedHeader =
             "HPO_SAMPLE_PORTER_CAPACITY_REPORTED_V1";
+        private const string SampleFridgeContentionReportedHeader =
+            "HPO_SAMPLE_FRIDGE_CONTENTION_REPORTED_V1";
         private const string PatientFallbackStateHeader =
             "HPO_PATIENT_FALLBACK_STATE_V1";
         private const string PatientPendingContinuationHeader =
@@ -82,6 +84,10 @@ namespace HospitalPorters
                 capacityNotifications =
                     PorterSampleTransportRuntime
                         .GetSamplePorterCapacityNotificationsSnapshot();
+            List<KeyValuePair<Room, int>>
+                fridgeContentionNotifications =
+                    PorterSampleTransportRuntime
+                        .GetDestinationFridgeContentionNotificationsSnapshot();
             List<PorterPatientStationReturnSnapshot>
                 patientStationReturns =
                     PorterPatientContinuationRuntime
@@ -119,6 +125,9 @@ namespace HospitalPorters
             bool hasCapacityNotifications =
                 capacityNotifications != null &&
                 capacityNotifications.Count > 0;
+            bool hasFridgeContentionNotifications =
+                fridgeContentionNotifications != null &&
+                fridgeContentionNotifications.Count > 0;
             bool hasPatientStationReturns =
                 patientStationReturns != null &&
                 patientStationReturns.Count > 0;
@@ -157,6 +166,7 @@ namespace HospitalPorters
                 !hasFallbackStates &&
                 !hasCapacityFallbackHistory &&
                 !hasCapacityNotifications &&
+                !hasFridgeContentionNotifications &&
                 !hasPatientFallbackStates &&
                 !hasPatientPendingContinuations &&
                 !hasPatientVehicleContinuations &&
@@ -171,6 +181,23 @@ namespace HospitalPorters
             {
                 save.m_entityListEvents =
                     new EntityListSave();
+            }
+
+            if (hasFridgeContentionNotifications)
+            {
+                GlobalScriptPersistentData data =
+                    new GlobalScriptPersistentData();
+                data.m_scriptName = ScriptName;
+                data.m_state =
+                    SerializeSampleFridgeContentionNotifications(
+                        fridgeContentionNotifications);
+                save.m_entityListEvents.m_entities.Add(
+                    new EntitySave(data));
+
+                PorterDiagnostics.Log(
+                    "save: sampleFridgeContentionReported=" +
+                    fridgeContentionNotifications.Count +
+                    ".");
             }
 
             if (hasPatientStationReturns)
@@ -460,6 +487,15 @@ namespace HospitalPorters
             }
 
             if (data.m_state.StartsWith(
+                    SampleFridgeContentionReportedHeader,
+                    StringComparison.Ordinal))
+            {
+                RestoreSampleFridgeContentionNotifications(
+                    data.m_state);
+                return true;
+            }
+
+            if (data.m_state.StartsWith(
                     PatientStationReturnHeader,
                     StringComparison.Ordinal) ||
                 data.m_state.StartsWith(
@@ -665,6 +701,76 @@ namespace HospitalPorters
             PorterDiagnostics.Log(
                 "load: restoredSamplePorterCapacityReported=" +
                 restored + ".");
+        }
+
+        private static string SerializeSampleFridgeContentionNotifications(
+            List<KeyValuePair<Room, int>> entries)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(SampleFridgeContentionReportedHeader);
+            builder.Append('\n');
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Room room = entries[i].Key;
+                if (room == null)
+                {
+                    continue;
+                }
+
+                builder.Append(room.GetEntityID());
+                builder.Append('|');
+                builder.Append(entries[i].Value);
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void RestoreSampleFridgeContentionNotifications(
+            string serialized)
+        {
+            string[] lines = serialized.Split(
+                new char[] { '\n' },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length == 0 ||
+                lines[0] != SampleFridgeContentionReportedHeader)
+            {
+                return;
+            }
+
+            EntityManager manager =
+                EntityManager.GetInstance();
+            int restored = 0;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] parts = lines[i].Split(
+                    new char[] { '|' },
+                    StringSplitOptions.None);
+                uint roomId;
+                int day;
+                if (parts.Length != 2 ||
+                    !uint.TryParse(parts[0], out roomId) ||
+                    !int.TryParse(parts[1], out day))
+                {
+                    continue;
+                }
+
+                Room room =
+                    manager.GetEntity(roomId) as Room;
+                if (PorterSampleTransportRuntime
+                    .RestoreDestinationFridgeContentionNotification(
+                        room,
+                        day))
+                {
+                    restored++;
+                }
+            }
+
+            PorterDiagnostics.Log(
+                "load: restoredSampleFridgeContentionReported=" +
+                restored +
+                ".");
         }
 
         private static string SerializePatientStationReturns(
@@ -1511,6 +1617,20 @@ namespace HospitalPorters
                 builder.Append('|');
                 builder.Append(
                     job.ContinuationDeclined ? 1 : 0);
+                builder.Append('|');
+                builder.Append(
+                    job.LogicalDepartment == null
+                        ? 0u
+                        : job.LogicalDepartment.GetEntityID());
+                builder.Append('|');
+                builder.Append(
+                    job.DestinationFridgeWaitAttempts);
+                builder.Append('|');
+                builder.Append(
+                    job.NextDestinationFridgeRetryMinute);
+                builder.Append('|');
+                builder.Append(
+                    job.IsExternalSamplePickupSource ? 1 : 0);
                 builder.Append('\n');
             }
 
@@ -1707,7 +1827,11 @@ namespace HospitalPorters
                 parts.Length != 13 &&
                 parts.Length != 14 &&
                 parts.Length != 15 &&
-                parts.Length != 16)
+                parts.Length != 16 &&
+                parts.Length != 17 &&
+                parts.Length != 18 &&
+                parts.Length != 19 &&
+                parts.Length != 20)
             {
                 return false;
             }
@@ -1727,6 +1851,10 @@ namespace HospitalPorters
             int sampleRoomStagingDeadlineMinute = 0;
             int postDeliveryReturn = 0;
             int continuationDeclined = 0;
+            uint logicalDepartmentId = 0u;
+            int destinationFridgeWaitAttempts = 0;
+            int nextDestinationFridgeRetryMinute = 0;
+            int externalSamplePickupSource = 0;
 
             if (!uint.TryParse(parts[0], out porterId) ||
                 !uint.TryParse(parts[1], out cartId) ||
@@ -1742,7 +1870,8 @@ namespace HospitalPorters
                 phaseValue <
                     (int)PorterSampleTransportPhase.GoingToCart ||
                 phaseValue >
-                    (int)PorterSampleTransportPhase.ReturningToStation)
+                    (int)PorterSampleTransportPhase
+                        .ApproachingDestinationLab)
             {
                 return false;
             }
@@ -1775,12 +1904,48 @@ namespace HospitalPorters
                 return false;
             }
 
-            if (parts.Length == 16 &&
+            if (parts.Length >= 16 &&
                 (!int.TryParse(
                     parts[15],
                     out continuationDeclined) ||
                  (continuationDeclined != 0 &&
                   continuationDeclined != 1)))
+            {
+                return false;
+            }
+
+            if (parts.Length >= 17 &&
+                !uint.TryParse(
+                    parts[16],
+                    out logicalDepartmentId))
+            {
+                return false;
+            }
+
+            if (parts.Length >= 18 &&
+                (!int.TryParse(
+                    parts[17],
+                    out destinationFridgeWaitAttempts) ||
+                 destinationFridgeWaitAttempts < 0))
+            {
+                return false;
+            }
+
+            if (parts.Length >= 19 &&
+                (!int.TryParse(
+                    parts[18],
+                    out nextDestinationFridgeRetryMinute) ||
+                 nextDestinationFridgeRetryMinute < 0))
+            {
+                return false;
+            }
+
+            if (parts.Length >= 20 &&
+                (!int.TryParse(
+                    parts[19],
+                    out externalSamplePickupSource) ||
+                 (externalSamplePickupSource != 0 &&
+                  externalSamplePickupSource != 1)))
             {
                 return false;
             }
@@ -1807,6 +1972,11 @@ namespace HospitalPorters
                     ? null
                     : manager.GetEntity(homeRoomId)
                         as Room;
+            Department logicalDepartment =
+                logicalDepartmentId == 0u
+                    ? null
+                    : manager.GetEntity(logicalDepartmentId)
+                        as Department;
 
             if (porter == null ||
                 statLab == null ||
@@ -1821,6 +1991,7 @@ namespace HospitalPorters
                 {
                     Procedure = procedure,
                     StatLab = statLab,
+                    LogicalDepartment = logicalDepartment,
                     Cart = cart,
                     CartHomeRoom = homeRoom,
                     CartHomeTile =
@@ -1839,6 +2010,12 @@ namespace HospitalPorters
                         postDeliveryReturn != 0,
                     ContinuationDeclined =
                         continuationDeclined != 0,
+                    DestinationFridgeWaitAttempts =
+                        destinationFridgeWaitAttempts,
+                    NextDestinationFridgeRetryMinute =
+                        nextDestinationFridgeRetryMinute,
+                    IsExternalSamplePickupSource =
+                        externalSamplePickupSource != 0,
                     Phase =
                         (PorterSampleTransportPhase)
                             phaseValue

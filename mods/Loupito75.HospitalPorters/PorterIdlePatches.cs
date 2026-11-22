@@ -313,10 +313,13 @@ namespace HospitalPorters
     {
         private static readonly Dictionary<Entity, TileObject> ActivePcByPorter =
             new Dictionary<Entity, TileObject>();
+        private static readonly Dictionary<Entity, TileObject> ActiveSeatByPorter =
+            new Dictionary<Entity, TileObject>();
 
         internal static void Reset()
         {
             ActivePcByPorter.Clear();
+            ActiveSeatByPorter.Clear();
         }
 
         internal static void UpdateKnownPorter(Entity porter)
@@ -350,6 +353,10 @@ namespace HospitalPorters
             WalkComponent walk = porter.GetComponent<WalkComponent>();
             TileObject seat = PorterIdleResting.GetCurrentSeat(walk);
             TileObject pc = null;
+            TileObject previousPc;
+            TileObject previousSeat;
+            ActivePcByPorter.TryGetValue(porter, out previousPc);
+            ActiveSeatByPorter.TryGetValue(porter, out previousSeat);
 
             bool restingAtManagedIdleSeat =
                 walk != null &&
@@ -364,7 +371,14 @@ namespace HospitalPorters
             if (restingAtManagedIdleSeat &&
                 MapScriptInterface.Instance.GetRoomAt(walk) == station)
             {
-                pc = FindPcForSeat(station, seat);
+                pc = previousPc != null &&
+                    previousSeat == seat &&
+                    IsCachedPcForSeat(
+                        station,
+                        seat,
+                        previousPc)
+                    ? previousPc
+                    : FindPcForSeat(station, seat);
             }
 
             UpdateIdleSittingAnimation(
@@ -372,23 +386,31 @@ namespace HospitalPorters
                 restingAtManagedIdleSeat ? seat : null,
                 pc);
 
-            TileObject previous;
-            ActivePcByPorter.TryGetValue(porter, out previous);
-            if (previous == pc)
+            if (previousPc == pc)
             {
+                if (pc != null)
+                {
+                    ActiveSeatByPorter[porter] = seat;
+                }
+                else
+                {
+                    ActiveSeatByPorter.Remove(porter);
+                }
                 return;
             }
 
-            if (previous != null)
+            if (previousPc != null)
             {
-                SetPcActive(previous, false);
+                SetPcActive(previousPc, false);
                 ActivePcByPorter.Remove(porter);
             }
+            ActiveSeatByPorter.Remove(porter);
 
             if (pc != null)
             {
                 SetPcActive(pc, true);
                 ActivePcByPorter[porter] = pc;
+                ActiveSeatByPorter[porter] = seat;
             }
         }
 
@@ -398,6 +420,8 @@ namespace HospitalPorters
             {
                 return;
             }
+
+            ActiveSeatByPorter.Remove(porter);
 
             TileObject previous;
             if (!ActivePcByPorter.TryGetValue(porter, out previous))
@@ -410,6 +434,34 @@ namespace HospitalPorters
                 SetPcActive(previous, false);
             }
             ActivePcByPorter.Remove(porter);
+        }
+
+        private static bool IsCachedPcForSeat(
+            Room station,
+            TileObject seat,
+            TileObject pc)
+        {
+            if (station == null ||
+                seat == null ||
+                seat.m_state == null ||
+                pc == null ||
+                pc.m_state == null ||
+                pc.m_state.m_gameDBObject == null ||
+                pc.m_state.m_gameDBObject.IsDeleted ||
+                MapScriptInterface.Instance == null ||
+                pc.GetFloorIndex() != station.GetFloorIndex())
+            {
+                return false;
+            }
+
+            Room pcRoom =
+                MapScriptInterface.Instance.GetRoomAt(
+                    pc.m_state.m_position,
+                    pc.GetFloorIndex());
+            return pcRoom == station &&
+                MatchPc(
+                    pc,
+                    seat.m_state.m_position) != null;
         }
 
         internal static TileObject FindPcForSeat(

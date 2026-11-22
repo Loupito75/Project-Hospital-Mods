@@ -178,6 +178,15 @@ namespace HospitalPorters
 
     internal static class PorterSampleCartRuntime
     {
+        private static readonly Direction[] PlacementDirections =
+            new Direction[]
+            {
+                Direction.NW,
+                Direction.NE,
+                Direction.SE,
+                Direction.SW
+            };
+
         internal static bool HasFreeCart(Entity porter)
         {
             return FindFreeCart(porter, out Room _) != null;
@@ -1033,14 +1042,7 @@ namespace HospitalPorters
                 return true;
             }
 
-            Direction[] directions =
-                new Direction[]
-                {
-                    Direction.NW,
-                    Direction.NE,
-                    Direction.SE,
-                    Direction.SW
-                };
+            Direction[] directions = PlacementDirections;
 
             for (int i = 0;
                 i < directions.Length;
@@ -1617,24 +1619,27 @@ namespace HospitalPorters
                                 homeRoom,
                                 porter))
                         {
-                            PorterDiagnostics.Log(
-                                "sample cart skipped as inaccessible: porter=" +
-                                (porter.Name ?? string.Empty).Trim() +
-                                "; cartPosition=" +
-                                candidate.m_state.m_position +
-                                "; cartFloor=" +
-                                candidate.GetFloorIndex() +
-                                "; orientation=" +
-                                candidate.Orientation +
-                                "; " +
-                                GetCartAccessDiagnostic(
-                                    candidate,
-                                    floor,
-                                    homeRoom,
-                                    candidate.m_state.m_position,
-                                    candidate.Orientation,
-                                    porter) +
-                                ".");
+                            if (PorterDiagnostics.Enabled)
+                            {
+                                PorterDiagnostics.Log(
+                                    "sample cart skipped as inaccessible: porter=" +
+                                    (porter.Name ?? string.Empty).Trim() +
+                                    "; cartPosition=" +
+                                    candidate.m_state.m_position +
+                                    "; cartFloor=" +
+                                    candidate.GetFloorIndex() +
+                                    "; orientation=" +
+                                    candidate.Orientation +
+                                    "; " +
+                                    GetCartAccessDiagnostic(
+                                        candidate,
+                                        floor,
+                                        homeRoom,
+                                        candidate.m_state.m_position,
+                                        candidate.Orientation,
+                                        porter) +
+                                    ".");
+                            }
                             continue;
                         }
 
@@ -2349,14 +2354,7 @@ namespace HospitalPorters
                 return true;
             }
 
-            Direction[] orientations =
-                new Direction[]
-                {
-                    Direction.NW,
-                    Direction.NE,
-                    Direction.SE,
-                    Direction.SW
-                };
+            Direction[] orientations = PlacementDirections;
 
             foreach (Direction candidate in orientations)
             {
@@ -2496,14 +2494,7 @@ namespace HospitalPorters
                 return true;
             }
 
-            Direction[] orientations =
-                new Direction[]
-                {
-                    Direction.NW,
-                    Direction.NE,
-                    Direction.SE,
-                    Direction.SW
-                };
+            Direction[] orientations = PlacementDirections;
 
             foreach (Direction candidate in orientations)
             {
@@ -3036,19 +3027,14 @@ namespace HospitalPorters
         new Type[] { })]
     internal static class PorterSampleCartLookAheadPatch
     {
-        private static readonly FieldInfo NurseEntityField =
-            AccessTools.Field(
-                typeof(BehaviorNurse),
-                "m_entity");
-
         private static void Postfix(
             BehaviorNurse __instance,
             ref int __result)
         {
             Entity porter =
-                NurseEntityField == null
+                __instance == null
                     ? null
-                    : NurseEntityField.GetValue(__instance) as Entity;
+                    : __instance.m_entity;
             if (!PorterSampleTransportRuntime
                     .HasAttachedMissionCart(porter))
             {
@@ -3068,11 +3054,6 @@ namespace HospitalPorters
         new Type[] { typeof(string) })]
     internal static class PorterSampleCartAnimationPatch
     {
-        private static readonly FieldInfo NurseEntityField =
-            AccessTools.Field(
-                typeof(BehaviorNurse),
-                "m_entity");
-
         private static void Postfix(
             BehaviorNurse __instance,
             string animationID,
@@ -3084,9 +3065,9 @@ namespace HospitalPorters
             }
 
             Entity porter =
-                NurseEntityField == null
+                __instance == null
                     ? null
-                    : NurseEntityField.GetValue(__instance) as Entity;
+                    : __instance.m_entity;
             if (!PorterSampleTransportRuntime
                     .HasAttachedMissionCart(porter))
             {
@@ -3106,19 +3087,14 @@ namespace HospitalPorters
         new Type[] { })]
     internal static class PorterSampleCartDoorOpeningPatch
     {
-        private static readonly FieldInfo NurseEntityField =
-            AccessTools.Field(
-                typeof(BehaviorNurse),
-                "m_entity");
-
         private static void Postfix(
             BehaviorNurse __instance,
             ref int __result)
         {
             Entity porter =
-                NurseEntityField == null
+                __instance == null
                     ? null
-                    : NurseEntityField.GetValue(__instance) as Entity;
+                    : __instance.m_entity;
             if (!PorterSampleTransportRuntime
                     .HasAttachedMissionCart(porter))
             {
