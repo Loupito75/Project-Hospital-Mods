@@ -194,6 +194,7 @@ namespace HospitalFlowOptimizer
                 TryGetFollowUp(
                     room,
                     character,
+                    true,
                     out followUpPatient,
                     out bonusMinutes,
                     out reason);
@@ -211,6 +212,23 @@ namespace HospitalFlowOptimizer
         private static bool TryGetFollowUp(
             Room room,
             Entity character,
+            out BehaviorPatient patient,
+            out int bonusMinutes,
+            out string reason)
+        {
+            return TryGetFollowUp(
+                room,
+                character,
+                false,
+                out patient,
+                out bonusMinutes,
+                out reason);
+        }
+
+        private static bool TryGetFollowUp(
+            Room room,
+            Entity character,
+            bool queueMembershipAlreadyKnown,
             out BehaviorPatient patient,
             out int bonusMinutes,
             out string reason)
@@ -239,7 +257,8 @@ namespace HospitalFlowOptimizer
             }
 
             if (room.m_roomPersistentData.m_characterQueue == null ||
-                !room.m_roomPersistentData.m_characterQueue.Contains(character))
+                (!queueMembershipAlreadyKnown &&
+                 !room.m_roomPersistentData.m_characterQueue.Contains(character)))
             {
                 reason = "not-main-waiting-queue";
                 return false;
@@ -310,7 +329,17 @@ namespace HospitalFlowOptimizer
                 return false;
             }
 
-            if (!queue.HasFinishedExamination(interview))
+            Entity doctor =
+                patient.m_state.m_doctor.GetEntity();
+            FinishedExaminationAnalysis examinations =
+                AnalyzeFinishedExaminations(
+                    character,
+                    doctor,
+                    procedures.m_state.m_lastProcedureID,
+                    queue,
+                    interview);
+
+            if (!examinations.InterviewFinished)
             {
                 reason = "interview-not-finished";
                 return false;
@@ -322,16 +351,13 @@ namespace HospitalFlowOptimizer
                 return false;
             }
 
-            if (!HasFinishedPostInterviewExamination(queue, interview))
+            if (!examinations.HasPostInterviewExamination)
             {
                 reason = "no-post-interview-exam";
                 return false;
             }
 
-            if (!WasLastClinicalProcedureAnExamination(
-                    procedures,
-                    queue,
-                    interview))
+            if (!examinations.LastProcedureIsFinishedExamination)
             {
                 reason = "last-procedure-not-finished-exam";
                 return false;
@@ -339,73 +365,91 @@ namespace HospitalFlowOptimizer
 
             bonusMinutes =
                 GetStableBonusMinutes(
-                    character,
-                    patient.m_state.m_doctor.GetEntity(),
-                    queue);
+                    examinations.StableBonusHash);
 
             reason = "eligible";
             return true;
         }
 
-        private static bool HasFinishedPostInterviewExamination(
-            ProcedureQueue queue,
-            GameDBExamination interview)
+        private struct FinishedExaminationAnalysis
         {
-            if (queue.m_finishedExaminations == null)
-            {
-                return false;
-            }
-
-            foreach (ExaminationState examinationState in
-                queue.m_finishedExaminations)
-            {
-                if (examinationState == null ||
-                    examinationState.m_examination.Entry == null)
-                {
-                    continue;
-                }
-
-                if (examinationState.m_examination.Entry != interview)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            internal bool InterviewFinished;
+            internal bool HasPostInterviewExamination;
+            internal bool LastProcedureIsFinishedExamination;
+            internal uint StableBonusHash;
         }
 
-        private static bool WasLastClinicalProcedureAnExamination(
-            ProcedureComponent procedures,
+        private static FinishedExaminationAnalysis AnalyzeFinishedExaminations(
+            Entity patient,
+            Entity doctor,
+            string lastProcedureId,
             ProcedureQueue queue,
             GameDBExamination interview)
         {
-            if (procedures.m_state == null ||
-                string.IsNullOrEmpty(procedures.m_state.m_lastProcedureID) ||
-                queue.m_finishedExaminations == null)
+            FinishedExaminationAnalysis result =
+                new FinishedExaminationAnalysis();
+
+            int variation =
+                FlowOptimizerConfig.FollowUpQueueRandomVariationMinutes;
+            bool buildStableHash =
+                variation > 0 &&
+                patient != null &&
+                doctor != null;
+
+            uint hash = 2166136261u;
+            if (buildStableHash)
             {
-                return false;
+                MixHash(ref hash, patient.GetEntityID());
+                MixHash(ref hash, doctor.GetEntityID());
+                MixHash(ref hash, lastProcedureId);
+                MixHash(
+                    ref hash,
+                    (uint)(queue.m_finishedExaminations == null
+                        ? 0
+                        : queue.m_finishedExaminations.Count));
             }
 
-            string lastProcedureId = procedures.m_state.m_lastProcedureID;
-
-            foreach (ExaminationState examinationState in
-                queue.m_finishedExaminations)
+            if (queue.m_finishedExaminations != null)
             {
-                if (examinationState == null ||
-                    examinationState.m_examination.Entry == null ||
-                    examinationState.m_examination.Entry == interview)
+                foreach (ExaminationState examinationState in
+                    queue.m_finishedExaminations)
                 {
-                    continue;
-                }
+                    if (examinationState == null ||
+                        examinationState.m_examination.Entry == null)
+                    {
+                        continue;
+                    }
 
-                if (examinationState.m_examination.Entry.DatabaseID.ToString() ==
-                    lastProcedureId)
-                {
-                    return true;
+                    GameDBExamination examination =
+                        examinationState.m_examination.Entry;
+                    string examinationId =
+                        examination.DatabaseID.ToString();
+
+                    if (buildStableHash)
+                    {
+                        MixHash(
+                            ref hash,
+                            examinationId);
+                    }
+
+                    if (examination == interview)
+                    {
+                        result.InterviewFinished = true;
+                        continue;
+                    }
+
+                    result.HasPostInterviewExamination = true;
+
+                    if (!string.IsNullOrEmpty(lastProcedureId) &&
+                        examinationId == lastProcedureId)
+                    {
+                        result.LastProcedureIsFinishedExamination = true;
+                    }
                 }
             }
 
-            return false;
+            result.StableBonusHash = hash;
+            return result;
         }
 
         private static bool HasPendingPatientLabHandoff(ProcedureQueue queue)
@@ -466,11 +510,10 @@ namespace HospitalFlowOptimizer
         }
 
         private static int GetStableBonusMinutes(
-            Entity patient,
-            Entity doctor,
-            ProcedureQueue queue)
+            uint stableHash)
         {
-            int baseMinutes = FlowOptimizerConfig.FollowUpQueueBaseBonusMinutes;
+            int baseMinutes =
+                FlowOptimizerConfig.FollowUpQueueBaseBonusMinutes;
             int variation =
                 FlowOptimizerConfig.FollowUpQueueRandomVariationMinutes;
 
@@ -479,39 +522,9 @@ namespace HospitalFlowOptimizer
                 return baseMinutes;
             }
 
-            uint hash = 2166136261u;
-
-            MixHash(ref hash, patient.GetEntityID());
-            MixHash(ref hash, doctor.GetEntityID());
-            MixHash(
-                ref hash,
-                patient.GetComponent<ProcedureComponent>()
-                    .m_state.m_lastProcedureID);
-            MixHash(
-                ref hash,
-                (uint)(queue.m_finishedExaminations == null
-                    ? 0
-                    : queue.m_finishedExaminations.Count));
-
-            if (queue.m_finishedExaminations != null)
-            {
-                foreach (ExaminationState examinationState in
-                    queue.m_finishedExaminations)
-                {
-                    if (examinationState == null ||
-                        examinationState.m_examination.Entry == null)
-                    {
-                        continue;
-                    }
-
-                    MixHash(
-                        ref hash,
-                        examinationState.m_examination.Entry.DatabaseID.ToString());
-                }
-            }
-
             int span = variation * 2 + 1;
-            int offset = (int)(hash % (uint)span) - variation;
+            int offset =
+                (int)(stableHash % (uint)span) - variation;
             int result = baseMinutes + offset;
 
             return result < 0 ? 0 : result;

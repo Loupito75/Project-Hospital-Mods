@@ -57,6 +57,12 @@ namespace HospitalFlowOptimizer.Patches
 
     internal static class SmartRoomSelectionRuntime
     {
+        private sealed class SpecialistRoomSnapshot
+        {
+            internal Entity AnySpecialist;
+            internal Entity FreeSpecialist;
+        }
+
         private const int MaximumRememberedStates = 4096;
         private const int MaximumLoggedCandidates = 8;
         private const float DistanceNormalizationTiles = 20f;
@@ -134,16 +140,24 @@ namespace HospitalFlowOptimizer.Patches
                         "EMPL_ROLE_LAB_FOR_HOSPITALIZED")
                     : procedure.EmployeeRoleRef.Entry;
 
+            Dictionary<Room, SpecialistRoomSnapshot>
+                specialistsByRoom =
+                    BuildSpecialistRoomSnapshot(
+                        procedure,
+                        patient,
+                        department,
+                        role);
+
             foreach (Room room in rooms)
             {
                 SmartRoomSelectionCandidate candidate =
                     EvaluateCandidate(
                         procedure,
                         patient,
-                        department,
                         room,
                         role,
-                        accessRights);
+                        accessRights,
+                        specialistsByRoom);
 
                 state.Candidates.Add(candidate);
 
@@ -470,10 +484,11 @@ namespace HospitalFlowOptimizer.Patches
             EvaluateCandidate(
                 GameDBProcedure procedure,
                 Entity patient,
-                Department department,
                 Room room,
                 GameDBEmployeeRole role,
-                AccessRights accessRights)
+                AccessRights accessRights,
+                Dictionary<Room, SpecialistRoomSnapshot>
+                    specialistsByRoom)
         {
             SmartRoomSelectionCandidate result =
                 new SmartRoomSelectionCandidate();
@@ -486,17 +501,23 @@ namespace HospitalFlowOptimizer.Patches
             result.QueueCount = GetQueueCount(room);
             result.Score = float.MaxValue;
 
-            Entity anySpecialist;
-            Entity freeSpecialist;
+            SpecialistRoomSnapshot specialistSnapshot;
+            if (specialistsByRoom == null ||
+                !specialistsByRoom.TryGetValue(
+                    room,
+                    out specialistSnapshot))
+            {
+                specialistSnapshot = null;
+            }
 
-            FindEligibleSpecialists(
-                procedure,
-                patient,
-                department,
-                room,
-                role,
-                out anySpecialist,
-                out freeSpecialist);
+            Entity anySpecialist =
+                specialistSnapshot == null
+                    ? null
+                    : specialistSnapshot.AnySpecialist;
+            Entity freeSpecialist =
+                specialistSnapshot == null
+                    ? null
+                    : specialistSnapshot.FreeSpecialist;
 
             result.HasEligibleSpecialist =
                 anySpecialist != null;
@@ -589,17 +610,15 @@ namespace HospitalFlowOptimizer.Patches
                         .SmartRoomDistanceWeight;
         }
 
-        private static void FindEligibleSpecialists(
-            GameDBProcedure procedure,
-            Entity patient,
-            Department department,
-            Room room,
-            GameDBEmployeeRole role,
-            out Entity anySpecialist,
-            out Entity freeSpecialist)
+        private static Dictionary<Room, SpecialistRoomSnapshot>
+            BuildSpecialistRoomSnapshot(
+                GameDBProcedure procedure,
+                Entity patient,
+                Department department,
+                GameDBEmployeeRole role)
         {
-            anySpecialist = null;
-            freeSpecialist = null;
+            Dictionary<Room, SpecialistRoomSnapshot> result =
+                new Dictionary<Room, SpecialistRoomSnapshot>();
 
             if (procedure == null ||
                 procedure.RequiredStatLabQualificationRef == null ||
@@ -608,7 +627,7 @@ namespace HospitalFlowOptimizer.Patches
                 department.m_departmentPersistentData
                     .m_labSpecialists == null)
             {
-                return;
+                return result;
             }
 
             GameDBSkill skill =
@@ -638,6 +657,13 @@ namespace HospitalFlowOptimizer.Patches
                     specialist
                         .GetComponent<BehaviorLabSpecialist>();
 
+                Room homeRoom =
+                    employee == null ||
+                    employee.m_state == null ||
+                    employee.m_state.m_homeRoom == null
+                        ? null
+                        : employee.m_state.m_homeRoom.GetEntity();
+
                 if (employee == null ||
                     employee.m_state == null ||
                     behavior == null ||
@@ -646,24 +672,38 @@ namespace HospitalFlowOptimizer.Patches
                         !employee.HasRole(role)) ||
                     employee.IsFired() ||
                     employee.m_state.m_shift != shift ||
-                    employee.m_state.m_homeRoom == null ||
-                    employee.m_state.m_homeRoom.GetEntity() !=
-                        room)
+                    homeRoom == null)
                 {
                     continue;
                 }
 
-                if (anySpecialist == null)
+                SpecialistRoomSnapshot snapshot;
+                if (!result.TryGetValue(
+                        homeRoom,
+                        out snapshot))
                 {
-                    anySpecialist = specialist;
+                    snapshot =
+                        new SpecialistRoomSnapshot();
+                    result.Add(
+                        homeRoom,
+                        snapshot);
                 }
 
-                if (behavior.IsFree(patient))
+                if (snapshot.AnySpecialist == null)
                 {
-                    freeSpecialist = specialist;
-                    return;
+                    snapshot.AnySpecialist =
+                        specialist;
+                }
+
+                if (snapshot.FreeSpecialist == null &&
+                    behavior.IsFree(patient))
+                {
+                    snapshot.FreeSpecialist =
+                        specialist;
                 }
             }
+
+            return result;
         }
 
         private static bool IsSpecialistStillValid(

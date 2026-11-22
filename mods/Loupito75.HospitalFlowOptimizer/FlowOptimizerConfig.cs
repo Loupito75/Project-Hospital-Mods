@@ -20,6 +20,9 @@ namespace HospitalFlowOptimizer
         private const float DefaultClinicLoadBalancingWeight = 1.0f;
         private const float DefaultClinicDistanceWeight = 0.3f;
         private const float DefaultClinicClinicalFitWeight = 0.0f;
+        private const bool DefaultWaitingRoomTopologyWarning = true;
+        private const int DefaultWaitingRoomTopologyQueueThreshold = 3;
+        private const int DefaultWaitingRoomTopologyPersistenceMinutes = 30;
 
         private const bool DefaultSmartRoomSelection = true;
         private const float DefaultSmartRoomWorkloadWeight = 1.0f;
@@ -69,6 +72,9 @@ namespace HospitalFlowOptimizer
         internal static float ClinicLoadBalancingWeight { get; private set; }
         internal static float ClinicDistanceWeight { get; private set; }
         internal static float ClinicClinicalFitWeight { get; private set; }
+        internal static bool WaitingRoomTopologyWarning { get; private set; }
+        internal static int WaitingRoomTopologyQueueThreshold { get; private set; }
+        internal static int WaitingRoomTopologyPersistenceMinutes { get; private set; }
 
         internal static bool SmartRoomSelection { get; private set; }
         internal static float SmartRoomWorkloadWeight { get; private set; }
@@ -141,6 +147,14 @@ namespace HospitalFlowOptimizer
                     ReadWeightInSection(xml, "SmartClinicDoctor", "DistanceWeight", DefaultClinicDistanceWeight);
                 ClinicClinicalFitWeight =
                     ReadWeightInSection(xml, "SmartClinicDoctor", "ClinicalFitWeight", DefaultClinicClinicalFitWeight);
+                WaitingRoomTopologyWarning =
+                    ReadBoolInSection(xml, "SmartClinicDoctor", "WaitingRoomTopologyWarning", DefaultWaitingRoomTopologyWarning);
+                WaitingRoomTopologyQueueThreshold =
+                    ReadIntInRangeInSection(xml, "SmartClinicDoctor", "WaitingRoomTopologyQueueThreshold",
+                        DefaultWaitingRoomTopologyQueueThreshold, 2, 20);
+                WaitingRoomTopologyPersistenceMinutes =
+                    ReadIntInRangeInSection(xml, "SmartClinicDoctor", "WaitingRoomTopologyPersistenceMinutes",
+                        DefaultWaitingRoomTopologyPersistenceMinutes, 5, 240);
 
                 SmartRoomSelection =
                     ReadBoolInSection(xml, "SmartRoomSelection", "Enabled", DefaultSmartRoomSelection);
@@ -449,6 +463,9 @@ namespace HospitalFlowOptimizer
             ClinicLoadBalancingWeight = DefaultClinicLoadBalancingWeight;
             ClinicDistanceWeight = DefaultClinicDistanceWeight;
             ClinicClinicalFitWeight = DefaultClinicClinicalFitWeight;
+            WaitingRoomTopologyWarning = DefaultWaitingRoomTopologyWarning;
+            WaitingRoomTopologyQueueThreshold = DefaultWaitingRoomTopologyQueueThreshold;
+            WaitingRoomTopologyPersistenceMinutes = DefaultWaitingRoomTopologyPersistenceMinutes;
 
             SmartRoomSelection = DefaultSmartRoomSelection;
             SmartRoomWorkloadWeight = DefaultSmartRoomWorkloadWeight;

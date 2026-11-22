@@ -15,25 +15,22 @@ namespace HospitalFlowOptimizer.Patches
         private const string HpoPluginGuid =
             "loupito75.HospitalPorters";
 
+        private delegate int VersionDelegate();
         private delegate bool PorterBoolDelegate(Entity porter);
-        private delegate LabProcedure[] PorterCandidatesDelegate(Entity porter);
+        private delegate LabProcedure[] PorterCandidatesDelegate(
+            Entity porter);
         private delegate bool PorterProcedureBoolDelegate(
             Entity porter,
             LabProcedure procedure);
 
-        private static Type ApiType;
-        private static MethodInfo GetSampleContinuationApiVersionMethod;
-        private static MethodInfo LegacyGetApiVersionMethod;
-        private static MethodInfo IsWindowOpenMethod;
-        private static MethodInfo GetCandidatesMethod;
-        private static MethodInfo TryStartMethod;
-        private static MethodInfo FinishWindowMethod;
         private static PorterBoolDelegate IsWindowOpenCallback;
         private static PorterCandidatesDelegate GetCandidatesCallback;
         private static PorterProcedureBoolDelegate TryStartCallback;
         private static PorterBoolDelegate FinishWindowCallback;
         private static int SampleApiVersion;
-        private static int ResolvedAssemblyCount = -1;
+        private static bool ResolutionComplete;
+        private static bool IntegrationDisabled;
+        private static bool FailureLogged;
 
         internal static int GetApiVersion()
         {
@@ -51,19 +48,13 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
-                if (IsWindowOpenCallback != null)
-                {
-                    return IsWindowOpenCallback(porter);
-                }
-
-                object result =
-                    IsWindowOpenMethod.Invoke(
-                        null,
-                        new object[] { porter });
-                return result is bool && (bool)result;
+                return IsWindowOpenCallback(porter);
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Sample continuation window API failed");
                 return false;
             }
         }
@@ -79,15 +70,14 @@ namespace HospitalFlowOptimizer.Patches
             try
             {
                 LabProcedure[] result =
-                    GetCandidatesCallback != null
-                        ? GetCandidatesCallback(porter)
-                        : GetCandidatesMethod.Invoke(
-                            null,
-                            new object[] { porter }) as LabProcedure[];
+                    GetCandidatesCallback(porter);
                 return result ?? new LabProcedure[0];
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Sample continuation candidate API failed");
                 return new LabProcedure[0];
             }
         }
@@ -105,19 +95,15 @@ namespace HospitalFlowOptimizer.Patches
 
             try
             {
-                if (TryStartCallback != null)
-                {
-                    return TryStartCallback(porter, procedure);
-                }
-
-                object result =
-                    TryStartMethod.Invoke(
-                        null,
-                        new object[] { porter, procedure });
-                return result is bool && (bool)result;
+                return TryStartCallback(
+                    porter,
+                    procedure);
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Sample continuation start API failed");
                 return false;
             }
         }
@@ -128,182 +114,279 @@ namespace HospitalFlowOptimizer.Patches
             if (porter == null ||
                 !Resolve() ||
                 SampleApiVersion < 2 ||
-                FinishWindowMethod == null)
+                FinishWindowCallback == null)
             {
                 return false;
             }
 
             try
             {
-                if (FinishWindowCallback != null)
-                {
-                    return FinishWindowCallback(porter);
-                }
-
-                object result =
-                    FinishWindowMethod.Invoke(
-                        null,
-                        new object[] { porter });
-                return result is bool && (bool)result;
+                return FinishWindowCallback(porter);
             }
-            catch
+            catch (Exception exception)
             {
+                Disable(
+                    exception,
+                    "HPO Sample continuation finish API failed");
                 return false;
             }
         }
 
         private static bool Resolve()
         {
-            if (!Chainloader.PluginInfos.ContainsKey(HpoPluginGuid))
+            if (ResolutionComplete)
+            {
+                return !IntegrationDisabled &&
+                    IsWindowOpenCallback != null &&
+                    GetCandidatesCallback != null &&
+                    TryStartCallback != null &&
+                    (SampleApiVersion < 2 ||
+                     FinishWindowCallback != null);
+            }
+
+            ResolutionComplete = true;
+
+            BepInEx.PluginInfo pluginInfo;
+            if (!Chainloader.PluginInfos.TryGetValue(
+                    HpoPluginGuid,
+                    out pluginInfo) ||
+                pluginInfo == null ||
+                pluginInfo.Instance == null)
             {
                 return false;
             }
 
-            if (ApiType != null &&
-                (GetSampleContinuationApiVersionMethod != null ||
-                 LegacyGetApiVersionMethod != null) &&
-                IsWindowOpenMethod != null &&
-                GetCandidatesMethod != null &&
-                TryStartMethod != null)
-            {
-                return true;
-            }
-
-            Assembly[] assemblies =
-                AppDomain.CurrentDomain.GetAssemblies();
-            if (assemblies == null ||
-                assemblies.Length == ResolvedAssemblyCount)
-            {
-                return false;
-            }
-
-            ResolvedAssemblyCount = assemblies.Length;
-            for (int i = 0; i < assemblies.Length; i++)
-            {
-                Type apiType =
-                    assemblies[i].GetType(
+            Type apiType =
+                pluginInfo.Instance
+                    .GetType()
+                    .Assembly
+                    .GetType(
                         ApiTypeName,
                         false);
-                if (apiType == null)
-                {
-                    continue;
-                }
+            if (apiType == null)
+            {
+                return false;
+            }
 
-                MethodInfo specificVersionMethod =
-                    apiType.GetMethod(
-                        "GetSampleContinuationApiVersion",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo legacyVersionMethod =
-                    apiType.GetMethod(
-                        "GetApiVersion",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo isWindowOpenMethod =
-                    apiType.GetMethod(
-                        "IsSampleContinuationWindowOpen",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo getCandidatesMethod =
-                    apiType.GetMethod(
-                        "GetSampleContinuationCandidates",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo tryStartMethod =
-                    apiType.GetMethod(
-                        "TryStartSampleContinuation",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
-                MethodInfo finishWindowMethod =
-                    apiType.GetMethod(
-                        "FinishSampleContinuationWindow",
-                        BindingFlags.Public |
-                        BindingFlags.Static);
+            MethodInfo specificVersionMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "GetSampleContinuationApiVersion",
+                    typeof(int),
+                    Type.EmptyTypes);
 
-                MethodInfo versionMethod =
-                    specificVersionMethod ??
-                    legacyVersionMethod;
-                int version;
-                try
-                {
-                    object versionResult =
-                        versionMethod == null
-                            ? null
-                            : versionMethod.Invoke(null, null);
-                    if (!(versionResult is int))
-                    {
-                        continue;
-                    }
+            MethodInfo versionMethod =
+                specificVersionMethod;
 
-                    version = (int)versionResult;
-                    if (version < 1)
-                    {
-                        continue;
-                    }
-                }
-                catch
-                {
-                    continue;
-                }
-
-                if (isWindowOpenMethod == null ||
-                    getCandidatesMethod == null ||
-                    tryStartMethod == null)
+            if (versionMethod == null)
+            {
+                if (HasPublicMethodNamed(
+                        apiType,
+                        "GetSampleContinuationApiVersion"))
                 {
                     return false;
                 }
 
-                ApiType = apiType;
-                SampleApiVersion = version;
-                GetSampleContinuationApiVersionMethod =
-                    specificVersionMethod;
-                LegacyGetApiVersionMethod =
-                    legacyVersionMethod;
-                IsWindowOpenMethod =
-                    isWindowOpenMethod;
-                GetCandidatesMethod =
-                    getCandidatesMethod;
-                TryStartMethod =
-                    tryStartMethod;
-                FinishWindowMethod =
-                    finishWindowMethod;
+                // Temporary public legacy compatibility for HPO releases
+                // predating the dedicated Sample capability version.
+                versionMethod =
+                    GetExactPublicStaticMethod(
+                        apiType,
+                        "GetApiVersion",
+                        typeof(int),
+                        Type.EmptyTypes);
+            }
 
-                try
+            if (versionMethod == null)
+            {
+                return false;
+            }
+
+            VersionDelegate versionCallback;
+            try
+            {
+                versionCallback =
+                    (VersionDelegate)Delegate.CreateDelegate(
+                        typeof(VersionDelegate),
+                        versionMethod);
+            }
+            catch
+            {
+                return false;
+            }
+
+            int version;
+            try
+            {
+                version = versionCallback();
+            }
+            catch (Exception exception)
+            {
+                Disable(
+                    exception,
+                    "HPO Sample continuation capability API failed");
+                return false;
+            }
+
+            if (version < 1)
+            {
+                return false;
+            }
+
+            MethodInfo isWindowOpenMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "IsSampleContinuationWindowOpen",
+                    typeof(bool),
+                    new Type[] { typeof(Entity) });
+            MethodInfo getCandidatesMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "GetSampleContinuationCandidates",
+                    typeof(LabProcedure[]),
+                    new Type[] { typeof(Entity) });
+            MethodInfo tryStartMethod =
+                GetExactPublicStaticMethod(
+                    apiType,
+                    "TryStartSampleContinuation",
+                    typeof(bool),
+                    new Type[]
+                    {
+                        typeof(Entity),
+                        typeof(LabProcedure)
+                    });
+
+            if (isWindowOpenMethod == null ||
+                getCandidatesMethod == null ||
+                tryStartMethod == null)
+            {
+                return false;
+            }
+
+            MethodInfo finishWindowMethod = null;
+            if (version >= 2)
+            {
+                finishWindowMethod =
+                    GetExactPublicStaticMethod(
+                        apiType,
+                        "FinishSampleContinuationWindow",
+                        typeof(bool),
+                        new Type[] { typeof(Entity) });
+                if (finishWindowMethod == null)
                 {
-                    IsWindowOpenCallback =
-                        (PorterBoolDelegate)Delegate.CreateDelegate(
+                    return false;
+                }
+            }
+
+            try
+            {
+                IsWindowOpenCallback =
+                    (PorterBoolDelegate)Delegate.CreateDelegate(
+                        typeof(PorterBoolDelegate),
+                        isWindowOpenMethod);
+                GetCandidatesCallback =
+                    (PorterCandidatesDelegate)Delegate.CreateDelegate(
+                        typeof(PorterCandidatesDelegate),
+                        getCandidatesMethod);
+                TryStartCallback =
+                    (PorterProcedureBoolDelegate)Delegate.CreateDelegate(
+                        typeof(PorterProcedureBoolDelegate),
+                        tryStartMethod);
+                FinishWindowCallback =
+                    finishWindowMethod == null
+                        ? null
+                        : (PorterBoolDelegate)Delegate.CreateDelegate(
                             typeof(PorterBoolDelegate),
-                            isWindowOpenMethod);
-                    GetCandidatesCallback =
-                        (PorterCandidatesDelegate)Delegate.CreateDelegate(
-                            typeof(PorterCandidatesDelegate),
-                            getCandidatesMethod);
-                    TryStartCallback =
-                        (PorterProcedureBoolDelegate)Delegate.CreateDelegate(
-                            typeof(PorterProcedureBoolDelegate),
-                            tryStartMethod);
-                    FinishWindowCallback =
-                        finishWindowMethod == null
-                            ? null
-                            : (PorterBoolDelegate)Delegate.CreateDelegate(
-                                typeof(PorterBoolDelegate),
-                                finishWindowMethod);
-                }
-                catch
-                {
-                    // Keep the reflection fallback for older or unusual
-                    // Hospital Porters builds whose public signatures do not
-                    // bind exactly to the typed delegates.
-                    IsWindowOpenCallback = null;
-                    GetCandidatesCallback = null;
-                    TryStartCallback = null;
-                    FinishWindowCallback = null;
-                }
+                            finishWindowMethod);
+            }
+            catch
+            {
+                ClearCallbacks();
+                return false;
+            }
 
-                return true;
+            SampleApiVersion = version;
+            return true;
+        }
+
+        private static MethodInfo GetExactPublicStaticMethod(
+            Type apiType,
+            string methodName,
+            Type returnType,
+            Type[] parameterTypes)
+        {
+            MethodInfo method =
+                apiType.GetMethod(
+                    methodName,
+                    BindingFlags.Public |
+                    BindingFlags.Static,
+                    null,
+                    parameterTypes,
+                    null);
+
+            return method != null &&
+                method.ReturnType == returnType
+                    ? method
+                    : null;
+        }
+
+        private static bool HasPublicMethodNamed(
+            Type apiType,
+            string methodName)
+        {
+            MethodInfo[] methods =
+                apiType.GetMethods(
+                    BindingFlags.Public |
+                    BindingFlags.Static |
+                    BindingFlags.Instance);
+
+            for (int i = 0; i < methods.Length; i++)
+            {
+                if (methods[i] != null &&
+                    methods[i].Name == methodName)
+                {
+                    return true;
+                }
             }
 
             return false;
+        }
+
+        private static void Disable(
+            Exception exception,
+            string message)
+        {
+            IntegrationDisabled = true;
+            ClearCallbacks();
+
+            if (FailureLogged || Plugin.Log == null)
+            {
+                return;
+            }
+
+            FailureLogged = true;
+            Exception root =
+                exception == null
+                    ? null
+                    : (exception.InnerException ?? exception);
+
+            Plugin.Log.LogWarning(
+                message +
+                "; HFO will keep its normal transport fallback for " +
+                "the rest of this session" +
+                (root == null
+                    ? "."
+                    : ": " +
+                      root.GetType().Name + ": " +
+                      root.Message));
+        }
+
+        private static void ClearCallbacks()
+        {
+            IsWindowOpenCallback = null;
+            GetCandidatesCallback = null;
+            TryStartCallback = null;
+            FinishWindowCallback = null;
         }
     }
 
@@ -313,21 +396,10 @@ namespace HospitalFlowOptimizer.Patches
             new HashSet<Entity>();
 
         internal static void Update(
-            BehaviorNurse nurse)
+            Entity porter)
         {
             if (!FlowOptimizerConfig.SmartTransportSampleContinuation ||
-                nurse == null)
-            {
-                return;
-            }
-
-            EmployeeComponent employee =
-                nurse.GetComponent<EmployeeComponent>();
-            Entity porter =
-                employee == null
-                    ? null
-                    : employee.m_entity;
-            if (porter == null)
+                porter == null)
             {
                 return;
             }
@@ -539,19 +611,4 @@ namespace HospitalFlowOptimizer.Patches
         }
     }
 
-    [HarmonyPatch(
-        typeof(BehaviorNurse),
-        nameof(BehaviorNurse.Update),
-        new Type[] { typeof(float) })]
-    [HarmonyAfter("Loupito75:HospitalPorters")]
-    internal static class SmartTransportSampleContinuationUpdatePatch
-    {
-        [HarmonyPriority(Priority.Last)]
-        private static void Postfix(
-            BehaviorNurse __instance)
-        {
-            SmartTransportSampleContinuationRuntime
-                .Update(__instance);
-        }
-    }
 }

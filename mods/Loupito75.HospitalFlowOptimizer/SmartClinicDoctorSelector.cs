@@ -24,13 +24,20 @@ namespace HospitalFlowOptimizer
                 return false;
             }
 
-            return MatchesWalkInCandidate(
+            BehaviorDoctor behavior;
+            EmployeeComponent employee;
+            Room homeRoom;
+
+            return TryGetWalkInCandidate(
                 doctor,
                 patient,
                 department,
                 null,
                 requireLocal: false,
-                requireFree: false);
+                requireFree: false,
+                out behavior,
+                out employee,
+                out homeRoom);
         }
 
         internal static Entity SelectWalkInDoctor(
@@ -43,33 +50,32 @@ namespace HospitalFlowOptimizer
                 return null;
             }
 
-            List<Entity> freeLocal =
-                GetWalkInCandidates(
+            WalkInCandidateSnapshot candidates =
+                GetWalkInCandidateSnapshot(
+                    patient,
+                    department,
+                    waitingRoom);
+
+            Patches.WaitingRoomTopologyDiagnosticRuntime
+                .ObserveSelectionSnapshot(
                     patient,
                     department,
                     waitingRoom,
-                    requireLocal: true,
-                    requireFree: true);
+                    candidates.HasLocalDoctor,
+                    candidates.FreeLocal.Count > 0,
+                    candidates.FreeOutsideWorkspace);
 
-            if (freeLocal.Count > 0)
+            if (candidates.FreeLocal.Count > 0)
             {
                 return SelectBest(
-                    freeLocal,
+                    candidates.FreeLocal,
                     patient,
                     department,
                     null,
                     "walk-in/local");
             }
 
-            List<Entity> localDoctors =
-                GetWalkInCandidates(
-                    patient,
-                    department,
-                    waitingRoom,
-                    requireLocal: true,
-                    requireFree: false);
-
-            if (localDoctors.Count > 0)
+            if (candidates.HasLocalDoctor)
             {
                 if (FlowOptimizerConfig.DoctorDiagnosticLogging)
                 {
@@ -83,21 +89,13 @@ namespace HospitalFlowOptimizer
                 return null;
             }
 
-            List<Entity> freeDepartment =
-                GetWalkInCandidates(
-                    patient,
-                    department,
-                    waitingRoom,
-                    requireLocal: false,
-                    requireFree: true);
-
-            if (freeDepartment.Count == 0)
+            if (candidates.FreeDepartment.Count == 0)
             {
                 return null;
             }
 
             return SelectBest(
-                freeDepartment,
+                candidates.FreeDepartment,
                 patient,
                 department,
                 null,
@@ -156,49 +154,136 @@ namespace HospitalFlowOptimizer
         }
 
 
-        private static List<Entity> GetWalkInCandidates(
+        private sealed class WalkInCandidateSnapshot
+        {
+            internal readonly List<Entity> FreeLocal =
+                new List<Entity>();
+            internal readonly List<Entity> FreeDepartment =
+                new List<Entity>();
+            internal bool HasLocalDoctor;
+            internal Room FreeOutsideWorkspace;
+        }
+
+        private static WalkInCandidateSnapshot GetWalkInCandidateSnapshot(
             BehaviorPatient patient,
             Department department,
-            Room waitingRoom,
-            bool requireLocal,
-            bool requireFree)
+            Room waitingRoom)
         {
-            List<Entity> candidates = new List<Entity>();
+            WalkInCandidateSnapshot snapshot =
+                new WalkInCandidateSnapshot();
 
-            foreach (EntityIDPointer<Entity> pointer in department.m_departmentPersistentData.m_doctors)
+            if (patient == null ||
+                patient.m_entity == null ||
+                department == null ||
+                department.m_departmentPersistentData == null ||
+                department.m_departmentPersistentData.m_doctors == null)
             {
-                Entity doctor = pointer.GetEntity();
+                return snapshot;
+            }
 
-                if (MatchesWalkInCandidate(
+            uint bestOutsideWorkspaceId =
+                uint.MaxValue;
+
+            foreach (EntityIDPointer<Entity> pointer in
+                department.m_departmentPersistentData.m_doctors)
+            {
+                Entity doctor =
+                    pointer == null
+                        ? null
+                        : pointer.GetEntity();
+
+                BehaviorDoctor behavior;
+                EmployeeComponent employee;
+                Room homeRoom;
+                if (!TryGetWalkInCandidate(
                         doctor,
                         patient,
                         department,
                         waitingRoom,
-                        requireLocal,
-                        requireFree))
+                        requireLocal: false,
+                        requireFree: false,
+                        out behavior,
+                        out employee,
+                        out homeRoom))
                 {
-                    candidates.Add(doctor);
+                    continue;
+                }
+
+                bool isLocal =
+                    waitingRoom == null ||
+                    (waitingRoom.m_roomPersistentData != null &&
+                     waitingRoom.m_roomPersistentData.m_nearbyRooms != null &&
+                     waitingRoom.m_roomPersistentData
+                         .m_nearbyRooms.Contains(homeRoom));
+
+                if (isLocal)
+                {
+                    snapshot.HasLocalDoctor = true;
+                }
+
+                if (!behavior.IsFree(patient.m_entity))
+                {
+                    continue;
+                }
+
+                snapshot.FreeDepartment.Add(doctor);
+
+                if (isLocal)
+                {
+                    snapshot.FreeLocal.Add(doctor);
+                    continue;
+                }
+
+                if (homeRoom.m_roomPersistentData == null ||
+                    homeRoom.m_roomPersistentData.m_roomType == null ||
+                    homeRoom.m_roomPersistentData.m_roomType.Entry == null ||
+                    !homeRoom.m_roomPersistentData
+                        .m_roomType.Entry.AcceptsOutpatients ||
+                    homeRoom.m_roomPersistentData.m_department == null ||
+                    homeRoom.m_roomPersistentData
+                        .m_department.GetEntity() != department)
+                {
+                    continue;
+                }
+
+                uint workspaceId =
+                    homeRoom.GetEntityID();
+
+                if (snapshot.FreeOutsideWorkspace == null ||
+                    workspaceId < bestOutsideWorkspaceId)
+                {
+                    snapshot.FreeOutsideWorkspace =
+                        homeRoom;
+                    bestOutsideWorkspaceId =
+                        workspaceId;
                 }
             }
 
-            return candidates;
+            return snapshot;
         }
 
-        private static bool MatchesWalkInCandidate(
+        private static bool TryGetWalkInCandidate(
             Entity doctor,
             BehaviorPatient patient,
             Department department,
             Room waitingRoom,
             bool requireLocal,
-            bool requireFree)
+            bool requireFree,
+            out BehaviorDoctor behavior,
+            out EmployeeComponent employee,
+            out Room homeRoom)
         {
+            behavior = null;
+            employee = null;
+            homeRoom = null;
+
             if (doctor == null || patient == null || department == null)
             {
                 return false;
             }
 
-            BehaviorDoctor behavior = doctor.GetComponent<BehaviorDoctor>();
-            EmployeeComponent employee = doctor.GetComponent<EmployeeComponent>();
+            behavior = doctor.GetComponent<BehaviorDoctor>();
+            employee = doctor.GetComponent<EmployeeComponent>();
 
             if (behavior == null ||
                 employee == null ||
@@ -227,7 +312,7 @@ namespace HospitalFlowOptimizer
                 return false;
             }
 
-            Room homeRoom = GetValidClinicHomeRoom(employee);
+            homeRoom = GetValidClinicHomeRoom(employee);
             if (homeRoom == null)
             {
                 return false;
@@ -388,6 +473,25 @@ namespace HospitalFlowOptimizer
                     ? "no-patient"
                     : HfoDiagnostics.EntityKey(patient.m_entity));
 
+            bool diagnostics =
+                FlowOptimizerConfig.DoctorDiagnosticLogging;
+            bool needLoad =
+                diagnostics ||
+                FlowOptimizerConfig.ClinicLoadBalancingWeight != 0.0f;
+            bool needDistance =
+                diagnostics ||
+                FlowOptimizerConfig.ClinicDistanceWeight != 0.0f;
+            bool needClinicalFit =
+                diagnostics ||
+                FlowOptimizerConfig.ClinicClinicalFitWeight != 0.0f;
+
+            Dictionary<Entity, float> assignedLoads =
+                needLoad
+                    ? BuildCurrentAssignedOutpatientLoads(
+                        department,
+                        candidates)
+                    : null;
+
             foreach (Entity doctor in candidates)
             {
                 float currentAssignedLoad;
@@ -401,6 +505,10 @@ namespace HospitalFlowOptimizer
                         patient,
                         department,
                         qualifications,
+                        assignedLoads,
+                        needLoad,
+                        needDistance,
+                        needClinicalFit,
                         out currentAssignedLoad,
                         out recentRoomLoad,
                         out distance,
@@ -507,31 +615,53 @@ namespace HospitalFlowOptimizer
             BehaviorPatient patient,
             Department department,
             DatabaseEntryRef<GameDBSkill>[] qualifications,
+            Dictionary<Entity, float> assignedLoads,
+            bool needLoad,
+            bool needDistance,
+            bool needClinicalFit,
             out float currentAssignedLoad,
             out float recentRoomLoad,
             out float distance,
             out float clinicalFit)
         {
-            currentAssignedLoad =
-                GetCurrentAssignedOutpatientLoad(
-                    department,
-                    doctor);
-            recentRoomLoad =
-                GetRecentClinicRoomLoad(doctor);
+            currentAssignedLoad = 0.0f;
+            recentRoomLoad = 0.0f;
+            distance = 0.0f;
+            clinicalFit = 0.0f;
+
+            if (needLoad)
+            {
+                if (assignedLoads != null)
+                {
+                    assignedLoads.TryGetValue(
+                        doctor,
+                        out currentAssignedLoad);
+                }
+
+                recentRoomLoad =
+                    GetRecentClinicRoomLoad(doctor);
+            }
+
+            if (needDistance)
+            {
+                distance =
+                    GetDistanceScore(
+                        patient,
+                        doctor);
+            }
+
+            if (needClinicalFit)
+            {
+                clinicalFit =
+                    GetClinicClinicalFit(
+                        doctor,
+                        department,
+                        qualifications);
+            }
 
             float combinedLoad =
                 currentAssignedLoad +
                 recentRoomLoad * RecentRoomLoadFactor;
-
-            distance =
-                GetDistanceScore(
-                    patient,
-                    doctor);
-            clinicalFit =
-                GetClinicClinicalFit(
-                    doctor,
-                    department,
-                    qualifications);
 
             return
                 combinedLoad *
@@ -542,39 +672,68 @@ namespace HospitalFlowOptimizer
                     FlowOptimizerConfig.ClinicClinicalFitWeight;
         }
 
-        private static float GetCurrentAssignedOutpatientLoad(
-            Department department,
-            Entity doctor)
+        private static Dictionary<Entity, float>
+            BuildCurrentAssignedOutpatientLoads(
+                Department department,
+                List<Entity> candidates)
         {
-            if (department == null || doctor == null)
+            Dictionary<Entity, float> loads =
+                new Dictionary<Entity, float>();
+
+            if (department == null ||
+                department.m_departmentPersistentData == null ||
+                department.m_departmentPersistentData.m_patients == null ||
+                candidates == null)
             {
-                return 0.0f;
+                return loads;
             }
 
-            float load = 0.0f;
-
-            foreach (EntityIDPointer<Entity> pointer in department.m_departmentPersistentData.m_patients)
+            for (int i = 0; i < candidates.Count; i++)
             {
-                Entity patient = pointer.GetEntity();
+                Entity candidate = candidates[i];
+                if (candidate != null &&
+                    !loads.ContainsKey(candidate))
+                {
+                    loads.Add(candidate, 0.0f);
+                }
+            }
+
+            foreach (EntityIDPointer<Entity> pointer in
+                department.m_departmentPersistentData.m_patients)
+            {
+                Entity patient =
+                    pointer == null
+                        ? null
+                        : pointer.GetEntity();
                 if (patient == null)
                 {
                     continue;
                 }
 
-                BehaviorPatient behavior = patient.GetComponent<BehaviorPatient>();
+                BehaviorPatient behavior =
+                    patient.GetComponent<BehaviorPatient>();
                 HospitalizationComponent hospitalization =
                     patient.GetComponent<HospitalizationComponent>();
 
                 if (behavior == null ||
                     behavior.m_state == null ||
-                    (hospitalization != null && hospitalization.IsHospitalized()) ||
-                    behavior.m_state.m_doctor == null ||
-                    behavior.m_state.m_doctor.GetEntity() != doctor)
+                    (hospitalization != null &&
+                     hospitalization.IsHospitalized()) ||
+                    behavior.m_state.m_doctor == null)
                 {
                     continue;
                 }
 
-                PatientState state = behavior.m_state.m_patientState;
+                Entity assignedDoctor =
+                    behavior.m_state.m_doctor.GetEntity();
+                if (assignedDoctor == null ||
+                    !loads.ContainsKey(assignedDoctor))
+                {
+                    continue;
+                }
+
+                PatientState state =
+                    behavior.m_state.m_patientState;
                 if (state == PatientState.Left ||
                     state == PatientState.Leaving ||
                     state == PatientState.Dead)
@@ -582,10 +741,11 @@ namespace HospitalFlowOptimizer
                     continue;
                 }
 
-                load += 1.0f;
+                loads[assignedDoctor] =
+                    loads[assignedDoctor] + 1.0f;
             }
 
-            return load;
+            return loads;
         }
 
         private static float GetRecentClinicRoomLoad(Entity doctor)

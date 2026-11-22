@@ -24,6 +24,16 @@ namespace HospitalFlowOptimizer.Patches
                 return false;
             }
 
+            // External workflow owners can attest that this otherwise
+            // suspicious native state is intentional. The declaration only
+            // suppresses this stale classification; it does not change
+            // priority, routing, state or execution.
+            if (ExternalLabProcedureManagedStateRuntime.IsManaged(
+                    procedure))
+            {
+                return false;
+            }
+
             LogOnce(procedure);
             return true;
         }
@@ -128,7 +138,17 @@ namespace HospitalFlowOptimizer.Patches
                 "; waitMinutes=" +
                 waitMinutes.ToString("0.0",
                     System.Globalization.CultureInfo.InvariantCulture) +
-                "; note=state-left-unchanged-for-HFX.");
+                "; note=state-left-unchanged.");
+        }
+    }
+
+    [HarmonyPatch(typeof(LabProcedureManager), "UpdateLabProcedures")]
+    internal static class ExternalLabProcedureManagedStateCleanupPatch
+    {
+        [HarmonyPostfix]
+        private static void UpdateLabProceduresPostfix()
+        {
+            ExternalLabProcedureManagedStateRuntime.PruneInvalid();
         }
     }
 
@@ -794,7 +814,8 @@ namespace HospitalFlowOptimizer.Patches
             out int selectedQueue)
         {
             Dictionary<Room, int> queueSnapshot =
-                BuildQueueSnapshot();
+                BuildQueueSnapshot(
+                    false);
 
             Room best = null;
             int bestQueue = int.MaxValue;
@@ -930,7 +951,17 @@ namespace HospitalFlowOptimizer.Patches
 
         internal static Dictionary<Room, int> BuildQueueSnapshot()
         {
-            PruneTargets();
+            return BuildQueueSnapshot(
+                true);
+        }
+
+        private static Dictionary<Room, int> BuildQueueSnapshot(
+            bool pruneTargets)
+        {
+            if (pruneTargets)
+            {
+                PruneTargets();
+            }
 
             Dictionary<Room, int> counts =
                 new Dictionary<Room, int>();
@@ -1255,8 +1286,7 @@ namespace HospitalFlowOptimizer.Patches
             if (Targets.Count == 0)
                 return;
 
-            List<LabProcedure> stale =
-                new List<LabProcedure>();
+            List<LabProcedure> stale = null;
 
             foreach (KeyValuePair<LabProcedure, OutpatientLabRoutingTarget> item
                 in Targets)
@@ -1265,8 +1295,19 @@ namespace HospitalFlowOptimizer.Patches
                     item.Value == null ||
                     item.Value.Room == null)
                 {
+                    if (stale == null)
+                    {
+                        stale =
+                            new List<LabProcedure>();
+                    }
+
                     stale.Add(item.Key);
                 }
+            }
+
+            if (stale == null)
+            {
+                return;
             }
 
             foreach (LabProcedure procedure in stale)
@@ -1420,6 +1461,14 @@ namespace HospitalFlowOptimizer.Patches
     [HarmonyPatch(typeof(LabProcedureManager), "GetIdleLabProcedures")]
     internal static class SmartLabTaskAssignmentPatch
     {
+        private struct LabTaskSortKey
+        {
+            internal bool IsLocal;
+            internal float EffectivePriority;
+            internal float WaitingMinutes;
+            internal int VanillaOrder;
+        }
+
         private const int MaximumRememberedOrderStates = 512;
 
         private static readonly Dictionary<Room, string>
@@ -1454,32 +1503,55 @@ namespace HospitalFlowOptimizer.Patches
                 return;
             }
 
-            Dictionary<LabProcedure, int> vanillaOrder =
-                new Dictionary<LabProcedure, int>();
+            Dictionary<LabProcedure, LabTaskSortKey> sortKeys =
+                new Dictionary<LabProcedure, LabTaskSortKey>();
+            int localCount = 0;
+
             for (int i = 0; i < __result.Count; i++)
             {
-                vanillaOrder[__result[i]] = i;
+                LabProcedure procedure =
+                    __result[i];
+                float waitingMinutes =
+                    GetWaitingMinutes(procedure);
+                bool isLocal =
+                    IsLocalToLab(
+                        procedure,
+                        statLab);
+
+                LabTaskSortKey key =
+                    new LabTaskSortKey();
+                key.IsLocal = isLocal;
+                key.WaitingMinutes = waitingMinutes;
+                key.EffectivePriority =
+                    waitingMinutes +
+                    GetWorkflowBonusMinutes(procedure);
+                key.VanillaOrder = i;
+
+                sortKeys[procedure] = key;
+
+                if (isLocal)
+                {
+                    localCount++;
+                }
             }
 
             LabProcedure vanillaFirst =
-                FindByVanillaOrder(
-                    __result,
-                    vanillaOrder,
-                    0);
+                __result[0];
 
             if (__result.Count > 1)
             {
                 __result.Sort(delegate(LabProcedure left, LabProcedure right)
                 {
-                    return Compare(left, right, statLab, vanillaOrder);
+                    return Compare(
+                        left,
+                        right,
+                        sortKeys);
                 });
             }
 
             if (FlowOptimizerConfig.LabDiagnosticLogging &&
                 Plugin.Log != null)
             {
-                int localCount =
-                    CountLocalProcedures(__result, statLab);
                 int fallbackCount =
                     __result.Count - localCount;
                 string diagnosticState =
@@ -1613,27 +1685,41 @@ namespace HospitalFlowOptimizer.Patches
             LastOrderDiagnosticStates.Clear();
         }
 
-        private static int Compare(LabProcedure left, LabProcedure right,
-            Room statLab, Dictionary<LabProcedure, int> vanillaOrder)
+        private static int Compare(
+            LabProcedure left,
+            LabProcedure right,
+            Dictionary<LabProcedure, LabTaskSortKey> sortKeys)
         {
-            bool leftLocal = IsLocalToLab(left, statLab);
-            bool rightLocal = IsLocalToLab(right, statLab);
-            if (leftLocal != rightLocal)
-                return leftLocal ? -1 : 1;
+            LabTaskSortKey leftKey =
+                sortKeys[left];
+            LabTaskSortKey rightKey =
+                sortKeys[right];
 
-            float leftScore = GetEffectivePriority(left);
-            float rightScore = GetEffectivePriority(right);
-            int scoreComparison = rightScore.CompareTo(leftScore);
+            if (leftKey.IsLocal != rightKey.IsLocal)
+            {
+                return leftKey.IsLocal
+                    ? -1
+                    : 1;
+            }
+
+            int scoreComparison =
+                rightKey.EffectivePriority.CompareTo(
+                    leftKey.EffectivePriority);
             if (scoreComparison != 0)
+            {
                 return scoreComparison;
+            }
 
-            float leftAge = GetWaitingMinutes(left);
-            float rightAge = GetWaitingMinutes(right);
-            int ageComparison = rightAge.CompareTo(leftAge);
+            int ageComparison =
+                rightKey.WaitingMinutes.CompareTo(
+                    leftKey.WaitingMinutes);
             if (ageComparison != 0)
+            {
                 return ageComparison;
+            }
 
-            return vanillaOrder[left].CompareTo(vanillaOrder[right]);
+            return leftKey.VanillaOrder.CompareTo(
+                rightKey.VanillaOrder);
         }
 
         internal static bool IsLocalToLab(LabProcedure procedure, Room statLab)
@@ -1666,16 +1752,6 @@ namespace HospitalFlowOptimizer.Patches
                     equipment.GetFloorIndex());
 
             return equipmentRoom == statLab;
-        }
-
-        private static int CountLocalProcedures(List<LabProcedure> procedures,
-            Room statLab)
-        {
-            int count = 0;
-            foreach (LabProcedure procedure in procedures)
-                if (IsLocalToLab(procedure, statLab))
-                    count++;
-            return count;
         }
 
         private static float GetEffectivePriority(LabProcedure procedure)
@@ -1742,15 +1818,6 @@ namespace HospitalFlowOptimizer.Patches
 
                 return hash & int.MaxValue;
             }
-        }
-
-        private static LabProcedure FindByVanillaOrder(List<LabProcedure> procedures,
-            Dictionary<LabProcedure, int> vanillaOrder, int order)
-        {
-            foreach (LabProcedure procedure in procedures)
-                if (vanillaOrder[procedure] == order)
-                    return procedure;
-            return null;
         }
 
         internal static string DescribeProcedure(LabProcedure procedure, Room statLab)

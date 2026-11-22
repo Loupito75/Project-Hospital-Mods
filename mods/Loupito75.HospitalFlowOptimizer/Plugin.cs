@@ -13,9 +13,9 @@ namespace HospitalFlowOptimizer
         public const string HarmonyId = "Loupito75:HospitalFlowOptimizer";
         public const string PluginName = "Hospital Flow Optimizer";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginVersion = "1.1.1";
+        public const string PluginVersion = "1.2.0";
         public const string PluginWhatsNew =
-            "Smart Staff Needs meal selection fix, reduced staff-needs processing overhead";
+            "Clinic waiting-room bottleneck warnings, better external lab workflow compatibility, improved HPO and HTC integration, reduced repeated selection work, Smart Transport Wait resume fix";
 
         internal static ManualLogSource Log { get; private set; }
 
@@ -60,8 +60,10 @@ namespace HospitalFlowOptimizer
             Patches.SmartTransportContinuationRuntime.Clear();
             Patches.SmartTransportSampleContinuationRuntime.Clear();
             Patches.SmartRoomSelectionRuntime.Clear();
+            Patches.WaitingRoomTopologyDiagnosticRuntime.Clear();
             Patches.OutpatientLabRoutingRuntime.Clear();
             Patches.LabStaleGuardRuntime.Clear();
+            ExternalLabProcedureManagedStateRuntime.Clear();
             Patches.SmartLabTaskAssignmentPatch.ClearDiagnosticState();
             Patches.TraumaCenterProtectionRuntime.Clear();
         }

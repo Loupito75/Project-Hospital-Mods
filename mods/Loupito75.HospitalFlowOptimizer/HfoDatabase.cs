@@ -13,6 +13,19 @@ namespace HospitalFlowOptimizer
             "L75_HFO_NOTIF_OBSERVATION_EQUIPMENT_CAPACITY";
         internal const string ObservationEquipmentNotificationText =
             "L75_HFO_NOTIF_OBSERVATION_EQUIPMENT_CAPACITY_TEXT";
+        internal const string WaitingRoomTopologyNotification =
+            "L75_HFO_NOTIF_WAITING_ROOM_TOPOLOGY";
+        internal const string WaitingRoomTopologyNotificationText =
+            "L75_HFO_NOTIF_WAITING_ROOM_TOPOLOGY_TEXT";
+
+        internal static bool IsLocalizedStringId(string stringId)
+        {
+            return
+                stringId == ObservationEquipmentNotification ||
+                stringId == ObservationEquipmentNotificationText ||
+                stringId == WaitingRoomTopologyNotification ||
+                stringId == WaitingRoomTopologyNotificationText;
+        }
     }
 
     internal static class HfoDatabase
@@ -62,7 +75,9 @@ namespace HospitalFlowOptimizer
 
                 s_loaded =
                     database.GetEntry<GameDBNotification>(
-                        HfoDatabaseIds.ObservationEquipmentNotification) != null;
+                        HfoDatabaseIds.ObservationEquipmentNotification) != null &&
+                    database.GetEntry<GameDBNotification>(
+                        HfoDatabaseIds.WaitingRoomTopologyNotification) != null;
 
                 if (s_loaded)
                 {
@@ -75,7 +90,7 @@ namespace HospitalFlowOptimizer
                 {
                     Plugin.Log?.LogError(
                         "Hospital Flow Optimizer database file was read but " +
-                        "the Observation equipment notification is missing.");
+                        "one or more HFO native notifications are missing.");
                 }
             }
             catch (Exception exception)
@@ -172,6 +187,73 @@ namespace HospitalFlowOptimizer
                         "工作人員反映，觀察室中的 {1} 已經用於 {3}，因此只能改用 {2}。請再增加一台，以提高觀察室的處理能力。") }
                 };
 
+        private static readonly Dictionary<string, NotificationTranslation>
+            WaitingRoomTopologyTranslations =
+                new Dictionary<string, NotificationTranslation>(
+                    StringComparer.OrdinalIgnoreCase)
+                {
+                    { "en", new NotificationTranslation(
+                        "Patients are complaining about the wait!",
+                        "{2} patients in {1} have been waiting too long while {3} is free elsewhere. Check the layout of your waiting rooms.") },
+                    { "cz", new NotificationTranslation(
+                        "Pacienti si stěžují na čekání!",
+                        "V oddělení {1} už {2} pacienti čekají příliš dlouho, zatímco {3} je jinde volné. Zkontrolujte rozmístění čekáren.") },
+                    { "da", new NotificationTranslation(
+                        "Patienterne klager over ventetiden!",
+                        "{2} patienter i {1} har ventet for længe, mens {3} er ledig et andet sted. Kontrollér placeringen af dine venteområder.") },
+                    { "de", new NotificationTranslation(
+                        "Die Patienten beschweren sich über die Wartezeit!",
+                        "{2} Patienten in {1} warten schon zu lange, während {3} an anderer Stelle frei ist. Prüfen Sie die Anordnung Ihrer Wartebereiche.") },
+                    { "es", new NotificationTranslation(
+                        "¡Los pacientes se quejan de la espera!",
+                        "{2} pacientes de {1} llevan demasiado tiempo esperando mientras {3} está libre en otro lugar. Revisa la distribución de tus salas de espera.") },
+                    { "esla", new NotificationTranslation(
+                        "¡Los pacientes se quejan de la espera!",
+                        "{2} pacientes de {1} llevan demasiado tiempo esperando mientras {3} está libre en otro lugar. Revisa la distribución de tus salas de espera.") },
+                    { "fr", new NotificationTranslation(
+                        "Les patients se plaignent de l'attente !",
+                        "{2} patients de {1} attendent depuis trop longtemps alors qu'un cabinet {3} est libre ailleurs. Vérifiez la disposition de vos salles d'attente.") },
+                    { "hu", new NotificationTranslation(
+                        "A betegek panaszkodnak a várakozás miatt!",
+                        "A(z) {1} osztályon {2} beteg már túl régóta vár, miközben a(z) {3} máshol szabad. Ellenőrizze a várótermek elrendezését.") },
+                    { "it", new NotificationTranslation(
+                        "I pazienti si lamentano dell'attesa!",
+                        "{2} pazienti di {1} aspettano da troppo tempo mentre {3} è libero altrove. Controlla la disposizione delle sale d'attesa.") },
+                    { "jp", new NotificationTranslation(
+                        "患者が待ち時間に不満を訴えています！",
+                        "{1} で {2} 人の患者が長時間待ち続けている一方、別の場所では {3} が空いています。待合室の配置を確認してください。") },
+                    { "kr", new NotificationTranslation(
+                        "환자들이 대기 시간에 불만을 제기하고 있습니다!",
+                        "{1}에서 {2}명의 환자가 너무 오랫동안 기다리고 있는 동안 다른 곳의 {3}은(는) 비어 있습니다. 대기실 배치를 확인하세요.") },
+                    { "nl", new NotificationTranslation(
+                        "Patiënten klagen over de wachttijd!",
+                        "{2} patiënten in {1} wachten al te lang terwijl {3} elders vrij is. Controleer de indeling van je wachtkamers.") },
+                    { "pl", new NotificationTranslation(
+                        "Pacjenci skarżą się na czas oczekiwania!",
+                        "W {1} {2} pacjentów czeka już zbyt długo, podczas gdy gdzie indziej dostępne jest pomieszczenie {3}. Sprawdź rozmieszczenie poczekalni.") },
+                    { "ptbr", new NotificationTranslation(
+                        "Os pacientes estão reclamando da espera!",
+                        "{2} pacientes de {1} estão esperando há tempo demais enquanto {3} está livre em outro local. Verifique a disposição das salas de espera.") },
+                    { "ru", new NotificationTranslation(
+                        "Пациенты жалуются на ожидание!",
+                        "В отделении {1} {2} пациентов ждут уже слишком долго, хотя в другом месте свободен кабинет {3}. Проверьте расположение комнат ожидания.") },
+                    { "swe", new NotificationTranslation(
+                        "Patienterna klagar på väntetiden!",
+                        "{2} patienter på {1} har väntat för länge medan {3} är ledig på annat håll. Kontrollera placeringen av dina väntrum.") },
+                    { "tr", new NotificationTranslation(
+                        "Hastalar bekleme süresinden şikâyet ediyor!",
+                        "{1} bölümünde {2} hasta çok uzun süredir beklerken {3} başka bir yerde boş. Bekleme alanlarınızın yerleşimini kontrol edin.") },
+                    { "uk", new NotificationTranslation(
+                        "Пацієнти скаржаться на очікування!",
+                        "У відділенні {1} {2} пацієнтів чекають уже надто довго, хоча кабінет {3} в іншому місці вільний. Перевірте розташування кімнат очікування.") },
+                    { "zhcn", new NotificationTranslation(
+                        "患者在抱怨等待时间！",
+                        "{1} 有 {2} 名患者已经等了太久，而其他位置的 {3} 正空闲。请检查候诊区的布局。") },
+                    { "zhtw", new NotificationTranslation(
+                        "病患正在抱怨等候時間！",
+                        "{1} 有 {2} 名病患已經等候太久，而其他位置的 {3} 正空閒。請檢查候診區的配置。") }
+                };
+
         internal static bool TryGetLocalizedText(
             string languageCode,
             string stringId,
@@ -184,24 +266,31 @@ namespace HospitalFlowOptimizer
                 return false;
             }
 
-            if (stringId != HfoDatabaseIds.ObservationEquipmentNotification &&
-                stringId != HfoDatabaseIds.ObservationEquipmentNotificationText)
+            if (!HfoDatabaseIds.IsLocalizedStringId(stringId))
             {
                 return false;
             }
 
+            bool waitingRoomTopology =
+                stringId == HfoDatabaseIds.WaitingRoomTopologyNotification ||
+                stringId == HfoDatabaseIds.WaitingRoomTopologyNotificationText;
+
+            Dictionary<string, NotificationTranslation> translations =
+                waitingRoomTopology
+                    ? WaitingRoomTopologyTranslations
+                    : ObservationEquipmentTranslations;
+
             string normalizedLanguage = NormalizeLanguageCode(languageCode);
             NotificationTranslation translation;
             if (string.IsNullOrEmpty(normalizedLanguage) ||
-                !ObservationEquipmentTranslations.TryGetValue(
-                    normalizedLanguage,
-                    out translation))
+                !translations.TryGetValue(normalizedLanguage, out translation))
             {
-                translation = ObservationEquipmentTranslations["en"];
+                translation = translations["en"];
             }
 
             result =
-                stringId == HfoDatabaseIds.ObservationEquipmentNotification
+                stringId == HfoDatabaseIds.ObservationEquipmentNotification ||
+                stringId == HfoDatabaseIds.WaitingRoomTopologyNotification
                     ? translation.Title
                     : translation.Text;
 
@@ -276,8 +365,7 @@ namespace HospitalFlowOptimizer
             string[] parameters,
             ref string __result)
         {
-            if (stringID != HfoDatabaseIds.ObservationEquipmentNotification &&
-                stringID != HfoDatabaseIds.ObservationEquipmentNotificationText)
+            if (!HfoDatabaseIds.IsLocalizedStringId(stringID))
             {
                 return true;
             }
@@ -326,8 +414,7 @@ namespace HospitalFlowOptimizer
 
             string stringId =
                 databaseItem.DatabaseID.ToString();
-            if (stringId != HfoDatabaseIds.ObservationEquipmentNotification &&
-                stringId != HfoDatabaseIds.ObservationEquipmentNotificationText)
+            if (!HfoDatabaseIds.IsLocalizedStringId(stringId))
             {
                 return true;
             }
