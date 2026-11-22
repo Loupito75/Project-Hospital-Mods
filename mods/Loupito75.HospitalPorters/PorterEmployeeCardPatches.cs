@@ -14,8 +14,6 @@ namespace HospitalPorters
         new Type[] { typeof(EmployeeComponent) })]
     internal static class PorterEmployeeCardQualificationIconPatch
     {
-        private static readonly FieldInfo EmployeeEntityField =
-            AccessTools.Field(typeof(EmployeeComponent), "m_entity");
 
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Last)]
@@ -24,13 +22,12 @@ namespace HospitalPorters
             EmployeeComponent employeeComponent)
         {
             if (__instance == null || employeeComponent == null ||
-                __instance.m_qualificationsSegmentStatic == null ||
-                object.ReferenceEquals(EmployeeEntityField, null))
+                __instance.m_qualificationsSegmentStatic == null)
             {
                 return;
             }
 
-            Entity entity = EmployeeEntityField.GetValue(employeeComponent) as Entity;
+            Entity entity = employeeComponent.m_entity;
             if (!PorterIdentity.IsPorter(entity))
             {
                 return;
@@ -76,8 +73,6 @@ namespace HospitalPorters
         new Type[] { typeof(EmployeeComponent) })]
     internal static class PorterEmployeeCardLevelVisualPatch
     {
-        private static readonly FieldInfo EmployeeEntityField =
-            AccessTools.Field(typeof(EmployeeComponent), "m_entity");
         private static bool s_loggedFailure;
 
         [HarmonyPostfix]
@@ -146,12 +141,9 @@ namespace HospitalPorters
 
         private static Entity GetEmployeeEntity(EmployeeComponent employeeComponent)
         {
-            if (employeeComponent == null || object.ReferenceEquals(EmployeeEntityField, null))
-            {
-                return null;
-            }
-
-            return EmployeeEntityField.GetValue(employeeComponent) as Entity;
+            return employeeComponent == null
+                ? null
+                : employeeComponent.m_entity;
         }
 
         private static void LogFailureOnce(string message)

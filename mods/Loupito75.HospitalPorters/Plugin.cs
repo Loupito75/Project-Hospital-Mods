@@ -6,13 +6,16 @@ using HarmonyLib;
 namespace HospitalPorters
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    [BepInDependency(
+        "loupito75.HospitalFixes",
+        BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
         public const string PluginGuid = "loupito75.HospitalPorters";
         public const string PluginName = "Hospital Porters";
-        public const string PluginVersion = "1.3.2";
+        public const string PluginVersion = "1.3.3";
         public const string PluginAuthor = "Loupito75";
-        public const string PluginWhatsNew = "Safer chained Patient continuations, corrected Porter employee filters and level visuals, improved Employees filter alignment, wall-object placement above Sample Carts";
+        public const string PluginWhatsNew = "Safer Patient transport continuations, multi-lab Sample Cart tours, improved destination-fridge waiting, broader Sample pickup compatibility";
         public const string HarmonyId = "Loupito75:HospitalPorters";
 
         internal static ManualLogSource Log { get; private set; }
@@ -40,6 +43,19 @@ namespace HospitalPorters
             catch (Exception exception)
             {
                 Log.LogError("Early Harmony patching failed. Hospital Porters will stay disabled for this session: " + exception);
+                try
+                {
+                    _harmony.UnpatchSelf();
+                }
+                catch (Exception rollbackException)
+                {
+                    Log.LogError("Failed to roll back partial Hospital Porters Harmony patches: " + rollbackException);
+                }
+
+                DeferredHiringPatches.Reset();
+                PorterEmployeeTableLevelIconPatch.Reset();
+                s_harmony = null;
+                _harmony = null;
                 return;
             }
 
@@ -59,6 +75,9 @@ namespace HospitalPorters
 
         private void OnDestroy()
         {
+            PorterSampleTransportRuntime.ClearExternalWaitingVisuals();
+            ExternalSamplePickupRuntime.Reset();
+            HfxWaitingVisualInterop.Reset();
             _harmony?.UnpatchSelf();
             DeferredHiringPatches.Reset();
             PorterEmployeeTableLevelIconPatch.Reset();

@@ -29,10 +29,6 @@ namespace HospitalPorters
         private const string PorterButtonName = "HospitalPorters_EmployeesPorterFilter";
         private const string PorterBackgroundName = "HospitalPorters_EmployeesPorterFilterBackground";
 
-        private static readonly FieldInfo AnimModelEntityField =
-            AccessTools.Field(typeof(AnimModelComponent), "m_entity");
-        private static readonly FieldInfo EmployeeEntityField =
-            AccessTools.Field(typeof(EmployeeComponent), "m_entity");
         private static readonly FieldInfo EmployeesTableCharacterTypeField =
             AccessTools.Field(typeof(EmployeesTable), "m_characterType");
         private static readonly Dictionary<EmployeesTable, PorterEmployeeFilterState> FilterStates =
@@ -43,22 +39,16 @@ namespace HospitalPorters
 
         internal static Entity GetAnimModelOwner(AnimModelComponent component)
         {
-            if (component == null || object.ReferenceEquals(AnimModelEntityField, null))
-            {
-                return null;
-            }
-
-            return AnimModelEntityField.GetValue(component) as Entity;
+            return component == null
+                ? null
+                : component.m_entity;
         }
 
         internal static Entity GetEmployeeOwner(EmployeeComponent component)
         {
-            if (component == null || object.ReferenceEquals(EmployeeEntityField, null))
-            {
-                return null;
-            }
-
-            return EmployeeEntityField.GetValue(component) as Entity;
+            return component == null
+                ? null
+                : component.m_entity;
         }
 
         internal static void EnsurePorterFilter(EmployeesTable table)

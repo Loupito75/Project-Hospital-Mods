@@ -622,14 +622,74 @@ namespace HospitalPorters
                 {
                     Plugin.Log?.LogError("HiringManager inner exception: " + exception.InnerException);
                 }
+                Rollback(harmony);
             }
             catch (Exception exception)
             {
                 Plugin.Log?.LogError("Failed to apply deferred HiringManager patches: " + exception);
+                Rollback(harmony);
             }
             finally
             {
                 s_applying = false;
+            }
+        }
+
+        private static void Rollback(Harmony harmony)
+        {
+            if (harmony == null)
+            {
+                s_applied = false;
+                return;
+            }
+
+            try
+            {
+                Unpatch(
+                    harmony,
+                    AccessTools.Method(
+                        typeof(HiringManager),
+                        nameof(HiringManager.DestroyAvailableCharacters),
+                        new Type[] { typeof(AvailableCharacters), typeof(LopitalTypes), typeof(bool) }));
+
+                Unpatch(
+                    harmony,
+                    AccessTools.Method(
+                        typeof(HiringManager),
+                        nameof(HiringManager.GenerateAvailableCharacters),
+                        new Type[] { typeof(AvailableCharacters), typeof(GameDBDepartment), typeof(LopitalTypes), typeof(bool) }));
+
+                Unpatch(
+                    harmony,
+                    AccessTools.Method(
+                        typeof(HiringManager),
+                        nameof(HiringManager.Reset),
+                        Type.EmptyTypes));
+
+                Unpatch(
+                    harmony,
+                    AccessTools.Method(
+                        typeof(HiringManager),
+                        nameof(HiringManager.Hire),
+                        new Type[] { typeof(Department), typeof(Floor), typeof(Vector2i) }));
+
+                Plugin.Log?.LogError("Rolled back deferred Hospital Porters hiring patches after initialization failure.");
+            }
+            catch (Exception rollbackException)
+            {
+                Plugin.Log?.LogError("Failed to roll back deferred Hospital Porters hiring patches: " + rollbackException);
+            }
+            finally
+            {
+                s_applied = false;
+            }
+        }
+
+        private static void Unpatch(Harmony harmony, MethodBase original)
+        {
+            if (original != null)
+            {
+                harmony.Unpatch(original, HarmonyPatchType.All, harmony.Id);
             }
         }
 

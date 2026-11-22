@@ -42,6 +42,11 @@ namespace HospitalPorters
             string[] parameters,
             ref string __result)
         {
+            if (!PorterLocalizationIds.IsOwned(stringID))
+            {
+                return true;
+            }
+
             string languageCode = __instance?.GetCurrentLanguage();
             if (string.IsNullOrEmpty(languageCode))
             {
@@ -74,13 +79,18 @@ namespace HospitalPorters
                 return true;
             }
 
+            string stringId = databaseItem.DatabaseID.ToString();
+            if (!PorterLocalizationIds.IsOwned(stringId))
+            {
+                return true;
+            }
+
             string languageCode = __instance?.GetCurrentLanguage();
             if (string.IsNullOrEmpty(languageCode))
             {
                 languageCode = PlayerProfile.Instance.GetCurrentLanguage();
             }
 
-            string stringId = databaseItem.DatabaseID.ToString();
             if (!LocalizationManager.TryGetLocalizedText(languageCode, stringId, null, out string localizedText))
             {
                 return true;
@@ -97,11 +107,9 @@ namespace HospitalPorters
         new Type[] { })]
     internal static class PorterNurseAvailabilityPatch
     {
-        private static readonly FieldInfo EntityField = AccessTools.Field(typeof(BehaviorNurse), "m_entity");
-
         private static bool Prefix(BehaviorNurse __instance, ref bool __result)
         {
-            Entity entity = EntityField?.GetValue(__instance) as Entity;
+            Entity entity = __instance == null ? null : __instance.m_entity;
             if (!PorterIdentity.IsPorter(entity))
             {
                 return true;
@@ -120,11 +128,9 @@ namespace HospitalPorters
         new Type[] { })]
     internal static class PorterEmployeeAvailabilityPatch
     {
-        private static readonly FieldInfo EntityField = AccessTools.Field(typeof(EmployeeComponent), "m_entity");
-
         private static bool Prefix(EmployeeComponent __instance, ref bool __result)
         {
-            Entity entity = EntityField?.GetValue(__instance) as Entity;
+            Entity entity = __instance == null ? null : __instance.m_entity;
             if (!PorterIdentity.IsPorter(entity))
             {
                 return true;
@@ -242,9 +248,6 @@ namespace HospitalPorters
         private const int NativeFallbackStillBlockedMinutes =
             15;
 
-        private static readonly FieldInfo EntityField =
-            AccessTools.Field(typeof(StretcherComponent), "m_entity");
-
         private static readonly Dictionary<Entity, PatientFallbackWait>
             FallbackWaits =
                 new Dictionary<Entity, PatientFallbackWait>();
@@ -307,6 +310,7 @@ namespace HospitalPorters
                     vehicle);
 
             PorterPatientContinuationConsumeState continuationState;
+            bool continuationDeferred;
             if (PorterPatientContinuationRuntime
                     .TryPreparePendingContinuation(
                         __instance,
@@ -318,10 +322,20 @@ namespace HospitalPorters
                         movementType,
                         ref movingCharacter,
                         ref vehicle,
-                        out continuationState))
+                        out continuationState,
+                        out continuationDeferred))
             {
                 __state.PendingContinuation = continuationState;
                 return true;
+            }
+
+            if (continuationDeferred)
+            {
+                // Preserve the accepted continuation and retry through
+                // the next native hospitalization SetDestination call.
+                // Do not fall through to a competing Porter/Nurse selection.
+                __result = false;
+                return false;
             }
 
             if (PorterPatientContinuationRuntime
@@ -804,10 +818,9 @@ namespace HospitalPorters
         private static Entity GetPatient(
             StretcherComponent stretcher)
         {
-            return stretcher == null ||
-                object.ReferenceEquals(EntityField, null)
-                    ? null
-                    : EntityField.GetValue(stretcher) as Entity;
+            return stretcher == null
+                ? null
+                : stretcher.m_entity;
         }
 
         private static Entity FindAvailablePorter(
@@ -2257,9 +2270,6 @@ namespace HospitalPorters
 
     internal static class PorterExperience
     {
-        private static readonly FieldInfo EmployeeEntityField =
-            AccessTools.Field(typeof(EmployeeComponent), "m_entity");
-
         internal static void AwardWorkExperience(
             Entity porter,
             int points)
@@ -2364,17 +2374,9 @@ namespace HospitalPorters
         private static Entity GetEmployeeEntity(
             EmployeeComponent employee)
         {
-            if (employee == null ||
-                object.ReferenceEquals(
-                    EmployeeEntityField,
-                    null))
-            {
-                return null;
-            }
-
-            return
-                EmployeeEntityField.GetValue(employee)
-                as Entity;
+            return employee == null
+                ? null
+                : employee.m_entity;
         }
     }
 
@@ -2400,9 +2402,6 @@ namespace HospitalPorters
         new Type[] { typeof(StretcherComponentState) })]
     internal static class PorterPatientTransportExperiencePatch
     {
-        private static readonly FieldInfo PatientField =
-            AccessTools.Field(typeof(StretcherComponent), "m_entity");
-
         private static void Prefix(
             StretcherComponent __instance,
             StretcherComponentState state)
@@ -2432,9 +2431,7 @@ namespace HospitalPorters
 
             // StretcherComponent.SwitchState is called before the native
             // state transition: the patient and assigned mover are still linked.
-            Entity patient = object.ReferenceEquals(PatientField, null)
-                ? null
-                : PatientField.GetValue(__instance) as Entity;
+            Entity patient = __instance.m_entity;
 
             PorterExperience.AwardWorkExperience(porter, 3);
             PorterDiagnostics.Log(

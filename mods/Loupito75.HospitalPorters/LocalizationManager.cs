@@ -21,6 +21,10 @@ namespace HospitalPorters
         internal const string PatientTransportRoleDescription = "L75_HPO_EMPL_ROLE_PATIENT_TRANSPORT_DESCRIPTION";
         internal const string SampleTransportRole = "L75_HPO_EMPL_ROLE_SAMPLE_TRANSPORT";
         internal const string SampleTransportRoleDescription = "L75_HPO_EMPL_ROLE_SAMPLE_TRANSPORT_DESCRIPTION";
+        internal const string SampleTransportPickupStatus = "L75_HPO_STATUS_SAMPLE_TRANSPORT_PICKUP";
+        internal const string SampleTransportWaitingStatus = "L75_HPO_STATUS_SAMPLE_TRANSPORT_WAITING";
+        internal const string SampleTransportDeliveryStatus = "L75_HPO_STATUS_SAMPLE_TRANSPORT_DELIVERY";
+        internal const string SampleTransportReturnStatus = "L75_HPO_STATUS_SAMPLE_TRANSPORT_RETURN";
         internal const string SampleCart = "L75_HPO_OBJECT_SAMPLE_CART";
         internal const string SampleCartDescription = "L75_HPO_OBJECT_SAMPLE_CART_DESCRIPTION";
         internal const string SampleCartNotification = "L75_HPO_NOTIF_NOT_ENOUGH_SAMPLE_CARTS";
@@ -29,6 +33,13 @@ namespace HospitalPorters
         internal const string SamplePorterCapacityNotificationText = "L75_HPO_NOTIF_SAMPLE_PORTER_CAPACITY_TEXT";
         internal const string PatientPorterCapacityNotification = "L75_HPO_NOTIF_PATIENT_PORTER_CAPACITY";
         internal const string PatientPorterCapacityNotificationText = "L75_HPO_NOTIF_PATIENT_PORTER_CAPACITY_TEXT";
+
+        internal static bool IsOwned(string stringId)
+        {
+            return !string.IsNullOrEmpty(stringId) &&
+                (stringId.StartsWith("HPO_", StringComparison.Ordinal) ||
+                 stringId.StartsWith("L75_HPO_", StringComparison.Ordinal));
+        }
 
         internal static string Normalize(string stringId)
         {
@@ -130,6 +141,26 @@ namespace HospitalPorters
             }
         }
 
+        private sealed class SampleTransportStatusTranslation
+        {
+            internal readonly string Pickup;
+            internal readonly string Waiting;
+            internal readonly string Delivery;
+            internal readonly string Returning;
+
+            internal SampleTransportStatusTranslation(
+                string pickup,
+                string waiting,
+                string delivery,
+                string returning)
+            {
+                Pickup = pickup;
+                Waiting = waiting;
+                Delivery = delivery;
+                Returning = returning;
+            }
+        }
+
         private sealed class CapacityNotificationTranslation
         {
             internal readonly string Title;
@@ -146,6 +177,113 @@ namespace HospitalPorters
                 PatientText = patientText;
             }
         }
+
+        private static readonly Dictionary<string, SampleTransportStatusTranslation>
+            SampleTransportStatuses =
+                new Dictionary<string, SampleTransportStatusTranslation>(
+                    StringComparer.OrdinalIgnoreCase)
+                {
+                    { "en", new SampleTransportStatusTranslation(
+                        "Sample transport - Pickup: {1}",
+                        "Sample transport - Waiting: {1}",
+                        "Sample transport - Delivery: {1}",
+                        "Sample transport - Returning to station") },
+                    { "cz", new SampleTransportStatusTranslation(
+                        "Přeprava vzorků - Vyzvednutí: {1}",
+                        "Přeprava vzorků - Čekání: {1}",
+                        "Přeprava vzorků - Doručení: {1}",
+                        "Přeprava vzorků - Návrat na stanici") },
+                    { "da", new SampleTransportStatusTranslation(
+                        "Prøvetransport - Afhentning: {1}",
+                        "Prøvetransport - Venter: {1}",
+                        "Prøvetransport - Levering: {1}",
+                        "Prøvetransport - Tilbage til stationen") },
+                    { "de", new SampleTransportStatusTranslation(
+                        "Probentransport - Abholung: {1}",
+                        "Probentransport - Warten: {1}",
+                        "Probentransport - Lieferung: {1}",
+                        "Probentransport - Rückkehr zur Station") },
+                    { "es", new SampleTransportStatusTranslation(
+                        "Transporte de muestras - Recogida: {1}",
+                        "Transporte de muestras - Espera: {1}",
+                        "Transporte de muestras - Entrega: {1}",
+                        "Transporte de muestras - Regreso a la estación") },
+                    { "esla", new SampleTransportStatusTranslation(
+                        "Transporte de muestras - Recogida: {1}",
+                        "Transporte de muestras - Espera: {1}",
+                        "Transporte de muestras - Entrega: {1}",
+                        "Transporte de muestras - Regreso a la estación") },
+                    { "fr", new SampleTransportStatusTranslation(
+                        "Transport d'échantillons - Récupération : {1}",
+                        "Transport d'échantillons - En attente : {1}",
+                        "Transport d'échantillons - Dépôt : {1}",
+                        "Transport d'échantillons - Retour au poste") },
+                    { "hu", new SampleTransportStatusTranslation(
+                        "Mintaszállítás - Felvétel: {1}",
+                        "Mintaszállítás - Várakozás: {1}",
+                        "Mintaszállítás - Leadás: {1}",
+                        "Mintaszállítás - Visszatérés az állomásra") },
+                    { "it", new SampleTransportStatusTranslation(
+                        "Trasporto campioni - Ritiro: {1}",
+                        "Trasporto campioni - Attesa: {1}",
+                        "Trasporto campioni - Consegna: {1}",
+                        "Trasporto campioni - Ritorno alla postazione") },
+                    { "jp", new SampleTransportStatusTranslation(
+                        "検体搬送 - 回収: {1}",
+                        "検体搬送 - 待機: {1}",
+                        "検体搬送 - 搬入: {1}",
+                        "検体搬送 - ステーションへ戻る") },
+                    { "kr", new SampleTransportStatusTranslation(
+                        "검체 이송 - 수거: {1}",
+                        "검체 이송 - 대기: {1}",
+                        "검체 이송 - 전달: {1}",
+                        "검체 이송 - 스테이션으로 복귀") },
+                    { "nl", new SampleTransportStatusTranslation(
+                        "Monstertransport - Ophalen: {1}",
+                        "Monstertransport - Wachten: {1}",
+                        "Monstertransport - Afleveren: {1}",
+                        "Monstertransport - Terug naar station") },
+                    { "pl", new SampleTransportStatusTranslation(
+                        "Transport próbek - Odbiór: {1}",
+                        "Transport próbek - Oczekiwanie: {1}",
+                        "Transport próbek - Dostawa: {1}",
+                        "Transport próbek - Powrót na stanowisko") },
+                    { "ptbr", new SampleTransportStatusTranslation(
+                        "Transporte de amostras - Coleta: {1}",
+                        "Transporte de amostras - Aguardando: {1}",
+                        "Transporte de amostras - Entrega: {1}",
+                        "Transporte de amostras - Retorno à estação") },
+                    { "ru", new SampleTransportStatusTranslation(
+                        "Перевозка образцов - Получение: {1}",
+                        "Перевозка образцов - Ожидание: {1}",
+                        "Перевозка образцов - Доставка: {1}",
+                        "Перевозка образцов - Возвращение на станцию") },
+                    { "swe", new SampleTransportStatusTranslation(
+                        "Provtransport - Hämtning: {1}",
+                        "Provtransport - Väntar: {1}",
+                        "Provtransport - Leverans: {1}",
+                        "Provtransport - Återvänder till stationen") },
+                    { "tr", new SampleTransportStatusTranslation(
+                        "Numune taşıma - Teslim alma: {1}",
+                        "Numune taşıma - Bekleme: {1}",
+                        "Numune taşıma - Teslimat: {1}",
+                        "Numune taşıma - İstasyona dönüş") },
+                    { "uk", new SampleTransportStatusTranslation(
+                        "Транспортування зразків - Забір: {1}",
+                        "Транспортування зразків - Очікування: {1}",
+                        "Транспортування зразків - Доставка: {1}",
+                        "Транспортування зразків - Повернення на станцію") },
+                    { "zhcn", new SampleTransportStatusTranslation(
+                        "样本运送 - 收取: {1}",
+                        "样本运送 - 等待: {1}",
+                        "样本运送 - 送达: {1}",
+                        "样本运送 - 返回工作站") },
+                    { "zhtw", new SampleTransportStatusTranslation(
+                        "檢體運送 - 收取: {1}",
+                        "檢體運送 - 等待: {1}",
+                        "檢體運送 - 送達: {1}",
+                        "檢體運送 - 返回工作站") }
+                };
 
         private static readonly Translation English = new Translation(
             "Porter",
@@ -661,7 +799,9 @@ namespace HospitalPorters
                     "運送員抱怨在 {1} 沒有可用的檢體推車，只能逐一運送檢體。") }
             };
 
-        internal static string Get(string stringId)
+        internal static string Get(
+            string stringId,
+            params string[] parameters)
         {
             string language = StringTable.GetInstance()?.GetCurrentLanguage();
             if (string.IsNullOrEmpty(language) &&
@@ -671,7 +811,11 @@ namespace HospitalPorters
             }
 
             string result;
-            return TryGetLocalizedText(language, stringId, null, out result)
+            return TryGetLocalizedText(
+                    language,
+                    stringId,
+                    parameters,
+                    out result)
                 ? result
                 : stringId;
         }
@@ -683,7 +827,8 @@ namespace HospitalPorters
             out string result)
         {
             result = null;
-            if (string.IsNullOrEmpty(stringId))
+            if (string.IsNullOrEmpty(stringId) ||
+                !PorterLocalizationIds.IsOwned(stringId))
             {
                 return false;
             }
@@ -695,6 +840,43 @@ namespace HospitalPorters
                 !Translations.TryGetValue(normalizedLanguage, out translation))
             {
                 translation = English;
+            }
+
+            if (normalizedId == PorterLocalizationIds.SampleTransportPickupStatus ||
+                normalizedId == PorterLocalizationIds.SampleTransportWaitingStatus ||
+                normalizedId == PorterLocalizationIds.SampleTransportDeliveryStatus ||
+                normalizedId == PorterLocalizationIds.SampleTransportReturnStatus)
+            {
+                SampleTransportStatusTranslation sampleStatus;
+                if (!SampleTransportStatuses.TryGetValue(
+                        normalizedLanguage ?? string.Empty,
+                        out sampleStatus))
+                {
+                    sampleStatus = SampleTransportStatuses["en"];
+                }
+
+                if (normalizedId ==
+                    PorterLocalizationIds.SampleTransportPickupStatus)
+                {
+                    result = sampleStatus.Pickup;
+                }
+                else if (normalizedId ==
+                    PorterLocalizationIds.SampleTransportWaitingStatus)
+                {
+                    result = sampleStatus.Waiting;
+                }
+                else if (normalizedId ==
+                    PorterLocalizationIds.SampleTransportDeliveryStatus)
+                {
+                    result = sampleStatus.Delivery;
+                }
+                else
+                {
+                    result = sampleStatus.Returning;
+                }
+
+                ApplyParameters(ref result, parameters);
+                return true;
             }
 
             if (normalizedId == PorterLocalizationIds.SamplePorterCapacityNotification ||

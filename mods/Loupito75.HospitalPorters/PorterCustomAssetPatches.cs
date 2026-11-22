@@ -15,9 +15,6 @@ namespace HospitalPorters
         new Type[] { typeof(GameDBEmployeeRole) })]
     internal static class PorterReceptionRolePresentationPatch
     {
-        private static readonly FieldInfo EmployeeEntityField =
-            AccessTools.Field(typeof(EmployeeComponent), "m_entity");
-
         [HarmonyPostfix]
         private static void Postfix(
             EmployeeComponent __instance,
@@ -25,13 +22,12 @@ namespace HospitalPorters
             ref bool __result)
         {
             if (__result || __instance == null || employeeRole == null ||
-                employeeRole != Database.Instance.GetEntry<GameDBEmployeeRole>("EMPL_ROLE_RECEPTIONIST") ||
-                object.ReferenceEquals(EmployeeEntityField, null))
+                employeeRole != Database.Instance.GetEntry<GameDBEmployeeRole>("EMPL_ROLE_RECEPTIONIST"))
             {
                 return;
             }
 
-            Entity entity = EmployeeEntityField.GetValue(__instance) as Entity;
+            Entity entity = __instance.m_entity;
             if (PorterIdentity.IsPorter(entity))
             {
                 // Presentation compatibility only. Porters never receive the Nurse

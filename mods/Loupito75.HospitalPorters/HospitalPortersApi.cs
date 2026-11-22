@@ -23,6 +23,24 @@ namespace HospitalPorters
             return 2;
         }
 
+        // Generic producer-push contract. The registry is runtime-only;
+        // HPO still owns all claim, reservation, routing and delivery logic.
+        public static int GetExternalSamplePickupApiVersion()
+        {
+            return 1;
+        }
+
+        public static bool TrySetExternalSamplePickupState(
+            LabProcedure procedure,
+            string sourceId,
+            bool available)
+        {
+            return ExternalSamplePickupRuntime.TrySetState(
+                procedure,
+                sourceId,
+                available);
+        }
+
         public static bool IsPorter(Entity entity)
         {
             return PorterIdentity.IsPorter(entity);
