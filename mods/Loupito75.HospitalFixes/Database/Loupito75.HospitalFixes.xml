@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Database>
+  <GameDBNotification ID="L75_HFX_NOTIF_LAB_EQUIPMENT_SHORTAGE">
+    <TextLocID>L75_HFX_NOTIF_LAB_EQUIPMENT_SHORTAGE_TEXT</TextLocID>
+    <DefaultMessageLevel>POPUP</DefaultMessageLevel>
+    <PopupButtonActionA>POPUP_HIDDEN_BUTTON</PopupButtonActionA>
+    <PopupButtonActionB>POPUP_GOTO</PopupButtonActionB>
+    <PopupButtonActionC>POPUP_OK</PopupButtonActionC>
+    <DefaultColorRef>NOTIF_COLOR_YELLOW</DefaultColorRef>
+  </GameDBNotification>
+
   <GameDBAsset ID="L75_HFX_ASSET_RESERVED_STAFF_WAIT_BUBBLE">
     <Type>TEXTURE_CUSTOM_SPRITE</Type>
     <File>MOD_ROOT/Textures/UI/L75_HFX_RESERVED_STAFF_WAIT_BUBBLE.png</File>

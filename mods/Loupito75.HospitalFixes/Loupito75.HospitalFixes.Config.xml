@@ -58,6 +58,11 @@
     <!-- @HMUC:set label="Fix character visual depth" control="checkbox" -->
     <!-- @HMUC:desc Corrects standing active-use depth when the real use position is on a different tile from the used object, while preserving Vanilla's native -0.24/-0.26 local depth bias. Same-tile, seated and lying interactions remain Vanilla. -->
     <FixCharacterVisualDepth>true</FixCharacterVisualDepth>
+
+    <!-- @HMUC:set label="Fade transported patients with elevators" control="checkbox" -->
+    <!-- @HMUC:desc Keeps a physically attached stretcher or wheelchair patient synchronized with the mover at the exact moment Vanilla starts the mover's elevator FadeOut. HFX uses the same native fade duration and does not change elevator timing, movement, transport state or destination. -->
+    <FixAttachedPatientElevatorFade>true</FixAttachedPatientElevatorFade>
+
   </RenderingAndVisuals>
 
   <!-- @HMUC:desc Patient/staff flow and movable-equipment corrections. -->
@@ -86,19 +91,46 @@
     <!-- @HMUC:desc Scores transportable procedure equipment by its real stretcher access tile for hospitalized patients and keeps negative distances only as a fallback when no measurable candidate exists. -->
     <FixHospitalizedProcedureEquipmentSelection>true</FixHospitalizedProcedureEquipmentSelection>
 
+    <!-- @HMUC:set label="Fix intrinsic workspace roles" control="checkbox" -->
+    <!-- @HMUC:desc Makes Vanilla roles that intrinsically belong to a specialized workspace follow the same ForceWorkSpace/AlwaysChecked rule: the role stays active and cannot be manually disabled while the employee occupies its matching workspace. Includes Receptionist, Pharmacist and the existing Cleaning/Vendor/Janitor Manager pattern. -->
+    <FixIntrinsicWorkspaceRoles>true</FixIntrinsicWorkspaceRoles>
+
+    <!-- @HMUC:set label="Keep lab procedures in assigned Stat Lab" control="checkbox" -->
+    <!-- @HMUC:desc For hospitalized lab work, keeps every idle LabProcedure bound to the exact Stat Lab selected by Vanilla. If a SamplingFinished procedure has no resolvable Stat Lab, HFX reruns Vanilla room selection before filtering; delivered or in-progress work is never silently retargeted. -->
+    <FixLabProcedureStatLabConsistency>true</FixLabProcedureStatLabConsistency>
+
+    <!-- @HMUC:desc Controls the HFX correction for a Vanilla Lab Technologist who has already collected a sample but must wait for a free Stat Lab medical refrigerator. -->
+    <LabSpecialistSampleDestinationWait>
+      <!-- @HMUC:set label="Fix Lab Technologist destination-fridge waiting" control="checkbox" -->
+      <!-- @HMUC:desc Enables HFX staging and waiting behavior after sample pickup while Vanilla still owns the final refrigerator selection and reservation. -->
+      <Enabled>true</Enabled>
+
+      <!-- @HMUC:set label="Lab Technologist fridge retry minutes" control="slider" min="1" max="60" step="1" -->
+      <!-- @HMUC:desc In-game minutes between Vanilla medical-refrigerator availability searches while the Lab Technologist is waiting. Reduces repeated path/resource scans without changing the destination rule. -->
+      <RetryMinutes>2</RetryMinutes>
+
+      <!-- @HMUC:set label="Lab fridge contention attempts" control="slider" min="1" max="10" step="1" -->
+      <!-- @HMUC:desc Number of failed medical-refrigerator searches before HFX may show the laboratory-equipment-shortage popup. -->
+      <ContentionAttempts>2</ContentionAttempts>
+
+      <!-- @HMUC:set label="Show lab equipment shortage popup" control="checkbox" -->
+      <!-- @HMUC:desc Shows a popup when valid Stat Lab medical refrigerators exist but are all currently occupied or reserved after the configured contention attempts. Disabling this affects only the popup. -->
+      <ShowEquipmentShortagePopup>true</ShowEquipmentShortagePopup>
+    </LabSpecialistSampleDestinationWait>
+
     <!-- @HMUC:set label="Prevent duplicate janitor cleaning" control="checkbox" -->
     <!-- @HMUC:desc Keeps Vanilla janitor room-dirt selection inside the room's real tile topology and reserves each next cleaning destination, including the first 3x3 cart landing tile, so multiple janitors can clean in parallel without converging on the same tile. -->
     <PreventDuplicateJanitorCleaning>true</PreventDuplicateJanitorCleaning>
   </HospitalOperations>
 
-  <!-- @HMUC:desc Controls targeted staff visual cues during Vanilla procedures without changing movement, procedure logic, reservations or timing. -->
+  <!-- @HMUC:desc Controls targeted waiting/thinking cues during Vanilla clinical procedures without changing movement, procedure logic, reservations or timing. -->
   <ProcedureVisuals>
     <!-- @HMUC:set label="Clinical procedure waiting visuals" control="checkbox" -->
     <!-- @HMUC:desc Adds waiting visuals only to reviewed procedure states where clinical staff are genuinely waiting, including patient-arrival waits and pre-op surgery preparation. Native animations, equipment use and speech keep priority. -->
     <ClinicalProcedureWaitingVisuals>true</ClinicalProcedureWaitingVisuals>
 
-    <!-- @HMUC:set label="Collapse transport-nurse waiting visuals" control="checkbox" -->
-    <!-- @HMUC:desc After the native three-second collapse acknowledgement bubble ends, shows the HFX waiting bubble and native stand_wait animation while the dedicated transport nurse is intentionally stopped and reserved. Vanilla still chooses the stretcher and sends the nurse to it; HFX does not move or reserve anything. -->
+    <!-- @HMUC:set label="Collapse waiting visuals" control="checkbox" -->
+    <!-- @HMUC:desc Keeps the dedicated collapse transport nurse visibly waiting while reserved. Responders are handled only during the final external-transfer wait (WAITING_FOR_TRANSPORT_AWAY / TRANSPORTED_AWAY): after their equipment use and queued clinical animation have finished, HFX may stage them to a nearby free tile away from collapse interaction equipment, then show stand_wait plus the HFX waiting bubble. First Aid, bed search, internal transport, defibrillation and breathing/treatment remain Vanilla. -->
     <CollapseTransportNurseWaitingVisuals>true</CollapseTransportNurseWaitingVisuals>
 
     <!-- @HMUC:set label="Clinical procedure thinking visuals" control="checkbox" -->
@@ -125,7 +157,7 @@
 
   </Construction>
 
-  <!-- @HMUC:desc Patient examination clothing and optional Hospital Shift Handover locker visuals. -->
+  <!-- @HMUC:desc Patient examination clothing and optional clothing-change visuals requested by compatible external mods. -->
   <Clothing>
     <!-- @HMUC:set label="Avoid redundant examination clothing changes" control="checkbox" -->
     <!-- @HMUC:desc Keeps an outpatient in compatible examination clothing while examinations continue in the same consultation room, then restores Vanilla clothing before leaving or starting other care. -->
@@ -135,8 +167,8 @@
     <!-- @HMUC:desc Plays a short visual animation during Vanilla's existing three-second patient clothing-change pause, without changing procedure timing or patient gameplay state. -->
     <AnimatePatientClothingChanges>true</AnimatePatientClothingChanges>
 
-    <!-- @HMUC:set label="Animate HSH staff clothing changes" control="checkbox" -->
-    <!-- @HMUC:desc Adds the Hospital Fixes visual clothing-change effect to locker dressing performed by Hospital Shift Handover. Ignored when HSH is not installed and never affects Vanilla biohazard clothing changes. -->
+    <!-- @HMUC:set label="Animate external clothing changes" control="checkbox" -->
+    <!-- @HMUC:desc Enables the Hospital Fixes visual clothing-change effect for compatible external mod workflows. Hospital Shift Handover is one current example. This option never affects Vanilla biohazard clothing changes. -->
     <AnimateHshStaffClothingChanges>true</AnimateHshStaffClothingChanges>
   </Clothing>
   <!-- @HMUC:desc Optional runtime diagnostics for validating when HFX fixes actually intervene. Disabled by default. -->

@@ -12,7 +12,7 @@ namespace HospitalFixes.Patches
     internal static class ClothingChangeEffectRenderer
     {
         private const int ExpectedTextureSize = 128;
-        // Standing patient and HSH staff overlays use the same artwork
+        // Standing patient and external staff overlays use the same artwork
         // and therefore share one in-game directional calibration.
         // Unknown directions deliberately show no overlay instead of falling
         // back to an approximate position.
@@ -390,13 +390,22 @@ namespace HospitalFixes.Patches
             Entity entity,
             AnimModelComponent animation)
         {
+            TryStartStandalone(
+                entity,
+                animation);
+        }
+
+        internal static bool TryStartStandalone(
+            Entity entity,
+            AnimModelComponent animation)
+        {
             if (entity == null ||
                 animation == null ||
                 !EnsureAssets(
                     seated: false,
                     lying: false))
             {
-                return;
+                return false;
             }
 
             Stop(entity);
@@ -412,12 +421,14 @@ namespace HospitalFixes.Patches
             if (HfxDiagnostics.Enabled)
             {
                 HfxDiagnostics.Observed(
-                    "AnimateHshStaffClothingChanges",
-                    "ClothingChangeEffectRenderer.StartStandalone",
+                    "ExternalStaffClothingChanges",
+                    "ClothingChangeEffectRenderer.TryStartStandalone",
                     "effect-state-active",
                     "entity=" + HfxDiagnostics.EntityLabel(entity) +
                     " profile=staff-standing");
             }
+
+            return true;
         }
 
         internal static void Stop(Entity entity)
@@ -517,7 +528,7 @@ namespace HospitalFixes.Patches
                     if (HfxDiagnostics.Enabled)
                     {
                         HfxDiagnostics.Result(
-                            "AnimateHshStaffClothingChanges",
+                            "ExternalStaffClothingChanges",
                             "ClothingChangeEffectRenderer.UpdateEffect",
                             "effect-duration-completed",
                             "profile=staff-standing" +

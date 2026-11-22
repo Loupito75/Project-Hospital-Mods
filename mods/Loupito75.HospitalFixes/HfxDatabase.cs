@@ -180,6 +180,9 @@ namespace HospitalFixes
         {
             if (!add && !HfxDatabase.IsLoading)
             {
+                Patches.IntrinsicWorkspaceRoleFix
+                    .ResetForBaseLoad();
+
                 HfxDatabase.ResetForBaseLoad();
             }
         }
@@ -189,6 +192,10 @@ namespace HospitalFixes
             if (!add && !HfxDatabase.IsLoading)
             {
                 HfxDatabase.Load(__instance);
+
+                Patches.IntrinsicWorkspaceRoleFix
+                    .ApplyDatabaseCorrections(
+                        __instance);
             }
         }
     }

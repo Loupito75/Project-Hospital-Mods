@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Xml;
-using BepInEx.Bootstrap;
 
 namespace HospitalFixes
 {
@@ -23,6 +22,12 @@ namespace HospitalFixes
         internal static bool RecoverMissingHospitalBed = true;
         internal static bool PreventPrematureTransportBedRelease = true;
         internal static bool FixHospitalizedProcedureEquipmentSelection = true;
+        internal static bool FixIntrinsicWorkspaceRoles = true;
+        internal static bool FixLabProcedureStatLabConsistency = true;
+        internal static bool LabSpecialistSampleDestinationWaitEnabled = true;
+        internal static int LabSpecialistSampleDestinationFridgeRetryMinutes = 2;
+        internal static int LabSpecialistSampleDestinationFridgeContentionAttempts = 2;
+        internal static bool LabSpecialistSampleDestinationFridgeShowPopup = true;
         internal static bool PreventDuplicateEmployeeDayStart = true;
         internal static bool AllowWallAndCeilingObjectsAboveGroundObjects = true;
         internal static bool ClarifyWaitingRoomNotifications = true;
@@ -36,9 +41,10 @@ namespace HospitalFixes
         internal static bool CollapseTransportNurseWaitingVisuals = true;
         internal static bool ClinicalProcedureThinkingVisuals = true;
         internal static bool FixCharacterVisualDepth = true;
+        internal static bool FixAttachedPatientElevatorFade = true;
         internal static bool AvoidRedundantExamClothingChanges = true;
         internal static bool AnimatePatientClothingChanges = true;
-        internal static bool AnimateHshStaffClothingChanges = true;
+        internal static bool AnimateExternalClothingChanges = true;
         internal static bool EnableDiagnostics = false;
 
 
@@ -57,6 +63,12 @@ namespace HospitalFixes
             RecoverMissingHospitalBed = true;
             PreventPrematureTransportBedRelease = true;
             FixHospitalizedProcedureEquipmentSelection = true;
+            FixIntrinsicWorkspaceRoles = true;
+            FixLabProcedureStatLabConsistency = true;
+            LabSpecialistSampleDestinationWaitEnabled = true;
+            LabSpecialistSampleDestinationFridgeRetryMinutes = 2;
+            LabSpecialistSampleDestinationFridgeContentionAttempts = 2;
+            LabSpecialistSampleDestinationFridgeShowPopup = true;
             PreventDuplicateEmployeeDayStart = true;
             AllowWallAndCeilingObjectsAboveGroundObjects = true;
             ClarifyWaitingRoomNotifications = true;
@@ -70,9 +82,10 @@ namespace HospitalFixes
             CollapseTransportNurseWaitingVisuals = true;
             ClinicalProcedureThinkingVisuals = true;
             FixCharacterVisualDepth = true;
+            FixAttachedPatientElevatorFade = true;
             AvoidRedundantExamClothingChanges = true;
             AnimatePatientClothingChanges = true;
-            AnimateHshStaffClothingChanges = true;
+            AnimateExternalClothingChanges = true;
             EnableDiagnostics = false;
 
             string folder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -177,6 +190,12 @@ namespace HospitalFixes
                         "RenderingAndVisuals",
                         "FixCharacterVisualDepth",
                         true);
+                FixAttachedPatientElevatorFade =
+                    ReadGroupedBool(
+                        root,
+                        "RenderingAndVisuals",
+                        "FixAttachedPatientElevatorFade",
+                        true);
                 PreserveBlockedMobileEquipment =
                     ReadGroupedBool(
                         root,
@@ -213,6 +232,20 @@ namespace HospitalFixes
                         "HospitalOperations",
                         "FixHospitalizedProcedureEquipmentSelection",
                         true);
+                FixIntrinsicWorkspaceRoles =
+                    ReadGroupedBool(
+                        root,
+                        "HospitalOperations",
+                        "FixIntrinsicWorkspaceRoles",
+                        true);
+                FixLabProcedureStatLabConsistency =
+                    ReadGroupedBool(
+                        root,
+                        "HospitalOperations",
+                        "FixLabProcedureStatLabConsistency",
+                        true);
+                ReadLabSpecialistSampleDestinationWait(
+                    root);
                 PreventDuplicateJanitorCleaning =
                     ReadGroupedBool(
                         root,
@@ -259,7 +292,9 @@ namespace HospitalFixes
                         "Clothing",
                         "AnimatePatientClothingChanges",
                         true);
-                AnimateHshStaffClothingChanges =
+                // Keep the public 1.0.0 XML key stable. The setting now
+                // controls the producer-agnostic External Clothing Change API.
+                AnimateExternalClothingChanges =
                     ReadGroupedBool(
                         root,
                         "Clothing",
@@ -289,6 +324,12 @@ namespace HospitalFixes
                 RecoverMissingHospitalBed = true;
                 PreventPrematureTransportBedRelease = true;
                 FixHospitalizedProcedureEquipmentSelection = true;
+                FixIntrinsicWorkspaceRoles = true;
+                FixLabProcedureStatLabConsistency = true;
+                LabSpecialistSampleDestinationWaitEnabled = true;
+                LabSpecialistSampleDestinationFridgeRetryMinutes = 2;
+                LabSpecialistSampleDestinationFridgeContentionAttempts = 2;
+                LabSpecialistSampleDestinationFridgeShowPopup = true;
                 PreventDuplicateEmployeeDayStart = true;
                 AllowWallAndCeilingObjectsAboveGroundObjects = true;
                 ClarifyWaitingRoomNotifications = true;
@@ -302,9 +343,10 @@ namespace HospitalFixes
                 CollapseTransportNurseWaitingVisuals = true;
                 ClinicalProcedureThinkingVisuals = true;
                 FixCharacterVisualDepth = true;
+                FixAttachedPatientElevatorFade = true;
                 AvoidRedundantExamClothingChanges = true;
                 AnimatePatientClothingChanges = true;
-                AnimateHshStaffClothingChanges = true;
+                AnimateExternalClothingChanges = true;
                 EnableDiagnostics = false;
                 Plugin.Log.LogWarning(
                     "Invalid " + FileName +
@@ -327,6 +369,10 @@ namespace HospitalFixes
                 ", RecoverMissingHospitalBed=" + RecoverMissingHospitalBed +
                 ", PreventPrematureTransportBedRelease=" + PreventPrematureTransportBedRelease +
                 ", FixHospitalizedProcedureEquipmentSelection=" + FixHospitalizedProcedureEquipmentSelection +
+                ", LabSpecialistSampleDestinationWaitEnabled=" + LabSpecialistSampleDestinationWaitEnabled +
+                ", LabSpecialistSampleDestinationFridgeRetryMinutes=" + LabSpecialistSampleDestinationFridgeRetryMinutes +
+                ", LabSpecialistSampleDestinationFridgeContentionAttempts=" + LabSpecialistSampleDestinationFridgeContentionAttempts +
+                ", LabSpecialistSampleDestinationFridgeShowPopup=" + LabSpecialistSampleDestinationFridgeShowPopup +
                 ", PreventDuplicateEmployeeDayStart=" + PreventDuplicateEmployeeDayStart +
                 ", AllowWallAndCeilingObjectsAboveGroundObjects=" + AllowWallAndCeilingObjectsAboveGroundObjects +
                 ", ClarifyWaitingRoomNotifications=" + ClarifyWaitingRoomNotifications +
@@ -335,28 +381,84 @@ namespace HospitalFixes
                 ", FixPatientListHeading=" + FixPatientListHeading +
                 ", FixEmployeeListLevelDisplay=" + FixEmployeeListLevelDisplay +
                 ", FixWorkspaceEmployeeSelection=" + FixWorkspaceEmployeeSelection +
+                ", FixIntrinsicWorkspaceRoles=" + FixIntrinsicWorkspaceRoles +
+                ", FixLabProcedureStatLabConsistency=" + FixLabProcedureStatLabConsistency +
                 ", PreventDuplicateJanitorCleaning=" + PreventDuplicateJanitorCleaning +
                 ", ClinicalProcedureWaitingVisuals=" + ClinicalProcedureWaitingVisuals +
                 ", CollapseTransportNurseWaitingVisuals=" + CollapseTransportNurseWaitingVisuals +
                 ", ClinicalProcedureThinkingVisuals=" + ClinicalProcedureThinkingVisuals +
                 ", FixCharacterVisualDepth=" + FixCharacterVisualDepth +
+                ", FixAttachedPatientElevatorFade=" + FixAttachedPatientElevatorFade +
                 ", AvoidRedundantExamClothingChanges=" + AvoidRedundantExamClothingChanges +
                 ", AnimatePatientClothingChanges=" + AnimatePatientClothingChanges +
-                ", AnimateHshStaffClothingChanges=" + AnimateHshStaffClothingChanges +
-                ", Diagnostics=" + EnableDiagnostics +
-                ", HshStaffClothingAnimationActive=" + IsHshStaffClothingAnimationEnabled);
+                ", AnimateExternalClothingChanges=" + AnimateExternalClothingChanges +
+                ", Diagnostics=" + EnableDiagnostics);
             }
         }
 
 
-        internal static bool IsHshStaffClothingAnimationEnabled
+        internal static bool ExternalClothingChangeVisualsEnabled
         {
             get
             {
-                return AnimateHshStaffClothingChanges &&
-                    Chainloader.PluginInfos != null &&
-                    Chainloader.PluginInfos.ContainsKey("loupito75.HospitalShiftHandover");
+                return AnimateExternalClothingChanges;
             }
+        }
+
+        private static void ReadLabSpecialistSampleDestinationWait(
+            XmlElement root)
+        {
+            XmlElement hospitalOperations =
+                root.SelectSingleNode(
+                    "HospitalOperations")
+                as XmlElement;
+
+            XmlElement wait =
+                hospitalOperations == null
+                    ? null
+                    : hospitalOperations.SelectSingleNode(
+                        "LabSpecialistSampleDestinationWait")
+                        as XmlElement;
+
+            if (wait == null)
+            {
+                // Compatibility with the short-lived internal 1.0.0.11 key.
+                LabSpecialistSampleDestinationWaitEnabled =
+                    ReadGroupedBool(
+                        root,
+                        "HospitalOperations",
+                        "FixLabSpecialistSampleDestinationWait",
+                        true);
+                LabSpecialistSampleDestinationFridgeRetryMinutes = 2;
+                LabSpecialistSampleDestinationFridgeContentionAttempts = 2;
+                LabSpecialistSampleDestinationFridgeShowPopup = true;
+                return;
+            }
+
+            LabSpecialistSampleDestinationWaitEnabled =
+                ReadBool(
+                    wait,
+                    "Enabled",
+                    true);
+            LabSpecialistSampleDestinationFridgeRetryMinutes =
+                ReadInt(
+                    wait,
+                    "RetryMinutes",
+                    2,
+                    1,
+                    60);
+            LabSpecialistSampleDestinationFridgeContentionAttempts =
+                ReadInt(
+                    wait,
+                    "ContentionAttempts",
+                    2,
+                    1,
+                    10);
+            LabSpecialistSampleDestinationFridgeShowPopup =
+                ReadBool(
+                    wait,
+                    "ShowEquipmentShortagePopup",
+                    true);
         }
 
         private static void ReadConstructionPlacement(XmlElement root)
@@ -403,6 +505,40 @@ namespace HospitalFixes
                 group,
                 optionName,
                 defaultValue);
+        }
+
+        private static int ReadInt(
+            XmlElement root,
+            string name,
+            int defaultValue,
+            int min,
+            int max)
+        {
+            XmlNode node =
+                root.SelectSingleNode(name);
+
+            if (node == null)
+            {
+                return defaultValue;
+            }
+
+            int parsed;
+            if (!int.TryParse(
+                    node.InnerText.Trim(),
+                    out parsed) ||
+                parsed < min ||
+                parsed > max)
+            {
+                throw new FormatException(
+                    name +
+                    " must be between " +
+                    min +
+                    " and " +
+                    max +
+                    ".");
+            }
+
+            return parsed;
         }
 
         private static bool ReadBool(XmlElement root, string name, bool defaultValue)

@@ -85,9 +85,6 @@ namespace HospitalFixes.Patches
                     ActiveAnimations.Clear();
                 }
 
-                HshStaffClothingChangeIntegration
-                    .ClearTransientState();
-
                 ClothingChangeEffectRenderer.ClearAll(
                     destroyAssets: true);
             }
