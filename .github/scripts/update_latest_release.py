@@ -1569,6 +1569,12 @@ def inspect_release_zip(
         top_level_files,
     )
 
+    # Package ownership is file-by-file. The current release owns every
+    # shipped file except the protected user configuration. Retired files
+    # are derived later from the previous signed catalog entry, so unknown
+    # user files beside mod assets are never deleted.
+    runtime_directories = []
+
     runtime_files = sorted(
         (
             value
@@ -1578,12 +1584,6 @@ def inspect_release_zip(
         ),
         key=str.lower,
     )
-
-    # Ownership is intentionally file-by-file.
-    # Never infer a mirror directory from ZIP structure:
-    # a directory such as Audio/MyMusic may contain user files
-    # that must survive a mod update.
-    runtime_directories = []
 
     if plugin_file not in runtime_files:
         raise RuntimeError(
@@ -1638,8 +1638,8 @@ def inspect_release_zip(
         "runtimeFiles":
             runtime_files,
 
-        # Deletions must always be explicit.
-        # The workflow never infers them.
+        # Filled from signed package ownership history during catalog
+        # upsert/rebuild. New packages start with no retired files.
         "removeFiles": [],
     }
 
@@ -1801,6 +1801,75 @@ def version_tuple(value):
     )
 
 
+def apply_historical_file_ownership(
+    existing,
+    package,
+):
+    if existing is None:
+        package["removeFiles"] = []
+        return
+
+    current_files = package.get(
+        "runtimeFiles",
+        [],
+    )
+
+    current_by_lower = {
+        value.lower(): value
+        for value in current_files
+    }
+
+    historical_by_lower = {}
+
+    for field_name in (
+        "runtimeFiles",
+        "removeFiles",
+    ):
+        values = existing.get(
+            field_name,
+            [],
+        )
+
+        if not isinstance(values, list):
+            raise RuntimeError(
+                "Existing package "
+                + field_name
+                + " metadata is invalid for "
+                + package["guid"]
+                + "."
+            )
+
+        for value in values:
+            if not isinstance(value, str):
+                raise RuntimeError(
+                    "Existing package "
+                    + field_name
+                    + " contains a non-string path for "
+                    + package["guid"]
+                    + "."
+                )
+
+            historical_by_lower.setdefault(
+                value.lower(),
+                value,
+            )
+
+    protected_config = package[
+        "configFile"
+    ].lower()
+
+    package["removeFiles"] = sorted(
+        (
+            original
+            for key, original
+            in historical_by_lower.items()
+            if key not in current_by_lower
+            and key != protected_config
+        ),
+        key=str.lower,
+    )
+
+
 def upsert_package(
     manifest,
     package,
@@ -1867,18 +1936,24 @@ def upsert_package(
                 + package["version"]
             )
 
-        if (
-            old_version
+    apply_historical_file_ownership(
+        existing,
+        package,
+    )
+
+    if (
+        old_version
+        and old_version
             == package["version"]
-            and existing != package
-        ):
-            raise RuntimeError(
-                "Package metadata changed for "
-                "an already published version "
-                + package["version"]
-                + ". Publish a new version instead "
-                "of replacing an existing asset."
-            )
+        and existing != package
+    ):
+        raise RuntimeError(
+            "Package metadata changed for "
+            "an already published version "
+            + package["version"]
+            + ". Publish a new version instead "
+            "of replacing an existing asset."
+        )
 
     if existing == package:
         print(
@@ -2558,13 +2633,9 @@ def rebuild_package_catalog():
         )
 
         if existing is not None:
-            # Deletions are explicit metadata and
-            # cannot be reconstructed from a ZIP.
-            package["removeFiles"] = list(
-                existing.get(
-                    "removeFiles",
-                    [],
-                )
+            apply_historical_file_ownership(
+                existing,
+                package,
             )
 
             if (
