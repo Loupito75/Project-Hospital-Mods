@@ -93,6 +93,22 @@ namespace HospitalShiftHandover
             return false;
         }
 
+        internal static bool IsWaitingForShiftPresentation(
+            EmployeeComponent employee)
+        {
+            if (employee == null ||
+                employee.m_state == null ||
+                DayTime.Instance == null)
+            {
+                return false;
+            }
+
+            ActivityState state;
+            return States.TryGetValue(employee, out state) &&
+                   state != null &&
+                   state.Stamp == GetStamp(employee);
+        }
+
         internal static void Clear(EmployeeComponent employee)
         {
             if (employee == null)

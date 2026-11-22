@@ -239,6 +239,42 @@ namespace HospitalShiftHandover
             return plan != null && IsTransitionPhase(plan.Phase);
         }
 
+        internal static bool TryGetEmployeeCardStatus(
+            EmployeeComponent employee,
+            out HshEmployeeCardStatus status)
+        {
+            status = HshEmployeeCardStatus.None;
+
+            if (employee == null ||
+                employee.m_state == null ||
+                DayTime.Instance == null)
+            {
+                return false;
+            }
+
+            EmployeePlan plan;
+            if (!Plans.TryGetValue(employee, out plan) ||
+                plan == null ||
+                plan.Stamp != GetStamp(employee))
+            {
+                return false;
+            }
+
+            switch (plan.Phase)
+            {
+                case TransitionPhase.PreparingApproach:
+                case TransitionPhase.Approaching:
+                case TransitionPhase.HandoverWaiting:
+                case TransitionPhase.FallbackWaiting:
+                    status =
+                        HshEmployeeCardStatus.ShiftHandover;
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
         internal static bool HasManagedPlan(EmployeeComponent employee)
         {
             return GetPlan(employee, false) != null;

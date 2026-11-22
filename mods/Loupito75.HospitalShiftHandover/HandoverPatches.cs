@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Reflection.Emit;
 using GLib;
 using HarmonyLib;
 using Lopital;
@@ -397,6 +400,44 @@ namespace HospitalShiftHandover
         }
     }
 
+    internal static class LateReliefIdleDeparturePatch
+    {
+        internal static IEnumerable<CodeInstruction> Transpile(
+            IEnumerable<CodeInstruction> instructions)
+        {
+            MethodInfo getShift =
+                AccessTools.Method(typeof(DayTime), "GetShift");
+            MethodInfo effectiveShift =
+                AccessTools.Method(
+                    typeof(OutgoingHandover),
+                    "GetEffectiveShiftForLateRelief");
+
+            bool patched = false;
+            foreach (CodeInstruction instruction in instructions)
+            {
+                yield return instruction;
+
+                if (!patched && instruction.Calls(getShift))
+                {
+                    // Stack before injection: [actualShift].
+                    // Ldarg_0 adds the current Behavior* instance, producing the
+                    // (Shift, Behavior) arguments expected by the HSH helper.
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(
+                        OpCodes.Call,
+                        effectiveShift);
+                    patched = true;
+                }
+            }
+
+            if (!patched)
+            {
+                throw new InvalidOperationException(
+                    "HSH could not locate DayTime.GetShift in UpdateStateIdle.");
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(BehaviorDoctor), "UpdateStateIdle")]
     internal static class DoctorIdlePatch
     {
@@ -419,7 +460,7 @@ namespace HospitalShiftHandover
                     employee,
                     shouldHoldBeforeShift))
             {
-                return false;
+                return true;
             }
 
             if (PreShiftLockerInteraction.TryHandleOutgoing(
@@ -455,6 +496,14 @@ namespace HospitalShiftHandover
                 employee,
                 shouldHoldBeforeShift);
         }
+
+        [HarmonyTranspiler]
+        private static IEnumerable<CodeInstruction> Transpiler(
+            IEnumerable<CodeInstruction> instructions)
+        {
+            return LateReliefIdleDeparturePatch.Transpile(
+                instructions);
+        }
     }
 
     [HarmonyPatch(typeof(BehaviorNurse), "UpdateStateIdle")]
@@ -479,7 +528,7 @@ namespace HospitalShiftHandover
                     employee,
                     shouldHoldBeforeShift))
             {
-                return false;
+                return true;
             }
 
             if (PreShiftLockerInteraction.TryHandleOutgoing(
@@ -515,6 +564,14 @@ namespace HospitalShiftHandover
                 employee,
                 shouldHoldBeforeShift);
         }
+
+        [HarmonyTranspiler]
+        private static IEnumerable<CodeInstruction> Transpiler(
+            IEnumerable<CodeInstruction> instructions)
+        {
+            return LateReliefIdleDeparturePatch.Transpile(
+                instructions);
+        }
     }
 
     [HarmonyPatch(typeof(BehaviorLabSpecialist), "UpdateStateIdle")]
@@ -539,7 +596,7 @@ namespace HospitalShiftHandover
                     employee,
                     shouldHoldBeforeShift))
             {
-                return false;
+                return true;
             }
 
             if (PreShiftLockerInteraction.TryHandleOutgoing(
@@ -574,6 +631,14 @@ namespace HospitalShiftHandover
                 __instance,
                 employee,
                 shouldHoldBeforeShift);
+        }
+
+        [HarmonyTranspiler]
+        private static IEnumerable<CodeInstruction> Transpiler(
+            IEnumerable<CodeInstruction> instructions)
+        {
+            return LateReliefIdleDeparturePatch.Transpile(
+                instructions);
         }
     }
 

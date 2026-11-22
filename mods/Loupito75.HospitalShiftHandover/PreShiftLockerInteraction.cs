@@ -701,6 +701,7 @@ namespace HospitalShiftHandover
                 }
 
                 state.Phase = OutgoingPhase.UsingLocker;
+                HfxExternalClothingChangeInterop.Begin(employee);
                 LogOutgoing(
                     employee,
                     "OUT_OPEN",
@@ -715,9 +716,16 @@ namespace HospitalShiftHandover
                     return true;
                 }
 
-                ApplyOutgoingCivilianClothes(
-                    behavior,
-                    employee);
+                try
+                {
+                    ApplyOutgoingCivilianClothes(
+                        behavior,
+                        employee);
+                }
+                finally
+                {
+                    HfxExternalClothingChangeInterop.Clear(employee);
+                }
                 PreShiftVisuals.UpdateDressingBubble(employee, false);
 
                 ForceLockerFrame(activeLocker, 0);
@@ -942,6 +950,50 @@ namespace HospitalShiftHandover
                        OutgoingPhase.WaitingForAccessClear;
         }
 
+        internal static bool TryGetEmployeeCardStatus(
+            EmployeeComponent employee,
+            out HshEmployeeCardStatus status)
+        {
+            status = HshEmployeeCardStatus.None;
+
+            if (employee == null ||
+                employee.m_state == null ||
+                DayTime.Instance == null)
+            {
+                return false;
+            }
+
+            int stamp = GetStamp(employee);
+
+            OutgoingState outgoing;
+            if (OutgoingStates.TryGetValue(employee, out outgoing) &&
+                outgoing != null &&
+                outgoing.Stamp == stamp &&
+                (outgoing.Phase == OutgoingPhase.OpeningLocker ||
+                 outgoing.Phase == OutgoingPhase.UsingLocker ||
+                 outgoing.Phase == OutgoingPhase.ClosingLocker))
+            {
+                status =
+                    HshEmployeeCardStatus.ChangingClothes;
+                return true;
+            }
+
+            InteractionState incoming;
+            if (States.TryGetValue(employee, out incoming) &&
+                incoming != null &&
+                incoming.Stamp == stamp &&
+                (incoming.Phase == InteractionPhase.OpeningLocker ||
+                 incoming.Phase == InteractionPhase.UsingLocker ||
+                 incoming.Phase == InteractionPhase.ClosingLocker))
+            {
+                status =
+                    HshEmployeeCardStatus.ChangingClothes;
+                return true;
+            }
+
+            return false;
+        }
+
         internal static bool HasActiveInteraction(
             EmployeeComponent employee)
         {
@@ -1043,6 +1095,7 @@ namespace HospitalShiftHandover
         private static void AbandonForForcedBiohazardClothes(
             EmployeeComponent employee)
         {
+            HfxExternalClothingChangeInterop.Clear(employee);
             PreShiftVisuals.UpdateDressingBubble(employee, false);
 
             if (employee == null ||
@@ -1439,6 +1492,7 @@ namespace HospitalShiftHandover
                 }
 
                 state.Phase = InteractionPhase.UsingLocker;
+                HfxExternalClothingChangeInterop.Begin(employee);
                 Log(
                     employee,
                     "OPEN",
@@ -1454,9 +1508,16 @@ namespace HospitalShiftHandover
                     return true;
                 }
 
-                RestoreProfessionalClothes(
-                    employee,
-                    "locker-use-complete");
+                try
+                {
+                    RestoreProfessionalClothes(
+                        employee,
+                        "locker-use-complete");
+                }
+                finally
+                {
+                    HfxExternalClothingChangeInterop.Clear(employee);
+                }
                 PreShiftVisuals.UpdateDressingBubble(employee, false);
                 ForceLockerFrame(activeLocker, 0);
                 PlayDressingSound(activeOwner, LockerCloseSoundEventId);
@@ -1496,6 +1557,8 @@ namespace HospitalShiftHandover
 
         internal static void Clear(EmployeeComponent employee)
         {
+            HfxExternalClothingChangeInterop.Clear(employee);
+
             if (employee == null)
             {
                 return;
@@ -1684,6 +1747,8 @@ namespace HospitalShiftHandover
 
         internal static void Shutdown()
         {
+            HfxExternalClothingChangeInterop.Reset();
+
             List<EmployeeComponent> activeEmployees =
                 new List<EmployeeComponent>(States.Keys);
             for (int i = 0; i < activeEmployees.Count; i++)
@@ -2169,6 +2234,8 @@ namespace HospitalShiftHandover
             string step,
             string details)
         {
+            HfxExternalClothingChangeInterop.Clear(employee);
+
             if (employee == null)
             {
                 return;
@@ -2961,6 +3028,7 @@ namespace HospitalShiftHandover
             EmployeeComponent employee,
             string reason)
         {
+            HfxExternalClothingChangeInterop.Clear(employee);
             PreShiftVisuals.UpdateDressingBubble(employee, false);
 
             if (employee == null)
@@ -3003,6 +3071,7 @@ namespace HospitalShiftHandover
             EmployeeComponent employee,
             string reason)
         {
+            HfxExternalClothingChangeInterop.Clear(employee);
             PreShiftVisuals.UpdateDressingBubble(employee, false);
 
             if (employee == null)

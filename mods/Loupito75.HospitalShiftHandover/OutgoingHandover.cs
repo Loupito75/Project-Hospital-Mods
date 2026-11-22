@@ -39,6 +39,30 @@ namespace HospitalShiftHandover
                    LateReliefHolds.ContainsKey(employee);
         }
 
+        internal static Shift GetEffectiveShiftForLateRelief(
+            Shift actualShift,
+            Behavior behavior)
+        {
+            if (LateReliefHolds.Count == 0 || behavior == null)
+            {
+                return actualShift;
+            }
+
+            EmployeeComponent employee =
+                behavior.GetComponent<EmployeeComponent>();
+            if (employee == null ||
+                employee.m_state == null ||
+                !HasActiveLateReliefHold(employee))
+            {
+                return actualShift;
+            }
+
+            // UpdateStateIdle uses DayTime.GetShift() to enter its native GoingHome
+            // branch. During an active late-relief hold, report the employee's own
+            // shift only for that exact comparison. The rest of Vanilla Idle still runs.
+            return employee.m_state.m_shift;
+        }
+
         internal static bool TryHoldForLateRelief(
             Behavior behavior,
             EmployeeComponent employee,
@@ -140,9 +164,11 @@ namespace HospitalShiftHandover
                 holdState.Relief = relief;
             }
 
-            // Returning true tells the targeted UpdateStateIdle prefix to skip the vanilla
-            // GoingHome branch for this tick. The employee remains genuinely Idle, so the
-            // game's own schedulers may still use them while they cover the missing relief.
+            // Returning true means the late-relief hold is active. The targeted
+            // UpdateStateIdle prefix still lets Vanilla run so normal idle movement,
+            // workplace animations, needs and free-time behavior remain available.
+            // A narrow transpiler masks only the off-shift departure test while this
+            // hold is active.
             return true;
         }
 
