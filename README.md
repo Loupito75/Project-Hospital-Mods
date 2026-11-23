@@ -38,6 +38,7 @@ If you enjoy my Project Hospital mods and want to support future updates and new
 - [Development](#development)
 - [Disclaimer](#disclaimer)
 - [License](#license)
+- [Special thanks](#special-thanks)
 
 ## Mods
 
@@ -146,6 +147,20 @@ The source code in this repository is publicly available for viewing purposes on
 **All rights reserved.** No permission is granted to use, copy, modify, redistribute, repackage, incorporate into another project or create derivative works from the source code without prior written permission from **Loupito75**.
 
 See [LICENSE](LICENSE) for full terms.
+
+## Special thanks
+
+A heartfelt thank you to everyone who supports these projects — through encouragement, ideas, feedback, testing, donations, or simply by being part of the community.
+
+Your support helps keep these mods improving and growing. ❤️
+
+| ❤️ | ❤️ | ❤️ | ❤️ |
+| :---: | :---: | :---: | :---: |
+| **Valancia_** | **MaddHatter13** | **speedierone** | **soymilkbubbletea** |
+| **Mysterius_** | **AvgeekStoat24_cz** | **LordMidas™** | **Jovial-Commuter** |
+| Maybe | you | ? | 🥹 |
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/loupito75)
 
 ---
 
